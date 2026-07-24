@@ -63,7 +63,7 @@ export function AppSidebar({ activeModule, onNavigate, mobileOpen, onMobileOpenC
           </div>
         </div>
 
-        <nav className="relative z-10 flex-1 space-y-1 overflow-y-auto px-3 py-5" aria-label="Módulos principales">
+        <nav className="scroll-slim relative z-10 flex-1 space-y-1 overflow-y-auto overscroll-contain px-3 py-5" aria-label="Módulos principales">
           <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">Gestión sindical</p>
           {items.map(({ key, label, icon: Icon }) => {
             const active = activeModule === key
