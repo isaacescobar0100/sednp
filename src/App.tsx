@@ -1,6 +1,9 @@
 import React, { useState } from 'react'
 import { AppShell } from './components/AppShell'
+import { DemoProvider } from './store/DemoStore'
+import { SessionProvider, useSession } from './store/session'
 import { LoginScreen } from './components/LoginScreen'
+import { AfiliadoPortal } from './pages/AfiliadoPortal'
 import { AfiliacionPage } from './pages/AfiliacionPage'
 import { ComitesPage } from './pages/ComitesPage'
 import { ComunicacionesPage } from './pages/ComunicacionesPage'
@@ -9,6 +12,7 @@ import { DisciplinarioPage } from './pages/DisciplinarioPage'
 import { DocumentalPage } from './pages/DocumentalPage'
 import { FinancieroPage } from './pages/FinancieroPage'
 import { GobernanzaPage } from './pages/GobernanzaPage'
+import { ParametrosPage } from './pages/ParametrosPage'
 import { ReportesPage } from './pages/ReportesPage'
 import { ModuleKey, ModuleMeta } from './types/navigation'
 
@@ -22,24 +26,54 @@ const modules: Record<ModuleKey, ModuleMeta> = {
   comunicaciones: { key: 'comunicaciones', label: 'Comunicaciones', subtitle: 'Relación con afiliados' },
   documental: { key: 'documental', label: 'Documental', subtitle: 'Repositorio institucional' },
   reportes: { key: 'reportes', label: 'Reportes', subtitle: 'Análisis e indicadores consolidados' },
+  parametros: { key: 'parametros', label: 'Parámetros', subtitle: 'Catálogos y datos maestros del sistema' },
 }
 
+type Auth = null | { type: 'directiva' } | { type: 'afiliado'; id: string }
+
 export function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  return (
+    <SessionProvider>
+      <DemoProvider>
+        <AppBody />
+      </DemoProvider>
+    </SessionProvider>
+  )
+}
+
+function AppBody() {
+  const { setRole, canSeeModule } = useSession()
+  const [auth, setAuth] = useState<Auth>(null)
   const [activeModule, setActiveModule] = useState<ModuleKey>('dashboard')
 
-  if (!isLoggedIn) {
-    return <LoginScreen onLogin={() => setIsLoggedIn(true)} />
+  if (!auth) {
+    return (
+      <LoginScreen
+        onDirectivaLogin={(role) => {
+          setRole(role)
+          setAuth({ type: 'directiva' })
+        }}
+        onAfiliadoLogin={(id) => setAuth({ type: 'afiliado', id })}
+      />
+    )
   }
+
+  if (auth.type === 'afiliado') {
+    return <AfiliadoPortal affiliateId={auth.id} onLogout={() => setAuth(null)} />
+  }
+
+  // Si el rol activo no puede ver el módulo seleccionado (p. ej. tras cambiar de
+  // rol), se muestra Dashboard sin borrar la selección previa.
+  const effectiveModule: ModuleKey = canSeeModule(activeModule) ? activeModule : 'dashboard'
 
   return (
     <AppShell
-      activeModule={activeModule}
-      module={modules[activeModule]}
+      activeModule={effectiveModule}
+      module={modules[effectiveModule]}
       onNavigate={setActiveModule}
-      onLogout={() => setIsLoggedIn(false)}
+      onLogout={() => setAuth(null)}
     >
-      <ActivePage module={activeModule} />
+      <ActivePage module={effectiveModule} />
     </AppShell>
   )
 }
@@ -55,5 +89,6 @@ function ActivePage({ module }: { module: ModuleKey }) {
     case 'comunicaciones': return <ComunicacionesPage />
     case 'documental': return <DocumentalPage />
     case 'reportes': return <ReportesPage />
+    case 'parametros': return <ParametrosPage />
   }
 }
