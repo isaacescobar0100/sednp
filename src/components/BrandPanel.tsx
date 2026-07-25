@@ -1,8 +1,11 @@
 import React from 'react'
 import { UsersIcon } from 'lucide-react'
 import { AndesRange } from './AndesRange'
+import { useDemo } from '../store/DemoStore'
 
 export function BrandPanel() {
+  const { stats } = useDemo()
+  const activos = stats.active
   return (
     <section className="relative hidden overflow-hidden bg-night text-white lg:flex lg:w-[46%] xl:w-[42%]">
       <div
@@ -45,8 +48,8 @@ export function BrandPanel() {
             <UsersIcon className="h-4.5 w-4.5 text-gold" strokeWidth={2} />
           </div>
           <p className="text-sm text-white/85">
-            <span className="font-display font-600 text-gold">312 afiliados activos</span>{' '}
-            en todo el país
+            <span className="font-display font-600 text-gold">{activos.toLocaleString('es-CO')} afiliado{activos === 1 ? '' : 's'} activo{activos === 1 ? '' : 's'}</span>{' '}
+            en la organización
           </p>
         </div>
       </div>

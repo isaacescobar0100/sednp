@@ -8,6 +8,7 @@ export type ModuleKey =
   | 'comunicaciones'
   | 'documental'
   | 'reportes'
+  | 'parametros'
 
 export type ModuleMeta = {
   key: ModuleKey

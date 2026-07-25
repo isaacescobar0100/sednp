@@ -10,10 +10,12 @@ import {
   LayoutDashboardIcon,
   LogOutIcon,
   MenuIcon,
+  SlidersHorizontalIcon,
   UsersRoundIcon,
   XIcon,
 } from 'lucide-react'
 import { ModuleKey } from '../types/navigation'
+import { roleLabel, useSession } from '../store/session'
 
 type AppSidebarProps = {
   activeModule: ModuleKey
@@ -33,6 +35,7 @@ const items: Array<{ key: ModuleKey; label: string; icon: typeof LayoutDashboard
   { key: 'comunicaciones', label: 'Comunicaciones', icon: BellIcon },
   { key: 'documental', label: 'Documental', icon: FolderArchiveIcon },
   { key: 'reportes', label: 'Reportes', icon: BarChart3Icon },
+  { key: 'parametros', label: 'Parámetros', icon: SlidersHorizontalIcon },
 ]
 
 export function MobileMenuButton({ onClick }: { onClick: () => void }) {
@@ -44,6 +47,8 @@ export function MobileMenuButton({ onClick }: { onClick: () => void }) {
 }
 
 export function AppSidebar({ activeModule, onNavigate, mobileOpen, onMobileOpenChange, onLogout }: AppSidebarProps) {
+  const { user, role, canSeeModule } = useSession()
+  const visibleItems = items.filter((item) => canSeeModule(item.key))
   return (
     <>
       {mobileOpen ? <button aria-label="Cerrar navegación" onClick={() => onMobileOpenChange(false)} className="fixed inset-0 z-30 bg-night/35 lg:hidden" /> : null}
@@ -65,7 +70,7 @@ export function AppSidebar({ activeModule, onNavigate, mobileOpen, onMobileOpenC
 
         <nav className="scroll-slim relative z-10 flex-1 space-y-1 overflow-y-auto overscroll-contain px-3 py-5" aria-label="Módulos principales">
           <p className="px-3 pb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/35">Gestión sindical</p>
-          {items.map(({ key, label, icon: Icon }) => {
+          {visibleItems.map(({ key, label, icon: Icon }) => {
             const active = activeModule === key
             return (
               <button key={key} onClick={() => { onNavigate(key); onMobileOpenChange(false) }} className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm transition ${active ? 'bg-white/12 font-semibold text-white shadow-sm' : 'text-white/62 hover:bg-white/7 hover:text-white'}`}>
@@ -84,8 +89,8 @@ export function AppSidebar({ activeModule, onNavigate, mobileOpen, onMobileOpenC
         </div>
         <div className="relative z-10 border-t border-white/10 p-3">
           <div className="mb-2 flex items-center gap-3 px-2 py-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gold/20 font-display text-xs font-semibold text-gold">MR</div>
-            <div className="min-w-0"><p className="truncate text-xs font-semibold">María Fernanda Rojas</p><p className="truncate text-[11px] text-white/50">Presidencia</p></div>
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gold/20 font-display text-xs font-semibold text-gold">{user.initials}</div>
+            <div className="min-w-0"><p className="truncate text-xs font-semibold">{user.name}</p><p className="truncate text-[11px] text-white/50">{roleLabel[role]}</p></div>
           </div>
           <button onClick={onLogout} className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-sm text-white/58 transition hover:bg-white/7 hover:text-white">
             <LogOutIcon className="h-4 w-4" /> Cerrar sesión
