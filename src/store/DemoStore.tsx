@@ -3,6 +3,7 @@ import {
   Affiliate,
   AffiliateStatus,
   AffiliateType,
+  nextSolicitud,
   seedAffiliates,
 } from './affiliates'
 import {
@@ -14,20 +15,24 @@ import {
 import {
   Aporte,
   AporteMethod,
-  DEFAULT_CUOTA,
+  DEFAULT_PORCENTAJE_CUOTA,
+  calcularCuota,
   currentPeriod,
   periodLabel,
 } from './contributions'
 import {
+  DEFAULT_SMMLV,
+  FirmaKey,
   Movement,
   MovementKind,
   MovementStatus,
+  nivelGasto,
   seedMovements,
   todayLabel,
 } from './finance'
 import {
-  CaseStatus,
   DisciplineCase,
+  Sancion,
   nextCaseCode,
   seedCases,
   todayLabel as caseTodayLabel,
@@ -76,7 +81,8 @@ type DemoState = {
   dependencias: string[]
   vinculaciones: VinculacionType[]
   aportes: Aporte[]
-  cuotaMensual: number
+  porcentajeCuota: number
+  smmlv: number
 }
 
 function seedState(): DemoState {
@@ -93,7 +99,8 @@ function seedState(): DemoState {
     dependencias: seedDependencias(),
     vinculaciones: seedVinculaciones(),
     aportes: [],
-    cuotaMensual: DEFAULT_CUOTA,
+    porcentajeCuota: DEFAULT_PORCENTAJE_CUOTA,
+    smmlv: DEFAULT_SMMLV,
   }
 }
 
@@ -107,9 +114,11 @@ type Action =
   | { type: 'setMovementStatus'; id: string; status: MovementStatus }
   | { type: 'updateMovement'; id: string; changes: Partial<Movement> }
   | { type: 'deleteMovement'; id: string }
+  | { type: 'signMovement'; id: string; who: FirmaKey }
+  | { type: 'setSmmlv'; value: number }
   | { type: 'addCase'; case: DisciplineCase }
   | { type: 'advanceCase'; id: string }
-  | { type: 'ruleCase'; id: string; status: CaseStatus }
+  | { type: 'ruleCase'; id: string; resultado: Sancion | 'Archivado' }
   | { type: 'deleteCase'; id: string }
   | { type: 'addSession'; session: GovSession }
   | { type: 'publishMinutes'; id: string; minutes: string }
@@ -132,7 +141,7 @@ type Action =
   | { type: 'setVinculaciones'; list: VinculacionType[] }
   | { type: 'generateAportes'; period: string }
   | { type: 'payAporte'; id: string; method: AporteMethod; date: string }
-  | { type: 'setCuota'; value: number }
+  | { type: 'setPorcentajeCuota'; value: number }
   | { type: 'reset' }
 
 function reducer(state: DemoState, action: Action): DemoState {
@@ -148,8 +157,9 @@ function reducer(state: DemoState, action: Action): DemoState {
         const period = currentPeriod()
         const corteExists = state.aportes.some((a) => a.period === period)
         const yaTiene = state.aportes.some((a) => a.period === period && a.affiliateId === action.id)
-        if (corteExists && !yaTiene) {
-          aportes = [{ id: `apt-${period}-${action.id}`, affiliateId: action.id, period, amount: state.cuotaMensual, status: 'Pendiente' }, ...state.aportes]
+        const target = affiliates.find((a) => a.id === action.id)
+        if (corteExists && !yaTiene && target) {
+          aportes = [{ id: `apt-${period}-${action.id}`, affiliateId: action.id, period, amount: calcularCuota(target.asignacionBasica, state.porcentajeCuota), status: 'Pendiente' }, ...state.aportes]
         }
       }
       return { ...state, affiliates, aportes }
@@ -173,17 +183,30 @@ function reducer(state: DemoState, action: Action): DemoState {
       }
     case 'deleteMovement':
       return { ...state, movements: state.movements.filter((m) => m.id !== action.id) }
+    case 'signMovement':
+      return {
+        ...state,
+        movements: state.movements.map((m) => (m.id === action.id ? { ...m, firmas: { ...m.firmas, [action.who]: true } } : m)),
+      }
+    case 'setSmmlv':
+      return { ...state, smmlv: Math.max(0, action.value) }
     case 'addCase':
       return { ...state, cases: [action.case, ...state.cases] }
     case 'advanceCase':
       return {
         ...state,
-        cases: state.cases.map((c) => (c.id === action.id ? { ...c, stageIndex: Math.min(3, c.stageIndex + 1) } : c)),
+        cases: state.cases.map((c) => (c.id === action.id ? { ...c, stageIndex: Math.min(4, c.stageIndex + 1) } : c)),
       }
     case 'ruleCase':
       return {
         ...state,
-        cases: state.cases.map((c) => (c.id === action.id ? { ...c, status: action.status } : c)),
+        cases: state.cases.map((c) =>
+          c.id === action.id
+            ? action.resultado === 'Archivado'
+              ? { ...c, status: 'Archivado', sancion: undefined }
+              : { ...c, status: 'Con fallo', sancion: action.resultado }
+            : c,
+        ),
       }
     case 'deleteCase':
       return { ...state, cases: state.cases.filter((c) => c.id !== action.id) }
@@ -256,7 +279,7 @@ function reducer(state: DemoState, action: Action): DemoState {
       const existing = new Set(state.aportes.filter((a) => a.period === action.period).map((a) => a.affiliateId))
       const nuevos: Aporte[] = active
         .filter((a) => !existing.has(a.id))
-        .map((a) => ({ id: `apt-${action.period}-${a.id}`, affiliateId: a.id, period: action.period, amount: state.cuotaMensual, status: 'Pendiente' }))
+        .map((a) => ({ id: `apt-${action.period}-${a.id}`, affiliateId: a.id, period: action.period, amount: calcularCuota(a.asignacionBasica, state.porcentajeCuota), status: 'Pendiente' }))
       return { ...state, aportes: [...nuevos, ...state.aportes] }
     }
     case 'payAporte': {
@@ -279,8 +302,8 @@ function reducer(state: DemoState, action: Action): DemoState {
         movements: [movement, ...state.movements],
       }
     }
-    case 'setCuota':
-      return { ...state, cuotaMensual: Math.max(0, action.value) }
+    case 'setPorcentajeCuota':
+      return { ...state, porcentajeCuota: Math.max(0, action.value) }
     case 'reset':
       return seedState()
     default:
@@ -312,7 +335,8 @@ function loadInitial(): DemoState {
         dependencias: Array.isArray(parsed.dependencias) ? parsed.dependencias : seeded.dependencias,
         vinculaciones: Array.isArray(parsed.vinculaciones) ? parsed.vinculaciones : seeded.vinculaciones,
         aportes: Array.isArray(parsed.aportes) ? parsed.aportes : seeded.aportes,
-        cuotaMensual: typeof parsed.cuotaMensual === 'number' ? parsed.cuotaMensual : seeded.cuotaMensual,
+        porcentajeCuota: typeof parsed.porcentajeCuota === 'number' ? parsed.porcentajeCuota : seeded.porcentajeCuota,
+        smmlv: typeof parsed.smmlv === 'number' ? parsed.smmlv : seeded.smmlv,
       }
     }
   } catch {
@@ -334,11 +358,18 @@ type NewAffiliateInput = {
   name: string
   doc: string
   role: string
+  cargoTitular: string
   dependency: string
   type: AffiliateType
+  asignacionBasica: number
   email: string
   phone: string
+  address: string
   password: string
+  beneficios: string[]
+  medio: string
+  motivo: string
+  interesComites: string
   joinDate: string
 }
 
@@ -417,11 +448,14 @@ type DemoContextValue = {
   setMovementStatus: (id: string, status: MovementStatus) => void
   updateMovement: (id: string, changes: Partial<Movement>) => void
   deleteMovement: (id: string, concept: string) => void
+  signMovement: (id: string, who: FirmaKey) => void
+  smmlv: number
+  setSmmlv: (value: number) => void
   cases: DisciplineCase[]
   disciplineStats: DisciplineStats
   addCase: (input: NewCaseInput) => void
   advanceCase: (id: string) => void
-  ruleCase: (id: string, status: CaseStatus) => void
+  ruleCase: (id: string, resultado: Sancion | 'Archivado') => void
   deleteCase: (id: string, code: string) => void
   sessions: GovSession[]
   ballots: Ballot[]
@@ -451,10 +485,10 @@ type DemoContextValue = {
   setDependencias: (list: string[]) => void
   setVinculaciones: (list: VinculacionType[]) => void
   aportes: Aporte[]
-  cuotaMensual: number
+  porcentajeCuota: number
   generateAportes: (period: string) => void
   payAporte: (id: string, method: AporteMethod) => void
-  setCuota: (value: number) => void
+  setPorcentajeCuota: (value: number) => void
   resetDemo: () => void
   notify: (message: string, tone?: Toast['tone']) => void
 }
@@ -474,6 +508,10 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   docsRef.current = state.docs
   const committeesRef = useRef(state.committees)
   committeesRef.current = state.committees
+  const smmlvRef = useRef(state.smmlv)
+  smmlvRef.current = state.smmlv
+  const affiliatesRef = useRef(state.affiliates)
+  affiliatesRef.current = state.affiliates
 
   useEffect(() => {
     try {
@@ -496,10 +534,11 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     const affiliate: Affiliate = {
       ...input,
       id: `af-${Date.now()}`,
+      solicitudNo: nextSolicitud(affiliatesRef.current),
       status: 'Pendiente',
     }
     dispatch({ type: 'add', affiliate })
-    notify(`${input.name || 'Nuevo afiliado'} quedó en revisión (pendiente de aprobación).`, 'info')
+    notify(`${input.name || 'Nuevo afiliado'} (${affiliate.solicitudNo}) quedó en revisión.`, 'info')
   }, [notify])
 
   const castAffiliateVote = useCallback((id: string, choice: VoteChoice, affiliateId: string) => {
@@ -517,6 +556,10 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   }, [notify])
 
   const addMovement = useCallback((input: NewMovementInput) => {
+    const esEgreso = input.kind === 'Egreso'
+    const nivel = esEgreso ? nivelGasto(input.amount, smmlvRef.current) : undefined
+    // Gasto ≤ 1 SMMLV: Tesorería lo aprueba de una; el resto queda 'Por aprobar'.
+    const status: MovementStatus = !esEgreso ? 'Confirmado' : nivel === 'tesoreria' ? 'Aprobado' : 'Por aprobar'
     const movement: Movement = {
       id: `mov-${Date.now()}`,
       date: input.date || todayLabel(),
@@ -524,13 +567,17 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       category: input.category,
       kind: input.kind,
       amount: input.amount,
-      status: input.kind === 'Ingreso' ? 'Confirmado' : 'Por aprobar',
+      status,
+      nivel,
+      firmas: esEgreso ? {} : undefined,
     }
     dispatch({ type: 'addMovement', movement })
     notify(
-      input.kind === 'Ingreso'
+      !esEgreso
         ? `Ingreso registrado y confirmado: ${input.concept}.`
-        : `Gasto registrado, queda por aprobar: ${input.concept}.`,
+        : status === 'Aprobado'
+          ? `Gasto registrado (≤ 1 SMMLV): pendiente de firmas.`
+          : `Gasto registrado, queda por aprobar: ${input.concept}.`,
       'info',
     )
   }, [notify])
@@ -538,6 +585,16 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   const setMovementStatus = useCallback((id: string, status: MovementStatus) => {
     dispatch({ type: 'setMovementStatus', id, status })
   }, [])
+
+  const signMovement = useCallback((id: string, who: FirmaKey) => {
+    dispatch({ type: 'signMovement', id, who })
+    notify('Firma registrada en la orden de pago.', 'success')
+  }, [notify])
+
+  const setSmmlv = useCallback((value: number) => {
+    dispatch({ type: 'setSmmlv', value })
+    notify('SMMLV actualizado.', 'success')
+  }, [notify])
 
   const updateMovement = useCallback((id: string, changes: Partial<Movement>) => {
     dispatch({ type: 'updateMovement', id, changes })
@@ -568,8 +625,8 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'advanceCase', id })
   }, [])
 
-  const ruleCase = useCallback((id: string, status: CaseStatus) => {
-    dispatch({ type: 'ruleCase', id, status })
+  const ruleCase = useCallback((id: string, resultado: Sancion | 'Archivado') => {
+    dispatch({ type: 'ruleCase', id, resultado })
   }, [])
 
   const deleteCase = useCallback((id: string, code: string) => {
@@ -693,9 +750,9 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     notify(method === 'Portal' ? 'Pago de aporte registrado. ¡Gracias!' : 'Aporte marcado como pagado.', 'success')
   }, [notify])
 
-  const setCuota = useCallback((value: number) => {
-    dispatch({ type: 'setCuota', value })
-    notify('Cuota mensual actualizada.', 'success')
+  const setPorcentajeCuota = useCallback((value: number) => {
+    dispatch({ type: 'setPorcentajeCuota', value })
+    notify('Porcentaje de cuota actualizado.', 'success')
   }, [notify])
 
   const resetDemo = useCallback(() => {
@@ -755,6 +812,9 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       setMovementStatus,
       updateMovement,
       deleteMovement,
+      signMovement,
+      smmlv: state.smmlv,
+      setSmmlv,
       cases: state.cases,
       disciplineStats,
       addCase,
@@ -789,14 +849,14 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       setDependencias,
       setVinculaciones,
       aportes: state.aportes,
-      cuotaMensual: state.cuotaMensual,
+      porcentajeCuota: state.porcentajeCuota,
       generateAportes,
       payAporte,
-      setCuota,
+      setPorcentajeCuota,
       resetDemo,
       notify,
     }),
-    [state.affiliates, stats, state.movements, financeStats, state.cases, disciplineStats, state.sessions, state.ballots, state.docs, state.comunicados, state.committees, state.cargos, state.dependencias, state.vinculaciones, addAffiliate, setAffiliateStatus, updateAffiliate, addMovement, setMovementStatus, updateMovement, deleteMovement, addCase, advanceCase, ruleCase, deleteCase, addSession, publishMinutes, deleteSession, addBallot, castVote, castAffiliateVote, closeBallot, deleteBallot, addDoc, updateDoc, deleteDoc, sendComunicado, deleteComunicado, addCommittee, updateCommittee, deleteCommittee, setCargos, setDependencias, setVinculaciones, state.aportes, state.cuotaMensual, generateAportes, payAporte, setCuota, resetDemo, notify],
+    [state.affiliates, stats, state.movements, financeStats, state.cases, disciplineStats, state.sessions, state.ballots, state.docs, state.comunicados, state.committees, state.cargos, state.dependencias, state.vinculaciones, addAffiliate, setAffiliateStatus, updateAffiliate, addMovement, setMovementStatus, updateMovement, deleteMovement, signMovement, state.smmlv, setSmmlv, addCase, advanceCase, ruleCase, deleteCase, addSession, publishMinutes, deleteSession, addBallot, castVote, castAffiliateVote, closeBallot, deleteBallot, addDoc, updateDoc, deleteDoc, sendComunicado, deleteComunicado, addCommittee, updateCommittee, deleteCommittee, setCargos, setDependencias, setVinculaciones, state.aportes, state.porcentajeCuota, generateAportes, payAporte, setPorcentajeCuota, resetDemo, notify],
   )
 
   return (

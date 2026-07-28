@@ -15,8 +15,14 @@ export type Aporte = {
   method?: AporteMethod
 }
 
-// Cuota mensual por defecto (parámetro configurable en Parámetros).
-export const DEFAULT_CUOTA = 50_000
+// Cuota ordinaria = 0,3% de la asignación básica mensual (Art. 32 Estatutos).
+// Es el porcentaje el que se parametriza, no un monto fijo.
+export const DEFAULT_PORCENTAJE_CUOTA = 0.003
+
+// Valor del aporte de un afiliado = asignación básica × porcentaje.
+export function calcularCuota(asignacionBasica: number, porcentaje: number): number {
+  return Math.round((asignacionBasica || 0) * porcentaje)
+}
 
 const MONTHS = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
 

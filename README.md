@@ -1,27 +1,78 @@
 # SIG-SERDNP — Sistema Integral de Gestión
 
-Proyecto React + TypeScript + Tailwind. Diseño: navy institucional + dorado + cordillera andina.
+Prototipo funcional (beta simulador) del sistema de gestión de la **Organización
+Sindical de Servidores Públicos del Departamento Nacional de Planeación — SERDNP**.
 
-## Cómo abrirlo en VS Code
+React + TypeScript + Vite + Tailwind. **Sin backend**: todo funciona con datos en
+memoria que persisten en el navegador (`localStorage`), pensado para presentar el
+flujo real de punta a punta. Diseño: navy institucional + dorado + cordillera andina.
 
-1. Descomprime el archivo `sig-serdnp.zip`
-2. Abre la carpeta `sig-serdnp` en VS Code (File → Open Folder)
-3. Abre una terminal en VS Code (Terminal → New Terminal) y ejecuta:
+> Las reglas de negocio están alineadas con los **Estatutos de SERDNP**, el
+> **formulario oficial de afiliación** y el **documento conceptual del módulo
+> financiero**.
+
+## Cómo ejecutarlo
 
 ```bash
 npm install
 npm run dev
 ```
 
-4. Abre en el navegador la URL que muestre la terminal (normalmente `http://localhost:5173`)
+Abre la URL que muestre la terminal (normalmente `http://localhost:5173`).
+Para compilar: `npm run build`.
 
-## Estructura
+## Cómo entrar
 
-- `src/App.tsx` — enrutamiento entre login y los 9 módulos
-- `src/components/` — Sidebar, Header, tarjetas, badges, panel de login
-- `src/pages/` — una página por módulo (Dashboard, Afiliación, Financiero, Gobernanza, Disciplinario, Comités, Comunicaciones, Documental, Reportes)
-- `src/data/mockData.ts` — datos de ejemplo (reemplázalos por llamadas a tu API/backend real)
+El login es **simulado** (sin autenticación real). Tiene dos modos:
 
-## Siguiente paso
+- **Directiva** — eliges el rol de la Junta Directiva Nacional con el que operas:
+  Presidencia, Vicepresidencia, Secretaría General, Tesorería o Fiscal.
+- **Afiliado** — entra con **correo + contraseña** (los que la Secretaría le asignó
+  al registrarlo); solo funciona si su afiliación está **aprobada**.
 
-Este código es el frontend con datos de ejemplo. Para producción falta conectar un backend real (Node/Flask + MySQL) que reemplace `mockData.ts` por datos reales vía API.
+Se puede cambiar de rol en caliente desde el conmutador del encabezado. El botón
+**"Reiniciar demo"** deja todo en el estado inicial.
+
+## Módulos
+
+| Módulo | Qué hace | Rol operador |
+|---|---|---|
+| **Dashboard** | KPIs y actividad en vivo (según el rol) | Todos |
+| **Afiliación** | Registrar, aprobar, editar y gestionar afiliados | Secretaría / Presidencia |
+| **Financiero** | Ingresos/egresos, aprobación de gastos por SMMLV, triple firma, aportes 0,3% | Tesorería / Presidencia / Fiscal |
+| **Disciplinario** | Expedientes por etapas y fallo (amonestación/multa/exclusión) | Fiscal / Presidencia |
+| **Gobernanza** | Sesiones, actas y votaciones | Secretaría / Presidencia |
+| **Documental** | Repositorio de documentos (cargar/descargar) | Secretaría |
+| **Comunicaciones** | Comunicados a los afiliados | Secretaría |
+| **Comités** | Comités temáticos e integrantes | Secretaría |
+| **Reportes** | Consolidado en vivo + export CSV | Todos (lectura) |
+| **Parámetros** | Catálogos (cargos, dependencias, tipos de vinculación), cuota % y SMMLV | Secretaría / Presidencia |
+| **Portal del afiliado** | Perfil, aportes, votaciones y documentos | Afiliado |
+
+**Separación de funciones** (según estatutos): quien **registra** no es quien
+**aprueba**. Cada rol ve solo los módulos que le competen; donde no puede actuar,
+aparece un candado 🔒.
+
+## Estructura del código
+
+- `src/App.tsx` — enrutamiento (login → app directiva o portal del afiliado).
+- `src/store/DemoStore.tsx` — estado global (React Context + reducer) con
+  persistencia en `localStorage`. Es la "base de datos" del simulador.
+- `src/store/*.ts` — modelo y reglas por dominio: `affiliates`, `finance`,
+  `contributions` (aportes), `discipline`, `governance`, `documents`, `comms`,
+  `committees`, `catalogs`, `session` (roles y permisos).
+- `src/pages/` — una página por módulo.
+- `src/components/` — Sidebar, Header (búsqueda global, notificaciones, conmutador
+  de rol), tarjetas, badges, menú de fila, panel de login.
+
+## Estado del proyecto
+
+Prototipo/simulador **funcional y completo** para presentación. Lo que falta para
+producción es **backend**: autenticación real, base de datos compartida,
+validaciones de servidor, integración con la nómina del DNP y con el software
+contable (SIIGO), firma digital, envío real de correos y almacenamiento de archivos.
+
+> ⚠️ Sin backend, las contraseñas de afiliado se guardan en texto plano en el
+> navegador solo para **simular** el acceso. No usar con datos reales.
+
+Ver **[GUIA-PRUEBAS.md](GUIA-PRUEBAS.md)** para el guion de pruebas por rol.

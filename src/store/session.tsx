@@ -5,7 +5,7 @@ import { ModuleKey } from '../types/navigation'
 // entrar y se puede cambiar en caliente desde el header para mostrar la
 // separación de funciones (quien registra ≠ quien aprueba).
 
-export type Role = 'secretaria' | 'tesoreria' | 'fiscal' | 'presidencia'
+export type Role = 'presidencia' | 'vicepresidencia' | 'secretaria' | 'tesoreria' | 'fiscal'
 
 // Permisos por módulo. Se van sumando a medida que activamos módulos.
 export type Permission =
@@ -14,6 +14,7 @@ export type Permission =
   | 'finance.create'
   | 'finance.approve'
   | 'finance.pay'
+  | 'finance.sign'
   | 'discipline.instruct'
   | 'discipline.rule'
   | 'governance.manage'
@@ -23,46 +24,53 @@ export type Permission =
   | 'committees.manage'
   | 'params.manage'
 
-export const roles: Role[] = ['secretaria', 'tesoreria', 'fiscal', 'presidencia']
+export const roles: Role[] = ['presidencia', 'vicepresidencia', 'secretaria', 'tesoreria', 'fiscal']
 
+// Junta Directiva Nacional (Art. 13): Presidente, Vicepresidente, Secretario
+// general, Tesorero y Fiscal.
 export const roleLabel: Record<Role, string> = {
+  presidencia: 'Presidencia',
+  vicepresidencia: 'Vicepresidencia',
   secretaria: 'Secretaría General',
   tesoreria: 'Tesorería',
-  fiscal: 'Fiscal disciplinario',
-  presidencia: 'Presidencia',
+  fiscal: 'Fiscal',
 }
 
 export const roleSummary: Record<Role, string> = {
+  presidencia: 'Representación legal. Aprueba afiliaciones y gastos, y dicta decisiones.',
+  vicepresidencia: 'Reemplaza a la Presidencia y apoya la dirección. Supervisa.',
   secretaria: 'Registra afiliados y gestiona la organización. No aprueba afiliaciones.',
   tesoreria: 'Registra ingresos y egresos. No aprueba gastos.',
-  fiscal: 'Instruye expedientes. No dicta el fallo.',
-  presidencia: 'Supervisa, aprueba afiliaciones y gastos, y dicta fallos.',
+  fiscal: 'Control financiero y de legalidad; emite conceptos y refrenda cuentas.',
 }
 
 const rolePermissions: Record<Role, Permission[]> = {
+  presidencia: ['affiliates.create', 'affiliates.changeStatus', 'finance.approve', 'finance.sign', 'discipline.rule', 'governance.manage', 'governance.close', 'documents.manage', 'comms.send', 'committees.manage', 'params.manage'],
+  vicepresidencia: ['governance.manage'],
   secretaria: ['affiliates.create', 'governance.manage', 'documents.manage', 'comms.send', 'committees.manage', 'params.manage'],
-  tesoreria: ['finance.create', 'finance.pay'],
-  fiscal: ['discipline.instruct'],
-  presidencia: ['affiliates.create', 'affiliates.changeStatus', 'finance.approve', 'discipline.rule', 'governance.manage', 'governance.close', 'documents.manage', 'comms.send', 'committees.manage', 'params.manage'],
+  tesoreria: ['finance.create', 'finance.pay', 'finance.sign'],
+  fiscal: ['discipline.instruct', 'finance.sign'],
 }
 
-// Módulos visibles en el menú por rol. Presidencia ve todo; los demás solo lo
-// que les compete. Financiero y Disciplinario quedan reservados para Tesorería
-// y Fiscal (roles que se sumarán al activar esos módulos).
+// Módulos visibles en el menú por rol. Presidencia y Vicepresidencia supervisan
+// (ven todo). El Fiscal ve Financiero (control de cuentas) además de lo suyo.
 const roleModules: Record<Role, ModuleKey[]> = {
+  presidencia: ['dashboard', 'afiliacion', 'financiero', 'gobernanza', 'disciplinario', 'comites', 'comunicaciones', 'documental', 'reportes', 'parametros'],
+  vicepresidencia: ['dashboard', 'afiliacion', 'financiero', 'gobernanza', 'disciplinario', 'comites', 'comunicaciones', 'documental', 'reportes', 'parametros'],
   secretaria: ['dashboard', 'afiliacion', 'gobernanza', 'comites', 'comunicaciones', 'documental', 'reportes', 'parametros'],
   tesoreria: ['dashboard', 'financiero', 'reportes'],
-  fiscal: ['dashboard', 'disciplinario', 'reportes'],
-  presidencia: ['dashboard', 'afiliacion', 'financiero', 'gobernanza', 'disciplinario', 'comites', 'comunicaciones', 'documental', 'reportes', 'parametros'],
+  fiscal: ['dashboard', 'afiliacion', 'financiero', 'disciplinario', 'reportes'],
 }
 
 type DemoUser = { name: string; initials: string }
 
+// Junta Directiva Nacional real (Resolución No. 011 de 2026).
 const roleUser: Record<Role, DemoUser> = {
-  secretaria: { name: 'Ana Sofía Méndez', initials: 'AM' },
-  tesoreria: { name: 'Jorge Iván Salcedo', initials: 'JS' },
-  fiscal: { name: 'Ricardo León Guerrero', initials: 'RG' },
-  presidencia: { name: 'María Fernanda Rojas', initials: 'MR' },
+  presidencia: { name: 'Heisson G. Cifuentes Meneses', initials: 'HC' },
+  vicepresidencia: { name: 'Zulay Olarte Bermúdez', initials: 'ZO' },
+  secretaria: { name: 'Ludy Maritza Montoya Roberto', initials: 'LM' },
+  tesoreria: { name: 'Lina María Ocampo Palacio', initials: 'LO' },
+  fiscal: { name: 'Nini Dahyana Idarraga Garay', initials: 'NI' },
 }
 
 type SessionContextValue = {

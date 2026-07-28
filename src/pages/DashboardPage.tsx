@@ -27,7 +27,7 @@ export function DashboardPage() {
   const hasDistribution = stats.distribution.some((d) => d.value > 0)
 
   // KPIs candidatos; se muestran solo los del ámbito visible para el rol (máx. 4).
-  const casesToRule = cases.filter((c) => c.status === 'En trámite' && c.stageIndex === 3).length
+  const casesToRule = cases.filter((c) => c.status === 'En trámite' && c.stageIndex === 4).length
   const committeeMembers = committees.reduce((s, c) => s + memberCount(c), 0)
   const kpis: Kpi[] = ([
     { key: 'afil-act', show: canSeeModule('afiliacion'), label: 'Afiliados activos', value: stats.active.toLocaleString('es-CO'), detail: activeDetail, icon: UsersRoundIcon, tone: 'night' },

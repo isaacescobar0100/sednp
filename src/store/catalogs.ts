@@ -17,11 +17,14 @@ export function seedDependencias(): string[] {
   return [...DEPENDENCIES]
 }
 
+// Tipos de vinculación laboral según el Art. 5, literal b) de los Estatutos.
 export function seedVinculaciones(): VinculacionType[] {
   return [
-    { id: 'vin-lnr', name: 'LNR', color: '#0F1B3D' },
-    { id: 'vin-carrera', name: 'Carrera Administrativa', color: '#C9973B' },
-    { id: 'vin-provisional', name: 'Provisional', color: '#B23A3A' },
+    { id: 'vin-carrera', name: 'Carrera administrativa', color: '#0F1B3D' },
+    { id: 'vin-provisional', name: 'Provisionalidad', color: '#C9973B' },
+    { id: 'vin-lnr', name: 'Libre nombramiento y remoción', color: '#B23A3A' },
+    { id: 'vin-prueba', name: 'Periodo de prueba', color: '#3D5AAE' },
+    { id: 'vin-temporal', name: 'Planta temporal', color: '#2E7D5B' },
   ]
 }
 

@@ -118,7 +118,7 @@ function NotificationsBell({ onNavigate }: { onNavigate: (module: ModuleKey) => 
     if (toPay > 0) items.push({ label: `${toPay} gasto(s) por pagar`, module: 'financiero' })
   }
   if (can('discipline.rule')) {
-    const toRule = cases.filter((c) => c.status === 'En trámite' && c.stageIndex === 3).length
+    const toRule = cases.filter((c) => c.status === 'En trámite' && c.stageIndex === 4).length
     if (toRule > 0) items.push({ label: `${toRule} expediente(s) para fallo`, module: 'disciplinario' })
   }
   const openVotes = ballots.filter((b) => b.status === 'En curso').length
