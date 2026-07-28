@@ -4,13 +4,19 @@ import { SectionTitle } from '../components/SectionTitle'
 import { StatusBadge } from '../components/StatusBadge'
 import { useDemo } from '../store/DemoStore'
 import { useSession } from '../store/session'
-import { CaseStatus, DisciplineCase, stages, termTone } from '../store/discipline'
+import { CaseStatus, DisciplineCase, Sancion, stages, termTone } from '../store/discipline'
 
 const statusTone: Record<CaseStatus, 'positive' | 'warning' | 'negative' | 'neutral' | 'night'> = {
   'En trámite': 'night',
-  Sancionado: 'negative',
-  Absuelto: 'positive',
+  'Con fallo': 'neutral',
   Archivado: 'neutral',
+}
+
+const sancionTone: Record<Sancion, 'positive' | 'warning' | 'negative'> = {
+  Amonestación: 'warning',
+  Multa: 'warning',
+  Exclusión: 'negative',
+  Absuelto: 'positive',
 }
 
 export function DisciplinarioPage() {
@@ -70,6 +76,8 @@ export function DisciplinarioPage() {
                       <StatusBadge tone={termTone(item.daysLeft)}>{item.daysLeft} días</StatusBadge>
                       <p className="mt-1.5 text-[11px] text-ink/45">plazo restante</p>
                     </>
+                  ) : item.status === 'Con fallo' && item.sancion ? (
+                    <StatusBadge tone={sancionTone[item.sancion]}>{item.sancion}</StatusBadge>
                   ) : (
                     <StatusBadge tone={statusTone[item.status]}>{item.status}</StatusBadge>
                   )}
@@ -96,16 +104,16 @@ function CaseDetail({ caseItem }: { caseItem: DisciplineCase }) {
   const canInstruct = can('discipline.instruct')
   const canRule = can('discipline.rule')
   const open = caseItem.status === 'En trámite'
-  const atDecision = caseItem.stageIndex === 3
+  const atTraslado = caseItem.stageIndex === stages.length - 1
 
   function advance() {
     const next = stages[caseItem.stageIndex + 1]
     advanceCase(caseItem.id)
     notify(`${caseItem.code} avanzó a ${next}.`, 'success')
   }
-  function rule(status: CaseStatus) {
-    ruleCase(caseItem.id, status)
-    notify(`${caseItem.code}: ${status.toLowerCase()}.`, status === 'Absuelto' ? 'success' : 'warning')
+  function rule(resultado: Sancion | 'Archivado') {
+    ruleCase(caseItem.id, resultado)
+    notify(`${caseItem.code}: ${resultado === 'Archivado' ? 'archivado' : resultado.toLowerCase()}.`, resultado === 'Absuelto' ? 'success' : 'warning')
   }
   function remove() {
     if (window.confirm(`¿Eliminar el expediente ${caseItem.code}?`)) deleteCase(caseItem.id, caseItem.code)
@@ -151,16 +159,21 @@ function CaseDetail({ caseItem }: { caseItem: DisciplineCase }) {
           </div>
 
           <div className="mt-4 space-y-2">
-            {canInstruct && !atDecision ? (
+            {canInstruct && !atTraslado ? (
               <button onClick={advance} className="w-full rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep">
                 Avanzar a {stages[caseItem.stageIndex + 1]}
               </button>
             ) : null}
 
-            {canRule && atDecision ? (
-              <div className="grid grid-cols-2 gap-2">
-                <button onClick={() => rule('Sancionado')} className="rounded-xl bg-brick px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-95">Sancionar</button>
-                <button onClick={() => rule('Absuelto')} className="rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-95">Absolver</button>
+            {canRule && atTraslado ? (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-ink/60">Fallo de la Junta Directiva (Art. 45):</p>
+                <div className="grid grid-cols-3 gap-2">
+                  <button onClick={() => rule('Amonestación')} className="rounded-xl bg-amber-500 px-3 py-2.5 text-sm font-semibold text-white transition hover:brightness-95">Amonestar</button>
+                  <button onClick={() => rule('Multa')} className="rounded-xl bg-amber-600 px-3 py-2.5 text-sm font-semibold text-white transition hover:brightness-95">Multar</button>
+                  <button onClick={() => rule('Exclusión')} className="rounded-xl bg-brick px-3 py-2.5 text-sm font-semibold text-white transition hover:brightness-95">Excluir</button>
+                </div>
+                <button onClick={() => rule('Absuelto')} className="w-full rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:brightness-95">Absolver</button>
               </div>
             ) : null}
 
@@ -170,11 +183,11 @@ function CaseDetail({ caseItem }: { caseItem: DisciplineCase }) {
               </button>
             ) : null}
 
-            {canInstruct && atDecision ? (
-              <p className="flex items-start gap-2 rounded-xl bg-canvas px-3 py-2.5 text-xs text-ink/60"><LockIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gold" />Expediente listo para decisión. El <strong>fallo</strong> lo profiere Presidencia.</p>
+            {canInstruct && atTraslado ? (
+              <p className="flex items-start gap-2 rounded-xl bg-canvas px-3 py-2.5 text-xs text-ink/60"><LockIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gold" />Instrucción completa. El <strong>fallo</strong> lo profiere la Junta Directiva.</p>
             ) : null}
-            {canRule && !atDecision ? (
-              <p className="flex items-start gap-2 rounded-xl bg-canvas px-3 py-2.5 text-xs text-ink/60"><LockIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gold" />El Fiscal debe instruir el expediente hasta la etapa de <strong>Decisión</strong> antes del fallo.</p>
+            {canRule && !atTraslado ? (
+              <p className="flex items-start gap-2 rounded-xl bg-canvas px-3 py-2.5 text-xs text-ink/60"><LockIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gold" />El Comité de Quejas y Reclamos debe instruir hasta el <strong>Traslado a Junta Directiva</strong> antes del fallo.</p>
             ) : null}
             {!canInstruct && !canRule ? (
               <p className="flex items-start gap-2 rounded-xl bg-canvas px-3 py-2.5 text-xs text-ink/60"><LockIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gold" />Vista de solo lectura para tu rol.</p>
@@ -184,7 +197,16 @@ function CaseDetail({ caseItem }: { caseItem: DisciplineCase }) {
       ) : (
         <div className="mt-6 rounded-xl border border-ink/[0.08] bg-canvas/50 p-4 text-sm">
           <p className="text-xs font-semibold uppercase tracking-[0.1em] text-ink/40">Resultado</p>
-          <div className="mt-2"><StatusBadge tone={statusTone[caseItem.status]}>Fallo: {caseItem.status}</StatusBadge></div>
+          <div className="mt-2">
+            {caseItem.status === 'Archivado' ? (
+              <StatusBadge tone="neutral">Expediente archivado</StatusBadge>
+            ) : caseItem.sancion ? (
+              <StatusBadge tone={sancionTone[caseItem.sancion]}>Fallo: {caseItem.sancion}</StatusBadge>
+            ) : (
+              <StatusBadge tone="neutral">{caseItem.status}</StatusBadge>
+            )}
+          </div>
+          {caseItem.sancion && caseItem.sancion !== 'Absuelto' ? <p className="mt-2 text-xs text-ink/50">Contra el fallo procede reposición ante la Junta Directiva y apelación ante la Asamblea General (Art. 57).</p> : null}
         </div>
       )}
     </div>

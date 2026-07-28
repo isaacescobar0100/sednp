@@ -1,9 +1,14 @@
-// Modelo y datos simulados del módulo Disciplinario.
-// Un expediente avanza por etapas; el fallo final lo profiere Presidencia.
+// Modelo del módulo Disciplinario (Arts. 43–57 de los Estatutos).
+// El Comité de Quejas y Reclamos instruye por etapas; la Junta Directiva
+// profiere el fallo (sanción o archivo); la Asamblea resuelve apelaciones.
 
-export const stages = ['Apertura', 'Investigación', 'Pliego de cargos', 'Decisión'] as const
+// Etapas del procedimiento disciplinario (Art. 50).
+export const stages = ['Auto de apertura', 'Pliego de cargos', 'Descargos', 'Práctica de pruebas', 'Traslado a Junta Directiva'] as const
 
-export type CaseStatus = 'En trámite' | 'Sancionado' | 'Absuelto' | 'Archivado'
+export type CaseStatus = 'En trámite' | 'Con fallo' | 'Archivado'
+
+// Sanciones (Art. 45) y el fallo absolutorio.
+export type Sancion = 'Amonestación' | 'Multa' | 'Exclusión' | 'Absuelto'
 
 export type DisciplineCase = {
   id: string
@@ -11,9 +16,10 @@ export type DisciplineCase = {
   subject: string
   person: string
   openedDate: string
-  stageIndex: number // 0..3, índice en `stages`
+  stageIndex: number // 0..4, índice en `stages`
   daysLeft: number
   status: CaseStatus
+  sancion?: Sancion // resultado del fallo (Art. 45)
 }
 
 // Tono del término procesal según días restantes.
@@ -37,8 +43,8 @@ export function sampleCases(): DisciplineCase[] {
   return [
     { id: 'exp-seed-0', code: 'EXP-2026-014', subject: 'Presunta omisión en trámite administrativo', person: 'Funcionario vinculado', openedDate: '18 abr 2026', stageIndex: 2, daysLeft: 4, status: 'En trámite' },
     { id: 'exp-seed-1', code: 'EXP-2026-011', subject: 'Queja por trato inadecuado', person: 'Funcionario vinculado', openedDate: '09 abr 2026', stageIndex: 1, daysLeft: 12, status: 'En trámite' },
-    { id: 'exp-seed-2', code: 'EXP-2026-006', subject: 'Incumplimiento de horario laboral', person: 'Funcionario vinculado', openedDate: '21 mar 2026', stageIndex: 3, daysLeft: 28, status: 'En trámite' },
-    { id: 'exp-seed-3', code: 'EXP-2025-021', subject: 'Uso indebido de recursos', person: 'Funcionario vinculado', openedDate: '02 dic 2025', stageIndex: 3, daysLeft: 0, status: 'Absuelto' },
+    { id: 'exp-seed-2', code: 'EXP-2026-006', subject: 'Incumplimiento de horario laboral', person: 'Funcionario vinculado', openedDate: '21 mar 2026', stageIndex: 4, daysLeft: 28, status: 'En trámite' },
+    { id: 'exp-seed-3', code: 'EXP-2025-021', subject: 'Uso indebido de recursos', person: 'Funcionario vinculado', openedDate: '02 dic 2025', stageIndex: 4, daysLeft: 0, status: 'Con fallo', sancion: 'Absuelto' },
   ]
 }
 

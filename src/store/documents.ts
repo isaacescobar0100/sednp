@@ -1,8 +1,8 @@
 // Modelo y datos simulados del módulo Documental (repositorio institucional).
 
-export type DocType = 'Acta' | 'Resolución' | 'Informe' | 'Reglamento'
+export type DocType = 'Acta' | 'Resolución' | 'Acuerdo' | 'Reglamento' | 'Informe' | 'Boletín' | 'Estatuto'
 
-export const docTypes: DocType[] = ['Acta', 'Resolución', 'Informe', 'Reglamento']
+export const docTypes: DocType[] = ['Acta', 'Resolución', 'Acuerdo', 'Reglamento', 'Informe', 'Boletín', 'Estatuto']
 
 export type Doc = {
   id: string
@@ -28,8 +28,11 @@ export function formatFileSize(bytes: number): string {
 const typePrefix: Record<DocType, string> = {
   Acta: 'ACT',
   Resolución: 'RES',
-  Informe: 'INF',
+  Acuerdo: 'ACU',
   Reglamento: 'REG',
+  Informe: 'INF',
+  Boletín: 'BOL',
+  Estatuto: 'EST',
 }
 
 export function todayLabel(): string {

@@ -81,12 +81,16 @@ export function AfiliadoPortal({ affiliateId, onLogout }: { affiliateId: string;
 
 function Perfil({ me }: { me: ReturnType<typeof useDemo>['affiliates'][number] }) {
   const rows: Array<[string, string]> = [
+    ['No. de solicitud', me.solicitudNo || '—'],
     ['Documento', me.doc],
     ['Correo', me.email],
     ['Teléfono', me.phone || '—'],
-    ['Cargo', me.role || '—'],
+    ['Dirección', me.address || '—'],
+    ['Cargo titular', me.cargoTitular || '—'],
+    ['Cargo que ocupa', me.role || '—'],
     ['Dependencia', me.dependency || '—'],
     ['Tipo de vinculación', me.type || '—'],
+    ['Asignación básica', me.asignacionBasica ? formatCop(me.asignacionBasica) : '—'],
     ['Fecha de vinculación', me.joinDate || '—'],
   ]
   return (

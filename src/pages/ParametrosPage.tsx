@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { BriefcaseBusinessIcon, CircleDollarSignIcon, LandmarkIcon, PlusIcon, TagsIcon, Trash2Icon } from 'lucide-react'
+import { BriefcaseBusinessIcon, CircleDollarSignIcon, LandmarkIcon, PlusIcon, ScaleIcon, TagsIcon, Trash2Icon } from 'lucide-react'
 import { SectionTitle } from '../components/SectionTitle'
 import { useDemo } from '../store/DemoStore'
 import { useSession } from '../store/session'
@@ -23,7 +23,8 @@ export function ParametrosPage() {
         <div className="rounded-2xl border border-ink/[0.08] bg-white px-6 py-8 text-sm text-ink/55">Solo la Secretaría General y la Presidencia pueden administrar los catálogos.</div>
       ) : (
         <div className="grid gap-6 xl:grid-cols-2">
-          <div className="xl:col-span-2"><CuotaCard /></div>
+          <CuotaCard />
+          <SmmlvCard />
 
           <ListCatalog
             title="Cargos"
@@ -63,10 +64,12 @@ export function ParametrosPage() {
 }
 
 function CuotaCard() {
-  const { cuotaMensual, setCuota } = useDemo()
-  const [text, setText] = useState(String(cuotaMensual))
-  const value = Number(text.replace(/\D/g, ''))
-  const dirty = value !== cuotaMensual && value > 0
+  const { porcentajeCuota, setPorcentajeCuota } = useDemo()
+  const [text, setText] = useState(String(+(porcentajeCuota * 100).toFixed(2)))
+  const value = Number(text.replace(',', '.'))
+  const nuevoPct = value / 100
+  const dirty = !Number.isNaN(value) && value >= 0 && nuevoPct !== porcentajeCuota
+  const actual = (porcentajeCuota * 100).toLocaleString('es-CO', { maximumFractionDigits: 2 })
 
   return (
     <section className="rounded-2xl border border-ink/[0.08] bg-white p-5">
@@ -74,8 +77,36 @@ function CuotaCard() {
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-canvas text-night"><CircleDollarSignIcon className="h-5 w-5" strokeWidth={1.8} /></div>
           <div>
-            <h2 className="font-display text-base font-semibold">Cuota sindical mensual</h2>
-            <p className="text-xs text-ink/50">Valor del aporte por afiliado cada mes · actual: {formatCop(cuotaMensual)}</p>
+            <h2 className="font-display text-base font-semibold">Cuota sindical ordinaria</h2>
+            <p className="text-xs text-ink/50">Porcentaje sobre la asignación básica mensual (Art. 32) · actual: {actual}%</p>
+          </div>
+        </div>
+        <div className="flex items-end gap-2">
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold text-ink/70">Nuevo % (ej. 0,3)</span>
+            <input value={text} onChange={(e) => setText(e.target.value)} inputMode="decimal" className="w-32 rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
+          </label>
+          <button onClick={() => setPorcentajeCuota(nuevoPct)} disabled={!dirty} className="rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">Guardar</button>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function SmmlvCard() {
+  const { smmlv, setSmmlv } = useDemo()
+  const [text, setText] = useState(String(smmlv))
+  const value = Number(text.replace(/\D/g, ''))
+  const dirty = value !== smmlv && value > 0
+
+  return (
+    <section className="rounded-2xl border border-ink/[0.08] bg-white p-5">
+      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-canvas text-night"><ScaleIcon className="h-5 w-5" strokeWidth={1.8} /></div>
+          <div>
+            <h2 className="font-display text-base font-semibold">SMMLV vigente</h2>
+            <p className="text-xs text-ink/50">Base de los rangos de aprobación de gastos (Art. 34) · actual: {formatCop(smmlv)}</p>
           </div>
         </div>
         <div className="flex items-end gap-2">
@@ -83,7 +114,7 @@ function CuotaCard() {
             <span className="mb-1.5 block text-xs font-semibold text-ink/70">Nuevo valor</span>
             <input value={text} onChange={(e) => setText(e.target.value)} inputMode="numeric" className="w-40 rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
           </label>
-          <button onClick={() => setCuota(value)} disabled={!dirty} className="rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">Guardar</button>
+          <button onClick={() => setSmmlv(value)} disabled={!dirty} className="rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">Guardar</button>
         </div>
       </div>
     </section>

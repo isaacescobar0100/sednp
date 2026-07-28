@@ -13,11 +13,34 @@ export type Affiliate = {
   role: string
   dependency: string
   type: AffiliateType
+  cargoTitular: string // cargo titular en el DNP (role = cargo que ocupa)
+  asignacionBasica: number // asignación básica mensual (base de la cuota del 0,3%)
   email: string
   phone: string
+  address: string // dirección de domicilio
   password: string // credencial del portal del afiliado (demo: texto plano, sin backend)
+  beneficios: string[] // programas de bienestar e incentivos a los que está vinculado
+  medio: string // por qué medio se enteró del sindicato
+  motivo: string // por qué le gustaría pertenecer al sindicato
+  interesComites: string // interés en participar en comités u observaciones
+  solicitudNo: string // número de solicitud de afiliación
   joinDate: string
   status: AffiliateStatus
+}
+
+// Catálogos del formulario oficial de inscripción.
+export const MEDIOS = ['La Rebeca', 'Un compañero', 'Correo', 'Otros']
+export const BENEFICIOS = ['Teletrabajo', 'Horario flexible', 'Rutas', 'Gimnasio', 'Escuela deportiva', 'Apoyo educativo', 'Otros']
+
+// Número de solicitud consecutivo del año en curso (ej. SOL-2026-004).
+export function nextSolicitud(affiliates: Affiliate[]): string {
+  const year = 2026
+  const nums = affiliates
+    .map((a) => /^SOL-(\d{4})-(\d+)$/.exec(a.solicitudNo || ''))
+    .filter((m): m is RegExpExecArray => m !== null && Number(m[1]) === year)
+    .map((m) => Number(m[2]))
+  const next = (nums.length ? Math.max(...nums) : 0) + 1
+  return `SOL-${year}-${String(next).padStart(3, '0')}`
 }
 
 const FIRST_NAMES = [
@@ -99,9 +122,17 @@ function makeAffiliate(i: number, type: AffiliateType, status: AffiliateStatus):
     role: pick(ROLES, i, 5),
     dependency: pick(DEPENDENCIES, i, 3),
     type,
+    cargoTitular: pick(ROLES, i, 7),
+    asignacionBasica: 3_500_000 + (i % 6) * 500_000,
     email: buildEmail(name),
     phone: buildPhone(i),
+    address: 'Bogotá D.C.',
     password: 'afiliado123',
+    beneficios: [],
+    medio: MEDIOS[i % MEDIOS.length],
+    motivo: '',
+    interesComites: '',
+    solicitudNo: `SOL-2026-${String(i + 1).padStart(3, '0')}`,
     joinDate: buildJoinDate(i),
     status,
   }

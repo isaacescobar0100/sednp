@@ -7,6 +7,12 @@ export type MovementKind = 'Ingreso' | 'Egreso'
 // (o Rechazado). La aprobación la hace Presidencia; registrar y pagar, Tesorería.
 export type MovementStatus = 'Confirmado' | 'Por aprobar' | 'Aprobado' | 'Pagado' | 'Rechazado'
 
+// Nivel de aprobación de un gasto según su cuantía en SMMLV (Art. 34).
+export type NivelGasto = 'tesoreria' | 'junta' | 'jd_asamblea' | 'asamblea'
+
+// Firmas requeridas para todo retiro de fondos (Art. 35): Presidente + Tesorero + Fiscal.
+export type Firmas = { presidente?: boolean; tesorero?: boolean; fiscal?: boolean }
+
 export type Movement = {
   id: string
   date: string
@@ -15,10 +21,40 @@ export type Movement = {
   kind: MovementKind
   amount: number
   status: MovementStatus
+  nivel?: NivelGasto // solo egresos
+  firmas?: Firmas // solo egresos
 }
 
 export const incomeCategories = ['Recaudo', 'Ingresos varios', 'Reintegros']
 export const expenseCategories = ['Bienestar', 'Formación', 'Defensa', 'Operación']
+
+// SMMLV por defecto (parámetro configurable — se actualiza cada enero).
+export const DEFAULT_SMMLV = 1_423_500
+
+export const nivelLabel: Record<NivelGasto, string> = {
+  tesoreria: 'Tesorería (≤ 1 SMMLV)',
+  junta: 'Junta Directiva (1–4 SMMLV)',
+  jd_asamblea: 'Junta + Asamblea (4–10 SMMLV)',
+  asamblea: 'Asamblea 2/3 (> 10 SMMLV)',
+}
+
+// Determina el nivel de aprobación de un gasto según su monto (Art. 34).
+export function nivelGasto(amount: number, smmlv: number): NivelGasto {
+  if (smmlv <= 0) return 'junta'
+  const r = amount / smmlv
+  if (r <= 1) return 'tesoreria'
+  if (r <= 4) return 'junta'
+  if (r <= 10) return 'jd_asamblea'
+  return 'asamblea'
+}
+
+export function firmasCount(f?: Firmas): number {
+  if (!f) return 0
+  return (f.presidente ? 1 : 0) + (f.tesorero ? 1 : 0) + (f.fiscal ? 1 : 0)
+}
+
+export type FirmaKey = 'presidente' | 'tesorero' | 'fiscal'
+export const firmaLabel: Record<FirmaKey, string> = { presidente: 'Presidente', tesorero: 'Tesorero', fiscal: 'Fiscal' }
 
 export function formatCop(value: number): string {
   return new Intl.NumberFormat('es-CO', {

@@ -24,7 +24,7 @@ export function ReportesPage() {
     { name: 'Por aprobar', value: +(financeStats.pendingAmount / 1_000_000).toFixed(1), color: '#B23A3A' },
   ]
 
-  const caseStatuses: CaseStatus[] = ['En trámite', 'Sancionado', 'Absuelto', 'Archivado']
+  const caseStatuses: CaseStatus[] = ['En trámite', 'Con fallo', 'Archivado']
   const casesByStatus = caseStatuses.map((s) => ({ status: s, count: cases.filter((c) => c.status === s).length }))
   const openBallots = ballots.filter((b) => b.status === 'En curso').length
   const closedBallots = ballots.filter((b) => b.status === 'Cerrada').length

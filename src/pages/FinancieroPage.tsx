@@ -7,7 +7,7 @@ import { StatusBadge } from '../components/StatusBadge'
 import { useDemo } from '../store/DemoStore'
 import { useSession } from '../store/session'
 import { RowMenu, RowAction } from '../components/RowMenu'
-import { Movement, MovementKind, MovementStatus, expenseCategories, formatCop, formatCopShort, incomeCategories, isoToLabel, monthlyFlow, todayISO } from '../store/finance'
+import { FirmaKey, Movement, MovementKind, MovementStatus, expenseCategories, firmaLabel, firmasCount, formatCop, formatCopShort, incomeCategories, isoToLabel, monthlyFlow, nivelGasto, nivelLabel, todayISO } from '../store/finance'
 import { periodLabel, recentPeriods } from '../store/contributions'
 
 const statusTone: Record<MovementStatus, 'positive' | 'warning' | 'negative' | 'neutral' | 'night'> = {
@@ -149,9 +149,10 @@ export function FinancieroPage() {
 }
 
 function AportesSection() {
-  const { aportes, affiliates, generateAportes, payAporte, cuotaMensual } = useDemo()
+  const { aportes, affiliates, generateAportes, payAporte, porcentajeCuota } = useDemo()
   const periods = recentPeriods(6)
   const [period, setPeriod] = useState(periods[0])
+  const pctLabel = (porcentajeCuota * 100).toLocaleString('es-CO', { maximumFractionDigits: 2 })
 
   const nameOf = (id: string) => affiliates.find((a) => a.id === id)?.name ?? 'Afiliado'
   const rows = aportes.filter((a) => a.period === period)
@@ -163,7 +164,7 @@ function AportesSection() {
       <div className="flex flex-col gap-3 border-b border-ink/[0.07] p-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="font-display text-base font-semibold">Aportes sindicales</h2>
-          <p className="mt-1 text-xs text-ink/50">Cuota mensual: {formatCop(cuotaMensual)} · recaudado {formatCop(recaudado)} · pendiente {formatCop(pendiente)}</p>
+          <p className="mt-1 text-xs text-ink/50">Cuota: {pctLabel}% de la asignación básica · recaudado {formatCop(recaudado)} · pendiente {formatCop(pendiente)}</p>
         </div>
         <div className="flex items-center gap-2">
           <select value={period} onChange={(e) => setPeriod(e.target.value)} className="rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night">
@@ -203,43 +204,56 @@ function AportesSection() {
   )
 }
 
-function movementActions(movement: Movement, canApprove: boolean, canPay: boolean): Array<{ label: string; next: MovementStatus; danger?: boolean }> {
-  if (movement.kind !== 'Egreso') return []
-  if (movement.status === 'Por aprobar' && canApprove) return [{ label: 'Aprobar gasto', next: 'Aprobado' }, { label: 'Rechazar', next: 'Rechazado', danger: true }]
-  if (movement.status === 'Aprobado' && canPay) return [{ label: 'Marcar como pagado', next: 'Pagado' }]
-  return []
-}
-
 function MovementRow({ movement, onEdit }: { movement: Movement; onEdit: (m: Movement) => void }) {
-  const { setMovementStatus, deleteMovement, notify } = useDemo()
-  const { can } = useSession()
-  const statusActions = movementActions(movement, can('finance.approve'), can('finance.pay'))
+  const { setMovementStatus, deleteMovement, signMovement, notify } = useDemo()
+  const { can, role } = useSession()
   const canManage = can('finance.create')
+  const esEgreso = movement.kind === 'Egreso'
+  const nFirmas = firmasCount(movement.firmas)
+  const misFirma: FirmaKey | null = role === 'presidencia' ? 'presidente' : role === 'tesoreria' ? 'tesorero' : role === 'fiscal' ? 'fiscal' : null
 
   function apply(next: MovementStatus) {
     setMovementStatus(movement.id, next)
     const verb = next === 'Aprobado' ? 'aprobado' : next === 'Rechazado' ? 'rechazado' : 'pagado'
     notify(`Gasto ${verb}: ${movement.concept}.`, next === 'Rechazado' ? 'warning' : 'success')
   }
-
   function handleDelete() {
     if (window.confirm(`¿Eliminar el movimiento "${movement.concept}"?`)) deleteMovement(movement.id, movement.concept)
   }
 
-  const menuActions: RowAction[] = statusActions.map((a) => ({ label: a.label, danger: a.danger, onClick: () => apply(a.next) }))
+  const menuActions: RowAction[] = []
+  if (esEgreso) {
+    if (movement.status === 'Por aprobar' && can('finance.approve')) {
+      menuActions.push({ label: 'Aprobar gasto', onClick: () => apply('Aprobado') })
+      menuActions.push({ label: 'Rechazar', danger: true, onClick: () => apply('Rechazado') })
+    }
+    if (movement.status === 'Aprobado') {
+      if (misFirma && can('finance.sign') && !movement.firmas?.[misFirma]) {
+        menuActions.push({ label: `Firmar como ${firmaLabel[misFirma]}`, onClick: () => signMovement(movement.id, misFirma) })
+      }
+      if (nFirmas === 3 && can('finance.pay')) {
+        menuActions.push({ label: 'Marcar como pagado', onClick: () => apply('Pagado') })
+      }
+    }
+  }
   if (canManage) {
     menuActions.push({ label: 'Editar', onClick: () => onEdit(movement) })
     menuActions.push({ label: 'Eliminar', danger: true, onClick: handleDelete })
   }
-  // Un egreso en trámite que este rol no puede mover ni editar: candado.
-  const lockedPending = movement.kind === 'Egreso' && (movement.status === 'Por aprobar' || movement.status === 'Aprobado') && menuActions.length === 0
+  const lockedPending = esEgreso && (movement.status === 'Por aprobar' || movement.status === 'Aprobado') && menuActions.length === 0
 
   return (
     <tr className="transition hover:bg-canvas/50">
       <td className="px-5 py-4 text-sm text-ink/55">{movement.date}</td>
-      <td className="px-5 py-4 text-sm font-medium text-ink">{movement.concept}</td>
+      <td className="px-5 py-4 text-sm">
+        <p className="font-medium text-ink">{movement.concept}</p>
+        {esEgreso && movement.nivel && (movement.status === 'Por aprobar' || movement.status === 'Aprobado') ? <p className="mt-0.5 text-[11px] text-ink/45">Aprobación: {nivelLabel[movement.nivel]}</p> : null}
+      </td>
       <td className="px-5 py-4 text-sm text-ink/55">{movement.category}</td>
-      <td className="px-5 py-4"><StatusBadge tone={statusTone[movement.status]}>{movement.status}</StatusBadge></td>
+      <td className="px-5 py-4">
+        <StatusBadge tone={statusTone[movement.status]}>{movement.status}</StatusBadge>
+        {esEgreso && movement.status === 'Aprobado' ? <p className={`mt-1 text-[11px] ${nFirmas === 3 ? 'text-emerald-700' : 'text-ink/45'}`}>Firmas {nFirmas}/3</p> : null}
+      </td>
       <td className={`px-5 py-4 text-right text-sm font-semibold ${movement.kind === 'Ingreso' ? 'text-emerald-700' : 'text-brick'}`}>
         {movement.kind === 'Ingreso' ? '+' : '−'} {formatCop(movement.amount)}
       </td>
@@ -247,7 +261,7 @@ function MovementRow({ movement, onEdit }: { movement: Movement; onEdit: (m: Mov
         {menuActions.length > 0 ? (
           <RowMenu label={`Acciones para ${movement.concept}`} actions={menuActions} />
         ) : lockedPending ? (
-          <span className="inline-flex items-center justify-center rounded-lg p-1.5 text-ink/25" title={movement.status === 'Por aprobar' ? 'La aprobación la realiza Presidencia.' : 'El pago lo realiza Tesorería.'}>
+          <span className="inline-flex items-center justify-center rounded-lg p-1.5 text-ink/25" title={movement.status === 'Por aprobar' ? 'Pendiente de aprobación.' : 'Pendiente de firmas / pago.'}>
             <LockIcon className="h-4 w-4" />
           </span>
         ) : (
@@ -320,7 +334,7 @@ function EditMovementModal({ movement, onClose }: { movement: Movement; onClose:
 }
 
 function MovementModal({ kind, onClose }: { kind: MovementKind; onClose: () => void }) {
-  const { addMovement } = useDemo()
+  const { addMovement, smmlv } = useDemo()
   const categories = kind === 'Ingreso' ? incomeCategories : expenseCategories
   const [concept, setConcept] = useState('')
   const [category, setCategory] = useState(categories[0])
@@ -371,6 +385,11 @@ function MovementModal({ kind, onClose }: { kind: MovementKind; onClose: () => v
             <input value={amountText} onChange={(e) => setAmountText(e.target.value)} inputMode="numeric" placeholder="$ 0" className="w-full rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
             {amount > 0 ? <span className="mt-1 block text-xs text-ink/50">{formatCop(amount)}</span> : null}
           </label>
+          {kind === 'Egreso' && amount > 0 ? (
+            <div className="rounded-xl border border-gold/25 bg-gold/[0.07] px-3 py-2.5 text-xs text-ink/65">
+              Nivel de aprobación: <strong>{nivelLabel[nivelGasto(amount, smmlv)]}</strong>. Todo pago requiere firma de Presidente, Tesorero y Fiscal (Art. 35).
+            </div>
+          ) : null}
         </div>
 
         <div className="mt-6 flex justify-end gap-2">

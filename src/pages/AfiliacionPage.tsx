@@ -2,7 +2,8 @@ import React, { useMemo, useState } from 'react'
 import { ChevronLeftIcon, ChevronRightIcon, LockIcon, PlusIcon, SearchIcon, XIcon } from 'lucide-react'
 import { useDemo } from '../store/DemoStore'
 import { useSession } from '../store/session'
-import { Affiliate, AffiliateStatus, AffiliateType } from '../store/affiliates'
+import { Affiliate, AffiliateStatus, AffiliateType, BENEFICIOS, MEDIOS } from '../store/affiliates'
+import { formatCop } from '../store/finance'
 import { SectionTitle } from '../components/SectionTitle'
 import { StatusBadge } from '../components/StatusBadge'
 import { RowMenu, RowAction } from '../components/RowMenu'
@@ -242,19 +243,31 @@ function AffiliateRow({ affiliate, onEdit }: { affiliate: Affiliate; onEdit: (a:
 }
 
 const emptyForm = {
-  name: '',
+  nombres: '',
+  apellidos: '',
   doc: '',
   email: '',
   phone: '',
+  address: '',
+  password: '',
+  beneficios: [] as string[],
   role: '',
+  cargoTitular: '',
   dependency: '',
   type: '' as AffiliateType,
-  password: '',
+  asignacionBasica: '',
+  medio: '',
+  motivo: '',
+  interesComites: '',
   joinDate: '',
 }
 
+function parseMoney(text: string): number {
+  return Number(text.replace(/\D/g, ''))
+}
+
 function EnrollmentModal({ onClose }: { onClose: () => void }) {
-  const { addAffiliate, affiliates, cargos, dependencias, vinculaciones } = useDemo()
+  const { addAffiliate, affiliates, cargos, dependencias, vinculaciones, porcentajeCuota } = useDemo()
   const [step, setStep] = useState(1)
   const [form, setForm] = useState(() => ({ ...emptyForm, type: vinculaciones[0]?.name ?? '' }))
   const steps = ['Datos personales', 'Información laboral', 'Revisión']
@@ -263,17 +276,38 @@ function EnrollmentModal({ onClose }: { onClose: () => void }) {
     setForm((prev) => ({ ...prev, [key]: value }))
   }
 
+  function toggleBeneficio(b: string) {
+    setForm((prev) => ({ ...prev, beneficios: prev.beneficios.includes(b) ? prev.beneficios.filter((x) => x !== b) : [...prev.beneficios, b] }))
+  }
+
   const docDup = form.doc.trim() !== '' && affiliates.some((a) => a.doc.trim() === form.doc.trim())
   const emailDup = form.email.trim() !== '' && affiliates.some((a) => a.email.trim().toLowerCase() === form.email.trim().toLowerCase())
   const emailInvalid = form.email.trim() !== '' && !EMAIL_RE.test(form.email.trim())
-  const canContinue = step === 1 ? form.name.trim() !== '' && form.doc.trim() !== '' && form.email.trim() !== '' && form.password.trim() !== '' && !docDup && !emailDup && !emailInvalid : true
+  const canContinue = step === 1 ? form.nombres.trim() !== '' && form.apellidos.trim() !== '' && form.doc.trim() !== '' && form.email.trim() !== '' && form.password.trim() !== '' && !docDup && !emailDup && !emailInvalid : true
 
   function handlePrimary() {
     if (step < 3) {
       setStep(step + 1)
       return
     }
-    addAffiliate({ ...form, name: form.name.trim() })
+    addAffiliate({
+      name: `${form.nombres.trim()} ${form.apellidos.trim()}`.trim(),
+      doc: form.doc.trim(),
+      role: form.role,
+      cargoTitular: form.cargoTitular,
+      dependency: form.dependency,
+      type: form.type,
+      asignacionBasica: parseMoney(form.asignacionBasica),
+      email: form.email.trim(),
+      phone: form.phone,
+      address: form.address.trim(),
+      password: form.password,
+      beneficios: form.beneficios,
+      medio: form.medio,
+      motivo: form.motivo.trim(),
+      interesComites: form.interesComites.trim(),
+      joinDate: form.joinDate,
+    })
     onClose()
   }
 
@@ -306,23 +340,42 @@ function EnrollmentModal({ onClose }: { onClose: () => void }) {
                 <h3 className="font-display text-lg font-semibold">Datos personales</h3>
                 <p className="mt-1 text-sm text-ink/50">Información de identificación y contacto.</p>
                 <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                  <Field label="Nombres y apellidos" placeholder="Nombre completo" value={form.name} onChange={(v) => set('name', v)} required />
+                  <Field label="Nombres" placeholder="Nombres del afiliado" value={form.nombres} onChange={(v) => set('nombres', v)} required />
+                  <Field label="Apellidos" placeholder="Apellidos del afiliado" value={form.apellidos} onChange={(v) => set('apellidos', v)} required />
                   <Field label="Documento de identidad" placeholder="Número de documento" value={form.doc} onChange={(v) => set('doc', v)} required error={docDup ? 'Ya existe un afiliado con este documento.' : undefined} />
                   <Field label="Correo (usuario de acceso)" placeholder="nombre@dnp.gov.co" value={form.email} onChange={(v) => set('email', v)} required error={emailDup ? 'Ya existe un afiliado con este correo.' : emailInvalid ? 'Correo no válido.' : undefined} />
-                  <Field label="Teléfono" placeholder="300 000 0000" value={form.phone} onChange={(v) => set('phone', v)} />
+                  <Field label="Dirección de domicilio" placeholder="Dirección" value={form.address} onChange={(v) => set('address', v)} />
+                  <Field label="Teléfono de contacto" placeholder="300 000 0000" value={form.phone} onChange={(v) => set('phone', v)} />
                   <Field label="Contraseña de acceso" placeholder="Contraseña del afiliado" value={form.password} onChange={(v) => set('password', v)} required />
                 </div>
-                <p className="mt-3 rounded-xl border border-gold/25 bg-gold/[0.07] px-3 py-2.5 text-xs text-ink/60">El afiliado usará su <strong>correo</strong> y esta <strong>contraseña</strong> para entrar a su portal. Podrá ingresar una vez la Presidencia <strong>apruebe</strong> su afiliación.</p>
+                <div className="mt-4">
+                  <span className="mb-1.5 block text-xs font-semibold text-ink/70">Programas de bienestar e incentivos</span>
+                  <div className="flex flex-wrap gap-2">
+                    {BENEFICIOS.map((b) => (
+                      <button type="button" key={b} onClick={() => toggleBeneficio(b)} className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${form.beneficios.includes(b) ? 'border-night bg-night/[0.06] text-night' : 'border-ink/12 text-ink/55 hover:border-ink/25'}`}>{b}</button>
+                    ))}
+                  </div>
+                </div>
+                <p className="mt-3 rounded-xl border border-gold/25 bg-gold/[0.07] px-3 py-2.5 text-xs text-ink/60">El afiliado usará su <strong>correo</strong> y esta <strong>contraseña</strong> para entrar a su portal, una vez la Junta Directiva <strong>apruebe</strong> su afiliación.</p>
               </div>
             ) : step === 2 ? (
               <div>
                 <h3 className="font-display text-lg font-semibold">Información laboral</h3>
                 <p className="mt-1 text-sm text-ink/50">Datos de vinculación en el Departamento.</p>
                 <div className="mt-5 grid gap-4 sm:grid-cols-2">
-                  <ChoiceField label="Cargo" value={form.role} onChange={(v) => set('role', v)} options={cargos} placeholder="Seleccionar cargo" />
-                  <ChoiceField label="Dependencia" value={form.dependency} onChange={(v) => set('dependency', v)} options={dependencias} placeholder="Seleccionar dependencia" />
                   <ChoiceField label="Tipo de vinculación" value={form.type} onChange={(v) => set('type', v)} options={vinculaciones.map((t) => t.name)} placeholder="Seleccionar tipo" />
+                  <ChoiceField label="Dependencia" value={form.dependency} onChange={(v) => set('dependency', v)} options={dependencias} placeholder="Seleccionar dependencia" />
+                  <ChoiceField label="Cargo titular en el DNP" value={form.cargoTitular} onChange={(v) => set('cargoTitular', v)} options={cargos} placeholder="Seleccionar cargo titular" />
+                  <ChoiceField label="Cargo que ocupa en el DNP" value={form.role} onChange={(v) => set('role', v)} options={cargos} placeholder="Seleccionar cargo" />
+                  <label className="block">
+                    <span className="mb-1.5 block text-xs font-semibold text-ink/70">Asignación básica mensual</span>
+                    <input value={form.asignacionBasica} onChange={(e) => set('asignacionBasica', e.target.value)} inputMode="numeric" placeholder="$ 3.500.000" className="w-full rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
+                    <span className="mt-1 block text-xs text-ink/50">Base de la cuota (0,3%).{parseMoney(form.asignacionBasica) > 0 ? ` Cuota: ${formatCop(Math.round(parseMoney(form.asignacionBasica) * porcentajeCuota))}` : ''}</span>
+                  </label>
                   <DateField label="Fecha de vinculación" value={form.joinDate} onChange={(v) => set('joinDate', v)} />
+                  <ChoiceField label="¿Por qué medio se enteró?" value={form.medio} onChange={(v) => set('medio', v)} options={MEDIOS} placeholder="Seleccionar" />
+                  <TextareaField label="¿Por qué le gustaría pertenecer al Sindicato?" value={form.motivo} onChange={(v) => set('motivo', v)} />
+                  <TextareaField label="Interés en participar en comités u observaciones" value={form.interesComites} onChange={(v) => set('interesComites', v)} />
                 </div>
               </div>
             ) : (
@@ -330,17 +383,22 @@ function EnrollmentModal({ onClose }: { onClose: () => void }) {
                 <h3 className="font-display text-lg font-semibold">Revisión de inscripción</h3>
                 <p className="mt-1 text-sm text-ink/50">Confirma la información antes de registrar la solicitud.</p>
                 <dl className="mt-5 grid gap-x-6 gap-y-3 rounded-xl border border-ink/[0.08] bg-canvas/40 p-4 text-sm sm:grid-cols-2">
-                  <ReviewItem label="Nombre" value={form.name} />
+                  <ReviewItem label="Nombre" value={`${form.nombres} ${form.apellidos}`.trim()} />
                   <ReviewItem label="Documento" value={form.doc} />
                   <ReviewItem label="Correo" value={form.email} />
+                  <ReviewItem label="Dirección" value={form.address} />
                   <ReviewItem label="Teléfono" value={form.phone} />
-                  <ReviewItem label="Cargo" value={form.role} />
-                  <ReviewItem label="Dependencia" value={form.dependency} />
                   <ReviewItem label="Vinculación" value={form.type} />
+                  <ReviewItem label="Cargo titular" value={form.cargoTitular} />
+                  <ReviewItem label="Cargo que ocupa" value={form.role} />
+                  <ReviewItem label="Dependencia" value={form.dependency} />
+                  <ReviewItem label="Asignación básica" value={parseMoney(form.asignacionBasica) > 0 ? formatCop(parseMoney(form.asignacionBasica)) : ''} />
                   <ReviewItem label="Fecha" value={form.joinDate} />
+                  <ReviewItem label="Se enteró por" value={form.medio} />
+                  <ReviewItem label="Programas de bienestar" value={form.beneficios.join(', ')} />
                 </dl>
                 <div className="mt-4 rounded-xl border border-gold/30 bg-gold/10 p-4 text-sm text-ink/70">
-                  La solicitud quedará en estado <strong>pendiente de aprobación</strong> por la Secretaría General.
+                  La solicitud quedará <strong>pendiente</strong>: el Fiscal emite concepto y la Junta Directiva aprueba (Art. 5).
                 </div>
               </div>
             )}
@@ -365,16 +423,19 @@ function EnrollmentModal({ onClose }: { onClose: () => void }) {
 }
 
 function EditAffiliateModal({ affiliate, onClose }: { affiliate: Affiliate; onClose: () => void }) {
-  const { updateAffiliate, affiliates, cargos, dependencias, vinculaciones } = useDemo()
+  const { updateAffiliate, affiliates, cargos, dependencias, vinculaciones, porcentajeCuota } = useDemo()
   const [form, setForm] = useState({
     name: affiliate.name,
     doc: affiliate.doc,
     email: affiliate.email,
     phone: affiliate.phone,
+    address: affiliate.address ?? '',
     password: affiliate.password,
     role: affiliate.role,
+    cargoTitular: affiliate.cargoTitular ?? '',
     dependency: affiliate.dependency,
     type: affiliate.type,
+    asignacionBasica: affiliate.asignacionBasica ? String(affiliate.asignacionBasica) : '',
     joinDate: affiliate.joinDate,
   })
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
@@ -393,10 +454,13 @@ function EditAffiliateModal({ affiliate, onClose }: { affiliate: Affiliate; onCl
       doc: form.doc.trim(),
       email: form.email.trim(),
       phone: form.phone,
+      address: form.address.trim(),
       password: form.password,
       role: form.role,
+      cargoTitular: form.cargoTitular,
       dependency: form.dependency,
       type: form.type,
+      asignacionBasica: parseMoney(form.asignacionBasica),
       joinDate: form.joinDate,
     })
     onClose()
@@ -417,11 +481,18 @@ function EditAffiliateModal({ affiliate, onClose }: { affiliate: Affiliate; onCl
           <Field label="Documento de identidad" placeholder="Número de documento" value={form.doc} onChange={(v) => set('doc', v)} required error={docDup ? 'Ya existe un afiliado con este documento.' : undefined} />
           <Field label="Correo (usuario de acceso)" placeholder="nombre@dnp.gov.co" value={form.email} onChange={(v) => set('email', v)} required error={emailDup ? 'Ya existe un afiliado con este correo.' : emailInvalid ? 'Correo no válido.' : undefined} />
           <Field label="Teléfono" placeholder="300 000 0000" value={form.phone} onChange={(v) => set('phone', v)} />
+          <Field label="Dirección de domicilio" placeholder="Dirección" value={form.address} onChange={(v) => set('address', v)} />
           <Field label="Contraseña de acceso" placeholder="Contraseña del afiliado" value={form.password} onChange={(v) => set('password', v)} required />
-          <ChoiceField label="Cargo" value={form.role} onChange={(v) => set('role', v)} options={cargos} placeholder="Seleccionar cargo" />
+          <ChoiceField label="Cargo titular en el DNP" value={form.cargoTitular} onChange={(v) => set('cargoTitular', v)} options={cargos} placeholder="Seleccionar cargo titular" />
+          <ChoiceField label="Cargo que ocupa en el DNP" value={form.role} onChange={(v) => set('role', v)} options={cargos} placeholder="Seleccionar cargo" />
           <ChoiceField label="Dependencia" value={form.dependency} onChange={(v) => set('dependency', v)} options={dependencias} placeholder="Seleccionar dependencia" />
           <ChoiceField label="Tipo de vinculación" value={form.type} onChange={(v) => set('type', v)} options={vinculaciones.map((t) => t.name)} placeholder="Seleccionar tipo" />
           <DateField label="Fecha de vinculación" value={form.joinDate} onChange={(v) => set('joinDate', v)} />
+          <label className="block sm:col-span-2">
+            <span className="mb-1.5 block text-xs font-semibold text-ink/70">Asignación básica mensual</span>
+            <input value={form.asignacionBasica} onChange={(e) => set('asignacionBasica', e.target.value)} inputMode="numeric" placeholder="$ 3.500.000" className="w-full rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
+            <span className="mt-1 block text-xs text-ink/50">Base de la cuota (0,3%).{parseMoney(form.asignacionBasica) > 0 ? ` Cuota: ${formatCop(Math.round(parseMoney(form.asignacionBasica) * porcentajeCuota))}` : ''}</span>
+          </label>
         </div>
         <div className="mt-6 flex justify-end gap-2">
           <button onClick={onClose} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-ink/60 hover:bg-canvas">Cancelar</button>
@@ -495,6 +566,15 @@ function DateField({ label, value, onChange }: { label: string; value: string; o
         onChange={(e) => onChange(e.target.value)}
         className="w-full rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10"
       />
+    </label>
+  )
+}
+
+function TextareaField({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <label className="block sm:col-span-2">
+      <span className="mb-1.5 block text-xs font-semibold text-ink/70">{label}</span>
+      <textarea value={value} onChange={(e) => onChange(e.target.value)} rows={2} className="w-full resize-none rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
     </label>
   )
 }

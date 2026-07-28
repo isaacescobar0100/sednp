@@ -22,9 +22,24 @@ export function memberCount(c: Committee): number {
   return members + (c.lead && c.lead !== 'Por designar' ? 1 : 0)
 }
 
-// Repositorio VACÍO para pruebas reales.
+// Los cinco comités temáticos estatutarios (Art. 27 de los Estatutos).
 export function seedCommittees(): Committee[] {
-  return []
+  const names = [
+    'Educación y Desarrollo Humano',
+    'Promoción y Fomento del Desarrollo Laboral y Profesional',
+    'Planeación e Innovación',
+    'Divulgación y Relaciones Públicas',
+    'Bienestar, Fomento Cultural y de Seguridad y Salud en el Trabajo',
+  ]
+  return names.map((name, i) => ({
+    id: `cmt-est-${i}`,
+    name,
+    lead: 'Por designar',
+    members: [],
+    next: 'Por programar',
+    activity: 'Comité temático estatutario',
+    color: committeeColor(i),
+  }))
 }
 
 // Comités de ejemplo (sin uso mientras se prueba con datos reales).
