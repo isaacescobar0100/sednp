@@ -24,6 +24,7 @@ export type Movement = {
   nivel?: NivelGasto // solo egresos
   firmas?: Firmas // solo egresos
   ordenPago?: string // consecutivo de la orden de pago al egresarse (Art. 26)
+  actaAsamblea?: string // acta de refrendación de la Asamblea (gastos 4–10 y >10 SMMLV, Art. 34)
 }
 
 export const incomeCategories = ['Recaudo', 'Ingresos varios', 'Reintegros']
@@ -80,6 +81,18 @@ export function nivelGasto(amount: number, smmlv: number): NivelGasto {
   if (r <= 4) return 'junta'
   if (r <= 10) return 'jd_asamblea'
   return 'asamblea'
+}
+
+// Los niveles 4–10 y >10 SMMLV requieren refrendación de la Asamblea (acta).
+export function requiereActaAsamblea(nivel?: NivelGasto): boolean {
+  return nivel === 'jd_asamblea' || nivel === 'asamblea'
+}
+
+// Total ya comprometido (aprobado o pagado) de un rubro, para control de saldo.
+export function ejecutadoRubro(movements: Movement[], category: string): number {
+  return movements
+    .filter((m) => m.kind === 'Egreso' && m.category === category && (m.status === 'Aprobado' || m.status === 'Pagado'))
+    .reduce((s, m) => s + m.amount, 0)
 }
 
 export function firmasCount(f?: Firmas): number {

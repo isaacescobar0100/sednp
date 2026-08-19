@@ -4,7 +4,7 @@ import { SectionTitle } from '../components/SectionTitle'
 import { StatusBadge } from '../components/StatusBadge'
 import { useDemo } from '../store/DemoStore'
 import { useSession } from '../store/session'
-import { CaseStatus, DisciplineCase, PRESCRIPCION_ANIOS, Sancion, stageTerms, stages, termTone } from '../store/discipline'
+import { CaseStatus, DisciplineCase, MULTA_DIAS_MAX, MULTA_DIAS_MIN, PRESCRIPCION_ANIOS, Sancion, stageTerms, stages, termTone, valorMulta } from '../store/discipline'
 import { formatCop } from '../store/finance'
 
 const statusTone: Record<CaseStatus, 'positive' | 'warning' | 'negative' | 'neutral' | 'night'> = {
@@ -257,16 +257,16 @@ function RecursosPanel({ caseItem, canInstruct, canRule }: { caseItem: Disciplin
   )
 }
 
-// Captura el valor de la multa para registrarla en Financiero (cobro por nómina).
+// La multa va de 1 a 3 días de SMMLV diario (Art. 48). Se calcula el monto y se
+// registra como ingreso en Financiero (cobro por nómina).
 function MultaModal({ caseItem, onClose }: { caseItem: DisciplineCase; onClose: () => void }) {
-  const { ruleCase, notify } = useDemo()
-  const [text, setText] = useState('')
-  const monto = Number(text.replace(/\D/g, ''))
+  const { ruleCase, smmlv, notify } = useDemo()
+  const [dias, setDias] = useState(1)
+  const monto = valorMulta(dias, smmlv)
 
   function submit() {
-    if (monto <= 0) return
     ruleCase(caseItem.id, 'Multa', monto)
-    notify(`${caseItem.code}: multa por ${formatCop(monto)}.`, 'warning')
+    notify(`${caseItem.code}: multa de ${dias} día(s) de SMMLV = ${formatCop(monto)}.`, 'warning')
     onClose()
   }
 
@@ -274,14 +274,19 @@ function MultaModal({ caseItem, onClose }: { caseItem: DisciplineCase; onClose: 
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-night/45 p-4" onClick={onClose}>
       <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between">
-          <h3 className="font-display text-lg font-semibold">Valor de la multa</h3>
+          <h3 className="font-display text-lg font-semibold">Multa disciplinaria</h3>
           <button onClick={onClose} className="rounded-lg p-1 text-ink/50 hover:bg-canvas"><XIcon className="h-5 w-5" /></button>
         </div>
-        <p className="mt-1 text-xs text-ink/50">Se registrará como ingreso en Financiero para cobro por nómina ({caseItem.code}).</p>
-        <input value={text} onChange={(e) => setText(e.target.value)} inputMode="numeric" placeholder="Monto en COP" className="mt-4 w-full rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night" autoFocus />
+        <p className="mt-1 text-xs text-ink/50">De 1 a 3 días de SMMLV diario (Art. 48). Se registrará como ingreso en Financiero para cobro por nómina ({caseItem.code}).</p>
+        <div className="mt-4 flex gap-2">
+          {[MULTA_DIAS_MIN, 2, MULTA_DIAS_MAX].map((d) => (
+            <button key={d} onClick={() => setDias(d)} className={`flex-1 rounded-xl border px-3 py-2.5 text-sm font-semibold transition ${dias === d ? 'border-night bg-night text-white' : 'border-ink/12 text-night hover:bg-canvas'}`}>{d} día{d > 1 ? 's' : ''}</button>
+          ))}
+        </div>
+        <p className="mt-3 text-center text-sm text-ink/70">Valor: <strong className="text-ink">{formatCop(monto)}</strong> <span className="text-ink/45">(SMMLV/30 × {dias})</span></p>
         <div className="mt-5 flex justify-end gap-2">
           <button onClick={onClose} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-ink/60 hover:bg-canvas">Cancelar</button>
-          <button onClick={submit} disabled={monto <= 0} className="rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">Imponer multa</button>
+          <button onClick={submit} className="rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep">Imponer multa</button>
         </div>
       </div>
     </div>

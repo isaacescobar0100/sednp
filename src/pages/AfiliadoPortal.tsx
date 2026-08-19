@@ -141,7 +141,7 @@ function MisAportes({ affiliateId }: { affiliateId: string }) {
           {mine.map((a) => (
             <article key={a.id} className="flex items-center justify-between gap-3 px-5 py-4">
               <div className="min-w-0">
-                <p className="text-sm font-semibold text-ink">{periodLabel(a.period)}{a.tipo === 'Extraordinaria' ? ` · extraordinaria${a.acta ? ` (Acta ${a.acta})` : ''}` : ''}</p>
+                <p className="text-sm font-semibold text-ink">{periodLabel(a.period)}{a.tipo === 'Extraordinaria' ? ` · extraordinaria${a.acta ? ` (Acta ${a.acta})` : ''}` : ''}{a.anticipada ? ' · anticipada (vacaciones)' : ''}</p>
                 <p className="mt-0.5 text-xs text-ink/50">{formatCop(a.amount)}{a.status === 'Pagado' && a.method ? ` · pagado por ${a.method}` : ''}</p>
               </div>
               {a.status === 'Pagado' ? (

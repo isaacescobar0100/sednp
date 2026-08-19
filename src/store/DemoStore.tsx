@@ -156,6 +156,7 @@ type Action =
   | { type: 'generateAportes'; period: string }
   | { type: 'decretarExtraordinaria'; period: string; pct: number; acta: string }
   | { type: 'payAporte'; id: string; method: AporteMethod; date: string }
+  | { type: 'anticiparAporte'; id: string }
   | { type: 'setPorcentajeCuota'; value: number }
   | { type: 'setPresupuesto'; category: string; anual: number }
   | { type: 'reset' }
@@ -382,6 +383,11 @@ function reducer(state: DemoState, action: Action): DemoState {
         .map((a) => ({ id: `aptx-${action.period}-${action.acta}-${a.id}`, affiliateId: a.id, period: action.period, amount: calcularCuota(a.asignacionBasica, pct), tipo: 'Extraordinaria', acta: action.acta, status: 'Pendiente' }))
       return { ...state, aportes: [...nuevos, ...state.aportes] }
     }
+    case 'anticiparAporte':
+      return {
+        ...state,
+        aportes: state.aportes.map((a) => (a.id === action.id ? { ...a, anticipada: true } : a)),
+      }
     case 'setPorcentajeCuota':
       return { ...state, porcentajeCuota: Math.max(0, action.value) }
     case 'setPresupuesto': {
@@ -583,6 +589,7 @@ type DemoContextValue = {
   generateAportes: (period: string) => void
   payAporte: (id: string, method: AporteMethod) => void
   decretarExtraordinaria: (period: string, pct: number, acta: string) => void
+  anticiparAporte: (id: string) => void
   setPorcentajeCuota: (value: number) => void
   presupuestos: Presupuesto[]
   setPresupuesto: (category: string, anual: number) => void
@@ -872,6 +879,11 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     notify('Cuota extraordinaria decretada por la Asamblea.', 'success')
   }, [notify])
 
+  const anticiparAporte = useCallback((id: string) => {
+    dispatch({ type: 'anticiparAporte', id })
+    notify('Cuota marcada como descuento anticipado por vacaciones.', 'info')
+  }, [notify])
+
   const setPorcentajeCuota = useCallback((value: number) => {
     dispatch({ type: 'setPorcentajeCuota', value })
     notify('Porcentaje de cuota actualizado.', 'success')
@@ -984,13 +996,14 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       generateAportes,
       payAporte,
       decretarExtraordinaria,
+      anticiparAporte,
       setPorcentajeCuota,
       presupuestos: state.presupuestos,
       setPresupuesto,
       resetDemo,
       notify,
     }),
-    [state.affiliates, stats, state.movements, financeStats, state.cases, disciplineStats, state.sessions, state.ballots, state.docs, state.comunicados, state.committees, state.cargos, state.dependencias, state.vinculaciones, addAffiliate, setAffiliateStatus, conceptAffiliate, approveAffiliate, updateAffiliate, addMovement, setMovementStatus, updateMovement, deleteMovement, signMovement, state.smmlv, setSmmlv, addCase, advanceCase, ruleCase, interponerRecurso, resolverRecurso, deleteCase, addSession, publishMinutes, deleteSession, addBallot, castVote, castAffiliateVote, closeBallot, deleteBallot, addDoc, updateDoc, deleteDoc, sendComunicado, deleteComunicado, addCommittee, updateCommittee, deleteCommittee, setCargos, setDependencias, setVinculaciones, state.aportes, state.porcentajeCuota, generateAportes, payAporte, decretarExtraordinaria, setPorcentajeCuota, state.presupuestos, setPresupuesto, resetDemo, notify],
+    [state.affiliates, stats, state.movements, financeStats, state.cases, disciplineStats, state.sessions, state.ballots, state.docs, state.comunicados, state.committees, state.cargos, state.dependencias, state.vinculaciones, addAffiliate, setAffiliateStatus, conceptAffiliate, approveAffiliate, updateAffiliate, addMovement, setMovementStatus, updateMovement, deleteMovement, signMovement, state.smmlv, setSmmlv, addCase, advanceCase, ruleCase, interponerRecurso, resolverRecurso, deleteCase, addSession, publishMinutes, deleteSession, addBallot, castVote, castAffiliateVote, closeBallot, deleteBallot, addDoc, updateDoc, deleteDoc, sendComunicado, deleteComunicado, addCommittee, updateCommittee, deleteCommittee, setCargos, setDependencias, setVinculaciones, state.aportes, state.porcentajeCuota, generateAportes, payAporte, decretarExtraordinaria, anticiparAporte, setPorcentajeCuota, state.presupuestos, setPresupuesto, resetDemo, notify],
   )
 
   return (

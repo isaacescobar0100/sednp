@@ -7,7 +7,7 @@ import { StatusBadge } from '../components/StatusBadge'
 import { useDemo } from '../store/DemoStore'
 import { useSession } from '../store/session'
 import { RowMenu, RowAction } from '../components/RowMenu'
-import { FirmaKey, Movement, MovementKind, MovementStatus, ejecucionPorRubro, expenseCategories, firmaLabel, firmasCount, formatCop, formatCopShort, incomeCategories, isoToLabel, monthlyFlow, nivelGasto, nivelLabel, todayISO } from '../store/finance'
+import { FirmaKey, Movement, MovementKind, MovementStatus, ejecucionPorRubro, ejecutadoRubro, expenseCategories, firmaLabel, firmasCount, formatCop, formatCopShort, incomeCategories, isoToLabel, monthlyFlow, nivelGasto, nivelLabel, requiereActaAsamblea, todayISO } from '../store/finance'
 import { TOPE_EXTRAORDINARIA, mesesVencidos, periodLabel, recentPeriods } from '../store/contributions'
 
 const statusTone: Record<MovementStatus, 'positive' | 'warning' | 'negative' | 'neutral' | 'night'> = {
@@ -150,18 +150,17 @@ export function FinancieroPage() {
   )
 }
 
-// Estado de mora de un aporte pendiente (Art. 47g / 49g): a los 30 días es
-// causal de amonestación; a los 60 días continuos, causal de exclusión.
-function moraDe(a: { status: string; period: string }): { meses: number; causal: '' | 'amonestacion' | 'exclusion' } {
-  if (a.status !== 'Pendiente') return { meses: 0, causal: '' }
+// Mora en el pago de cuotas: es causal disciplinaria (puede derivar en
+// exclusión). Los días/meses exactos se validan contra el estatuto; aquí se
+// marca el aporte vencido y, a mayor mora, se agrava el indicador.
+function moraDe(a: { status: string; period: string }): { meses: number; grave: boolean } {
+  if (a.status !== 'Pendiente') return { meses: 0, grave: false }
   const meses = mesesVencidos(a.period)
-  if (meses >= 2) return { meses, causal: 'exclusion' }
-  if (meses >= 1) return { meses, causal: 'amonestacion' }
-  return { meses, causal: '' }
+  return { meses: Math.max(0, meses), grave: meses >= 2 }
 }
 
 function AportesSection() {
-  const { aportes, affiliates, generateAportes, payAporte, porcentajeCuota } = useDemo()
+  const { aportes, affiliates, generateAportes, payAporte, anticiparAporte, porcentajeCuota } = useDemo()
   const { can } = useSession()
   const canCreate = can('finance.create')
   const canApprove = can('finance.approve')
@@ -174,7 +173,7 @@ function AportesSection() {
   const rows = aportes.filter((a) => a.period === period)
   const recaudado = rows.filter((a) => a.status === 'Pagado').reduce((s, a) => s + a.amount, 0)
   const pendiente = rows.filter((a) => a.status === 'Pendiente').reduce((s, a) => s + a.amount, 0)
-  const enMora = rows.filter((a) => moraDe(a).causal !== '').length
+  const enMora = rows.filter((a) => moraDe(a).meses >= 1).length
 
   return (
     <section className="mt-6 overflow-hidden rounded-2xl border border-ink/[0.08] bg-white">
@@ -206,19 +205,24 @@ function AportesSection() {
           <tbody className="divide-y divide-ink/[0.07]">
             {rows.map((a) => {
               const mora = moraDe(a)
+              const enMora = a.status === 'Pendiente' && mora.meses >= 1
               return (
                 <tr key={a.id} className="transition hover:bg-canvas/50">
                   <td className="px-5 py-3 text-sm font-medium text-ink">{nameOf(a.affiliateId)}</td>
                   <td className="px-5 py-3">
                     <span className={`inline-flex rounded-md px-2 py-0.5 text-[10px] font-semibold ${a.tipo === 'Extraordinaria' ? 'bg-amber-100 text-amber-700' : 'bg-ink/[0.06] text-ink/55'}`}>{a.tipo === 'Extraordinaria' ? `Extraordinaria${a.acta ? ` · Acta ${a.acta}` : ''}` : 'Ordinaria'}</span>
+                    {a.anticipada ? <span className="ml-1.5 inline-flex rounded-md bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-700">Anticipada · vacaciones</span> : null}
                   </td>
                   <td className="px-5 py-3 text-sm text-ink/60">{formatCop(a.amount)}</td>
                   <td className="px-5 py-3">
-                    <StatusBadge tone={a.status === 'Pagado' ? 'positive' : mora.causal ? 'negative' : 'warning'}>{a.status === 'Pagado' ? `Pagado${a.method ? ` · ${a.method}` : ''}` : mora.causal === 'exclusion' ? `En mora · ${mora.meses}m (exclusión)` : mora.causal === 'amonestacion' ? `En mora · ${mora.meses}m (amonestación)` : 'Pendiente'}</StatusBadge>
+                    <StatusBadge tone={a.status === 'Pagado' ? 'positive' : mora.grave ? 'negative' : enMora ? 'warning' : 'warning'}>{a.status === 'Pagado' ? `Pagado${a.method ? ` · ${a.method}` : ''}` : enMora ? `En mora · ${mora.meses}m${mora.grave ? ' (causal disciplinaria)' : ''}` : 'Pendiente'}</StatusBadge>
                   </td>
                   <td className="px-5 py-3 text-right">
                     {a.status === 'Pendiente' && canCreate ? (
-                      <button onClick={() => payAporte(a.id, 'Nómina')} className="rounded-lg border border-ink/12 px-3 py-1.5 text-xs font-semibold text-night transition hover:border-night hover:bg-night/5">Marcar pagado</button>
+                      <div className="flex items-center justify-end gap-1.5">
+                        {!a.anticipada && a.tipo === 'Ordinaria' ? <button onClick={() => anticiparAporte(a.id)} title="Descuento anticipado por vacaciones (Parágrafo Art. 32)" className="rounded-lg border border-ink/12 px-2.5 py-1.5 text-xs font-semibold text-ink/60 transition hover:border-night hover:text-night">Anticipar</button> : null}
+                        <button onClick={() => payAporte(a.id, 'Nómina')} className="rounded-lg border border-ink/12 px-3 py-1.5 text-xs font-semibold text-night transition hover:border-night hover:bg-night/5">Marcar pagado</button>
+                      </div>
                     ) : <span className="text-xs text-ink/35">—</span>}
                   </td>
                 </tr>
@@ -310,17 +314,24 @@ function PresupuestoSection() {
 }
 
 function MovementRow({ movement, onEdit }: { movement: Movement; onEdit: (m: Movement) => void }) {
-  const { setMovementStatus, deleteMovement, signMovement, notify } = useDemo()
+  const { setMovementStatus, updateMovement, deleteMovement, signMovement, notify } = useDemo()
   const { can, role } = useSession()
   const canManage = can('finance.create')
   const esEgreso = movement.kind === 'Egreso'
   const nFirmas = firmasCount(movement.firmas)
   const misFirma: FirmaKey | null = role === 'presidencia' ? 'presidente' : role === 'tesoreria' ? 'tesorero' : role === 'fiscal' ? 'fiscal' : null
+  const [askActa, setAskActa] = useState(false)
+  const requiereActa = requiereActaAsamblea(movement.nivel)
 
   function apply(next: MovementStatus) {
     setMovementStatus(movement.id, next)
     const verb = next === 'Aprobado' ? 'aprobado' : next === 'Rechazado' ? 'rechazado' : 'pagado'
     notify(`Gasto ${verb}: ${movement.concept}.`, next === 'Rechazado' ? 'warning' : 'success')
+  }
+  function approve() {
+    // Gastos 4–10 y >10 SMMLV requieren refrendación de la Asamblea (Art. 34).
+    if (requiereActa) { setAskActa(true); return }
+    apply('Aprobado')
   }
   function handleDelete() {
     if (window.confirm(`¿Eliminar el movimiento "${movement.concept}"?`)) deleteMovement(movement.id, movement.concept)
@@ -329,7 +340,7 @@ function MovementRow({ movement, onEdit }: { movement: Movement; onEdit: (m: Mov
   const menuActions: RowAction[] = []
   if (esEgreso) {
     if (movement.status === 'Por aprobar' && can('finance.approve')) {
-      menuActions.push({ label: 'Aprobar gasto', onClick: () => apply('Aprobado') })
+      menuActions.push({ label: requiereActa ? 'Aprobar (refrendar en Asamblea)' : 'Aprobar gasto', onClick: approve })
       menuActions.push({ label: 'Rechazar', danger: true, onClick: () => apply('Rechazado') })
     }
     if (movement.status === 'Aprobado') {
@@ -354,6 +365,7 @@ function MovementRow({ movement, onEdit }: { movement: Movement; onEdit: (m: Mov
         <p className="font-medium text-ink">{movement.concept}</p>
         {esEgreso && movement.nivel && (movement.status === 'Por aprobar' || movement.status === 'Aprobado') ? <p className="mt-0.5 text-[11px] text-ink/45">Aprobación: {nivelLabel[movement.nivel]}</p> : null}
         {esEgreso && movement.ordenPago ? <p className="mt-0.5 text-[11px] font-medium text-night/70">Orden de pago {movement.ordenPago}</p> : null}
+        {esEgreso && movement.actaAsamblea ? <p className="mt-0.5 text-[11px] text-ink/45">Refrendado por Asamblea · Acta {movement.actaAsamblea}</p> : null}
       </td>
       <td className="px-5 py-4 text-sm text-ink/55">{movement.category}</td>
       <td className="px-5 py-4">
@@ -373,8 +385,42 @@ function MovementRow({ movement, onEdit }: { movement: Movement; onEdit: (m: Mov
         ) : (
           <span className="text-ink/25">—</span>
         )}
+        {askActa ? (
+          <ActaAsambleaModal
+            movement={movement}
+            onClose={() => setAskActa(false)}
+            onConfirm={(acta) => {
+              updateMovement(movement.id, { status: 'Aprobado', actaAsamblea: acta })
+              notify(`Gasto aprobado y refrendado por la Asamblea (Acta ${acta}).`, 'success')
+              setAskActa(false)
+            }}
+          />
+        ) : null}
       </td>
     </tr>
+  )
+}
+
+// Refrendación de la Asamblea para gastos 4–10 y >10 SMMLV (Art. 34): sin el
+// acta no puede aprobarse el gasto.
+function ActaAsambleaModal({ movement, onConfirm, onClose }: { movement: Movement; onConfirm: (acta: string) => void; onClose: () => void }) {
+  const [acta, setActa] = useState('')
+  const dosTercios = movement.nivel === 'asamblea'
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-night/45 p-4" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl text-left" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h3 className="font-display text-lg font-semibold">Refrendación de la Asamblea</h3>
+          <button onClick={onClose} className="rounded-lg p-1 text-ink/50 hover:bg-canvas"><XIcon className="h-5 w-5" /></button>
+        </div>
+        <p className="mt-1 text-xs text-ink/55">{nivelLabel[movement.nivel ?? 'jd_asamblea']}. {dosTercios ? 'Requiere aprobación de 2/3 de la Asamblea.' : 'Requiere acta de la Junta y de la Asamblea.'} Registra el acta de la Asamblea que lo refrendó.</p>
+        <input value={acta} onChange={(e) => setActa(e.target.value)} placeholder="Acta de Asamblea No." className="mt-4 w-full rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night" autoFocus />
+        <div className="mt-5 flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-ink/60 hover:bg-canvas">Cancelar</button>
+          <button onClick={() => acta.trim() && onConfirm(acta.trim())} disabled={!acta.trim()} className="rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">Aprobar</button>
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -440,7 +486,7 @@ function EditMovementModal({ movement, onClose }: { movement: Movement; onClose:
 }
 
 function MovementModal({ kind, onClose }: { kind: MovementKind; onClose: () => void }) {
-  const { addMovement, smmlv } = useDemo()
+  const { addMovement, smmlv, presupuestos, movements } = useDemo()
   const categories = kind === 'Ingreso' ? incomeCategories : expenseCategories
   const [concept, setConcept] = useState('')
   const [category, setCategory] = useState(categories[0])
@@ -448,7 +494,17 @@ function MovementModal({ kind, onClose }: { kind: MovementKind; onClose: () => v
   const [dateISO, setDateISO] = useState(todayISO())
 
   const amount = Number(amountText.replace(/\D/g, ''))
-  const valid = concept.trim() !== '' && amount > 0 && dateISO !== ''
+
+  // Control presupuestal (Art. 34 / RN-FIN-026): un egreso no puede exceder el
+  // saldo disponible de su rubro; si el rubro no tiene presupuesto, se advierte.
+  const esEgreso = kind === 'Egreso'
+  const anual = esEgreso ? (presupuestos.find((p) => p.category === category)?.anual ?? 0) : 0
+  const ejecutado = esEgreso ? ejecutadoRubro(movements, category) : 0
+  const saldo = anual - ejecutado
+  const sinPresupuesto = esEgreso && anual === 0
+  const excedeSaldo = esEgreso && anual > 0 && amount > saldo
+
+  const valid = concept.trim() !== '' && amount > 0 && dateISO !== '' && !excedeSaldo
 
   function submit() {
     if (!valid) return
@@ -495,6 +551,21 @@ function MovementModal({ kind, onClose }: { kind: MovementKind; onClose: () => v
             <div className="rounded-xl border border-gold/25 bg-gold/[0.07] px-3 py-2.5 text-xs text-ink/65">
               Nivel de aprobación: <strong>{nivelLabel[nivelGasto(amount, smmlv)]}</strong>. Todo pago requiere firma de Presidente, Tesorero y Fiscal (Art. 35).
             </div>
+          ) : null}
+          {esEgreso ? (
+            excedeSaldo ? (
+              <div className="rounded-xl border border-rose-300 bg-rose-50 px-3 py-2.5 text-xs font-medium text-rose-700">
+                El gasto excede el saldo del rubro <strong>{category}</strong>: disponible {formatCop(Math.max(0, saldo))} de {formatCop(anual)}. Sin autorización de la Asamblea no puede erogarse (Art. 34).
+              </div>
+            ) : sinPresupuesto ? (
+              <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs text-amber-700">
+                El rubro <strong>{category}</strong> no tiene presupuesto asignado. Defínelo en Parámetros para controlar su ejecución.
+              </div>
+            ) : (
+              <div className="rounded-xl border border-ink/10 bg-canvas/50 px-3 py-2.5 text-xs text-ink/60">
+                Saldo del rubro <strong>{category}</strong>: {formatCop(Math.max(0, saldo))} disponible de {formatCop(anual)}.
+              </div>
+            )
           ) : null}
         </div>
 

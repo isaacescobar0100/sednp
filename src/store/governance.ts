@@ -28,6 +28,10 @@ export function quorumMinimo(activos: number): number {
   return Math.floor(activos / 2) + 1
 }
 
+// Si los afiliados superan 100, la Asamblea se realiza por Delegados y el
+// quórum se calcula sobre el número de delegados, no sobre el total.
+export const UMBRAL_DELEGADOS = 100
+
 export type VoteStatus = 'En curso' | 'Cerrada'
 
 export type Ballot = {
