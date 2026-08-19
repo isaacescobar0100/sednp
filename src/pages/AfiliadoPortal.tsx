@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { CheckCircle2Icon, CircleDollarSignIcon, DownloadIcon, FileTextIcon, IdCardIcon, LogOutIcon, MailIcon, VoteIcon } from 'lucide-react'
+import { BadgeCheckIcon, Building2Icon, BriefcaseIcon, CalendarDaysIcon, CheckCircle2Icon, CircleDollarSignIcon, DownloadIcon, FileTextIcon, HashIcon, IdCardIcon, LogOutIcon, MailIcon, MapPinIcon, PhoneIcon, TagIcon, UserRoundIcon, VoteIcon, WalletIcon } from 'lucide-react'
 import { useDemo } from '../store/DemoStore'
 import { StatusBadge } from '../components/StatusBadge'
 import { Ballot, totalVotes, votePct } from '../store/governance'
@@ -80,36 +80,94 @@ export function AfiliadoPortal({ affiliateId, onLogout }: { affiliateId: string;
 }
 
 function Perfil({ me }: { me: ReturnType<typeof useDemo>['affiliates'][number] }) {
-  const rows: Array<[string, string]> = [
-    ['No. de solicitud', me.solicitudNo || '—'],
-    ['Documento', me.doc],
-    ['Correo', me.email],
-    ['Teléfono', me.phone || '—'],
-    ['Dirección', me.address || '—'],
-    ['Cargo titular', me.cargoTitular || '—'],
-    ['Cargo que ocupa', me.role || '—'],
-    ['Dependencia', me.dependency || '—'],
-    ['Tipo de vinculación', me.type || '—'],
-    ['Asignación básica', me.asignacionBasica ? formatCop(me.asignacionBasica) : '—'],
-    ['Fecha de vinculación', me.joinDate || '—'],
-    ['Aprobación', me.aprobacionActa ? `Acta ${me.aprobacionActa}` : '—'],
-  ]
+  const { porcentajeCuota, aportes } = useDemo()
+  const initials = me.name.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase()
+  const cuota = Math.round((me.asignacionBasica || 0) * porcentajeCuota)
+  const misPendientes = aportes.filter((a) => a.affiliateId === me.id && a.status === 'Pendiente').length
+
   return (
-    <section className="rounded-2xl border border-ink/[0.08] bg-white p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold">Mi afiliación</p>
-          <h1 className="mt-1 font-display text-2xl font-semibold text-ink">{me.name}</h1>
+    <div className="space-y-6">
+      {/* Hero */}
+      <section className="overflow-hidden rounded-3xl border border-ink/[0.08] bg-gradient-to-br from-night to-night-deep text-white shadow-[0_16px_40px_rgba(15,27,61,0.18)]">
+        <div className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:p-8">
+          <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-gold font-display text-3xl font-bold text-night shadow-lg">{initials}</div>
+          <div className="min-w-0 flex-1">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">Mi afiliación</p>
+            <h1 className="mt-1 truncate font-display text-2xl font-semibold sm:text-3xl">{me.name}</h1>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 font-medium text-white/80"><HashIcon className="h-3.5 w-3.5 text-gold" />{me.solicitudNo || '—'}</span>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 font-medium text-white/80"><TagIcon className="h-3.5 w-3.5 text-gold" />{me.type || '—'}</span>
+              {me.aprobacionActa ? <span className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-1 font-medium text-white/80"><BadgeCheckIcon className="h-3.5 w-3.5 text-gold" />Acta {me.aprobacionActa}</span> : null}
+            </div>
+          </div>
+          <div className="shrink-0 sm:self-start">
+            <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${me.status === 'Activo' ? 'bg-emerald-400/20 text-emerald-200' : me.status === 'Retirado' ? 'bg-rose-400/20 text-rose-200' : 'bg-amber-400/20 text-amber-200'}`}>
+              <span className={`h-1.5 w-1.5 rounded-full ${me.status === 'Activo' ? 'bg-emerald-300' : me.status === 'Retirado' ? 'bg-rose-300' : 'bg-amber-300'}`} />{me.status}
+            </span>
+          </div>
         </div>
-        <StatusBadge tone={statusTone[me.status] ?? 'neutral'}>{me.status}</StatusBadge>
+      </section>
+
+      {/* Resumen */}
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard icon={WalletIcon} label="Asignación básica" value={me.asignacionBasica ? formatCop(me.asignacionBasica) : '—'} />
+        <StatCard icon={CircleDollarSignIcon} label={`Cuota mensual (${(porcentajeCuota * 100).toLocaleString('es-CO', { maximumFractionDigits: 2 })}%)`} value={cuota ? formatCop(cuota) : '—'} />
+        <StatCard icon={CheckCircle2Icon} label="Aportes pendientes" value={misPendientes === 0 ? 'Al día' : `${misPendientes} pendiente(s)`} tone={misPendientes === 0 ? 'green' : 'gold'} />
+        <StatCard icon={CalendarDaysIcon} label="Afiliado desde" value={me.joinDate || '—'} />
       </div>
-      <dl className="mt-6 grid gap-x-8 gap-y-4 sm:grid-cols-2">
-        {rows.map(([label, value]) => (
-          <div key={label} className="flex items-center gap-3 border-b border-ink/[0.06] pb-3">
-            <IdCardIcon className="h-4 w-4 shrink-0 text-gold" />
+
+      {/* Grupos de información */}
+      <div className="grid gap-6 lg:grid-cols-2">
+        <InfoCard title="Datos personales" icon={UserRoundIcon} items={[
+          { icon: IdCardIcon, label: 'Documento', value: me.doc },
+          { icon: MailIcon, label: 'Correo', value: me.email, truncate: true },
+          { icon: PhoneIcon, label: 'Teléfono', value: me.phone || '—' },
+          { icon: MapPinIcon, label: 'Dirección', value: me.address || '—' },
+        ]} />
+        <InfoCard title="Información laboral" icon={BriefcaseIcon} items={[
+          { icon: BriefcaseIcon, label: 'Cargo titular', value: me.cargoTitular || '—' },
+          { icon: BriefcaseIcon, label: 'Cargo que ocupa', value: me.role || '—' },
+          { icon: Building2Icon, label: 'Dependencia', value: me.dependency || '—' },
+          { icon: TagIcon, label: 'Tipo de vinculación', value: me.type || '—' },
+        ]} />
+      </div>
+
+      <InfoCard title="Afiliación" icon={BadgeCheckIcon} columns={3} items={[
+        { icon: HashIcon, label: 'No. de solicitud', value: me.solicitudNo || '—' },
+        { icon: CalendarDaysIcon, label: 'Fecha de vinculación', value: me.joinDate || '—' },
+        { icon: BadgeCheckIcon, label: 'Aprobación', value: me.aprobacionActa ? `Acta ${me.aprobacionActa}` : 'Pendiente' },
+      ]} />
+    </div>
+  )
+}
+
+function StatCard({ icon: Icon, label, value, tone = 'night' }: { icon: typeof WalletIcon; label: string; value: string; tone?: 'night' | 'gold' | 'green' }) {
+  const toneCls = tone === 'green' ? 'bg-emerald-50 text-emerald-600' : tone === 'gold' ? 'bg-gold/15 text-gold' : 'bg-canvas text-night'
+  return (
+    <div className="rounded-2xl border border-ink/[0.08] bg-white p-4">
+      <div className={`flex h-9 w-9 items-center justify-center rounded-xl ${toneCls}`}><Icon className="h-5 w-5" strokeWidth={1.8} /></div>
+      <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/40">{label}</p>
+      <p className="mt-0.5 truncate font-display text-lg font-semibold text-ink">{value}</p>
+    </div>
+  )
+}
+
+type InfoItem = { icon: typeof WalletIcon; label: string; value: string; truncate?: boolean }
+
+function InfoCard({ title, icon: Icon, items, columns = 2 }: { title: string; icon: typeof WalletIcon; items: InfoItem[]; columns?: 2 | 3 }) {
+  return (
+    <section className="rounded-2xl border border-ink/[0.08] bg-white p-5 sm:p-6">
+      <div className="mb-4 flex items-center gap-2.5">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-canvas text-night"><Icon className="h-4 w-4" strokeWidth={1.8} /></div>
+        <h2 className="font-display text-sm font-semibold text-ink">{title}</h2>
+      </div>
+      <dl className={`grid gap-4 sm:grid-cols-2 ${columns === 3 ? 'lg:grid-cols-3' : ''}`}>
+        {items.map((it) => (
+          <div key={it.label} className="flex items-start gap-3">
+            <div className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-canvas/70 text-gold"><it.icon className="h-3.5 w-3.5" strokeWidth={1.9} /></div>
             <div className="min-w-0">
-              <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/40">{label}</dt>
-              <dd className="truncate text-sm text-ink/80">{value}</dd>
+              <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/40">{it.label}</dt>
+              <dd className={`text-sm font-medium text-ink/85 ${it.truncate ? 'truncate' : 'break-words'}`}>{it.value}</dd>
             </div>
           </div>
         ))}
