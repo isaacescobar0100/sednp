@@ -24,6 +24,9 @@ export type Affiliate = {
   motivo: string // por qué le gustaría pertenecer al sindicato
   interesComites: string // interés en participar en comités u observaciones
   solicitudNo: string // número de solicitud de afiliación
+  conceptoFiscal?: 'Positivo' | 'Negativo' // concepto del Fiscal (Art. 25g)
+  aprobacionActa?: string // acta de la Junta que aprobó (Art. 5d)
+  aprobacionFecha?: string // fecha de aprobación
   joinDate: string
   status: AffiliateStatus
 }

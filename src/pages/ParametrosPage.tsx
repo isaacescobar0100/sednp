@@ -26,6 +26,10 @@ export function ParametrosPage() {
           <CuotaCard />
           <SmmlvCard />
 
+          <div className="xl:col-span-2">
+            <PresupuestoCard />
+          </div>
+
           <ListCatalog
             title="Cargos"
             hint="Cargos disponibles al vincular un afiliado."
@@ -118,6 +122,46 @@ function SmmlvCard() {
         </div>
       </div>
     </section>
+  )
+}
+
+// Presupuesto anual por rubro de gasto (Art. 11f/26). La Junta lo aprueba y el
+// módulo Financiero controla su ejecución.
+function PresupuestoCard() {
+  const { presupuestos, setPresupuesto } = useDemo()
+
+  return (
+    <section className="rounded-2xl border border-ink/[0.08] bg-white p-5">
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-canvas text-night"><CircleDollarSignIcon className="h-5 w-5" strokeWidth={1.8} /></div>
+        <div>
+          <h2 className="font-display text-base font-semibold">Presupuesto anual por rubro</h2>
+          <p className="text-xs text-ink/50">Monto aprobado por rubro de gasto; su ejecución se controla en Financiero.</p>
+        </div>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+        {presupuestos.map((p) => <PresupuestoRubro key={p.category} category={p.category} anual={p.anual} onSave={(v) => setPresupuesto(p.category, v)} />)}
+      </div>
+    </section>
+  )
+}
+
+function PresupuestoRubro({ category, anual, onSave }: { category: string; anual: number; onSave: (v: number) => void }) {
+  const [text, setText] = useState(String(anual))
+  const value = Number(text.replace(/\D/g, ''))
+  const dirty = value !== anual
+
+  return (
+    <div className="rounded-xl border border-ink/10 bg-canvas/40 p-3">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-semibold text-ink">{category}</span>
+        <span className="text-[11px] text-ink/45">actual: {formatCop(anual)}</span>
+      </div>
+      <div className="mt-2 flex gap-2">
+        <input value={text} onChange={(e) => setText(e.target.value)} inputMode="numeric" className="w-full rounded-lg border border-ink/12 bg-white px-3 py-2 text-sm outline-none focus:border-night" placeholder="Monto anual" />
+        <button onClick={() => onSave(value)} disabled={!dirty} className="shrink-0 rounded-lg bg-night px-3 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">Guardar</button>
+      </div>
+    </div>
   )
 }
 

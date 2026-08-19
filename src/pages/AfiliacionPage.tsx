@@ -27,6 +27,7 @@ export function AfiliacionPage() {
   const [page, setPage] = useState(1)
   const [showEnrollment, setShowEnrollment] = useState(false)
   const [editing, setEditing] = useState<Affiliate | null>(null)
+  const [approving, setApproving] = useState<Affiliate | null>(null)
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -81,7 +82,7 @@ export function AfiliacionPage() {
         <div className="mb-5 flex items-start gap-3 rounded-xl border border-gold/30 bg-gold/[0.08] px-4 py-3 text-sm text-ink/70">
           <LockIcon className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
           <p>
-            Puedes <strong>registrar y consultar</strong> afiliados. La <strong>aprobación y las novedades</strong> (suspender, reactivar, retirar) las realiza la <strong>Presidencia</strong>.
+            Flujo de afiliación (Art. 5): la Secretaría <strong>registra</strong> → el <strong>Fiscal</strong> emite concepto → la <strong>Junta Directiva</strong> aprueba con acta.
           </p>
         </div>
       ) : null}
@@ -124,7 +125,7 @@ export function AfiliacionPage() {
             </thead>
             <tbody className="divide-y divide-ink/[0.07]">
               {pageRows.map((item) => (
-                <AffiliateRow key={item.id} affiliate={item} onEdit={setEditing} />
+                <AffiliateRow key={item.id} affiliate={item} onEdit={setEditing} onApprove={setApproving} />
               ))}
               {rows.length === 0 ? (
                 <tr>
@@ -171,6 +172,43 @@ export function AfiliacionPage() {
 
       {showEnrollment ? <EnrollmentModal onClose={() => setShowEnrollment(false)} /> : null}
       {editing ? <EditAffiliateModal affiliate={editing} onClose={() => setEditing(null)} /> : null}
+      {approving ? <ApproveModal affiliate={approving} onClose={() => setApproving(null)} /> : null}
+    </div>
+  )
+}
+
+function ApproveModal({ affiliate, onClose }: { affiliate: Affiliate; onClose: () => void }) {
+  const { approveAffiliate } = useDemo()
+  const [acta, setActa] = useState('')
+  const valid = acta.trim() !== ''
+
+  function save() {
+    if (!valid) return
+    approveAffiliate(affiliate.id, acta.trim())
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-night/45 p-4">
+      <section role="dialog" aria-modal="true" className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl">
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold">Afiliación</p>
+            <h2 className="mt-1 font-display text-xl font-semibold">Aprobar afiliación</h2>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-2 text-ink/50 hover:bg-canvas" aria-label="Cerrar"><XIcon className="h-5 w-5" /></button>
+        </div>
+        <p className="text-sm text-ink/60"><strong>{affiliate.name}</strong> · Concepto del Fiscal: <span className="font-semibold text-emerald-700">Positivo</span></p>
+        <p className="mt-3 rounded-xl border border-gold/25 bg-gold/[0.07] px-3 py-2.5 text-xs text-ink/60">La Junta Directiva aprueba la afiliación mediante acta (Art. 5d). El afiliado quedará <strong>Activo</strong> y podrá acceder a su portal.</p>
+        <label className="mt-4 block">
+          <span className="mb-1.5 block text-xs font-semibold text-ink/70">Acta No. de la Junta Directiva <span className="text-brick">*</span></span>
+          <input value={acta} onChange={(e) => setActa(e.target.value)} placeholder="Ej. 011" className="w-full rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
+        </label>
+        <div className="mt-6 flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-ink/60 hover:bg-canvas">Cancelar</button>
+          <button onClick={save} disabled={!valid} className="rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">Aprobar afiliación</button>
+        </div>
+      </section>
     </div>
   )
 }
@@ -188,25 +226,27 @@ function StatChip({ label, value, tone = 'neutral' }: { label: string; value: nu
   )
 }
 
-// Acciones disponibles según el estado actual del afiliado.
+// Acciones de estado para afiliados ya aprobados (Pendiente se maneja aparte).
 function actionsFor(status: AffiliateStatus): Array<{ label: string; next: AffiliateStatus; danger?: boolean }> {
   switch (status) {
-    case 'Pendiente':
-      return [{ label: 'Aprobar afiliación', next: 'Activo' }, { label: 'Rechazar', next: 'Retirado', danger: true }]
     case 'Activo':
       return [{ label: 'Suspender', next: 'Suspendido' }, { label: 'Retirar', next: 'Retirado', danger: true }]
     case 'Suspendido':
       return [{ label: 'Reactivar', next: 'Activo' }, { label: 'Retirar', next: 'Retirado', danger: true }]
     case 'Retirado':
       return [{ label: 'Reactivar', next: 'Activo' }]
+    default:
+      return []
   }
 }
 
-function AffiliateRow({ affiliate, onEdit }: { affiliate: Affiliate; onEdit: (a: Affiliate) => void }) {
-  const { setAffiliateStatus, notify } = useDemo()
+function AffiliateRow({ affiliate, onEdit, onApprove }: { affiliate: Affiliate; onEdit: (a: Affiliate) => void; onApprove: (a: Affiliate) => void }) {
+  const { setAffiliateStatus, conceptAffiliate, notify } = useDemo()
   const { can } = useSession()
   const canManage = can('affiliates.changeStatus')
   const canEdit = can('affiliates.create')
+  const canConcept = can('affiliates.concept')
+  const pendiente = affiliate.status === 'Pendiente'
 
   function apply(next: AffiliateStatus) {
     setAffiliateStatus(affiliate.id, next)
@@ -215,7 +255,19 @@ function AffiliateRow({ affiliate, onEdit }: { affiliate: Affiliate; onEdit: (a:
 
   const menuActions: RowAction[] = []
   if (canEdit) menuActions.push({ label: 'Editar datos', onClick: () => onEdit(affiliate) })
-  if (canManage) menuActions.push(...actionsFor(affiliate.status).map((a) => ({ label: a.label, danger: a.danger, onClick: () => apply(a.next) })))
+  if (pendiente) {
+    // Flujo de aprobación: concepto del Fiscal (Art. 25g) → aprueba la Junta (Art. 5d).
+    if (canConcept && !affiliate.conceptoFiscal) {
+      menuActions.push({ label: 'Concepto Fiscal: Positivo', onClick: () => conceptAffiliate(affiliate.id, 'Positivo') })
+      menuActions.push({ label: 'Concepto Fiscal: Negativo', danger: true, onClick: () => conceptAffiliate(affiliate.id, 'Negativo') })
+    }
+    if (canManage) {
+      if (affiliate.conceptoFiscal === 'Positivo') menuActions.push({ label: 'Aprobar afiliación (Junta)', onClick: () => onApprove(affiliate) })
+      menuActions.push({ label: 'Rechazar', danger: true, onClick: () => apply('Retirado') })
+    }
+  } else if (canManage) {
+    menuActions.push(...actionsFor(affiliate.status).map((a) => ({ label: a.label, danger: a.danger, onClick: () => apply(a.next) })))
+  }
 
   return (
     <tr className="transition hover:bg-canvas/50">
@@ -228,6 +280,13 @@ function AffiliateRow({ affiliate, onEdit }: { affiliate: Affiliate; onEdit: (a:
       <td className="px-5 py-4 text-sm text-ink/60">{affiliate.type}</td>
       <td className="px-5 py-4">
         <StatusBadge tone={toneForStatus[affiliate.status]}>{affiliate.status}</StatusBadge>
+        {pendiente ? (
+          <p className={`mt-1 text-[11px] ${affiliate.conceptoFiscal === 'Positivo' ? 'text-emerald-700' : affiliate.conceptoFiscal === 'Negativo' ? 'text-brick' : 'text-ink/45'}`}>
+            Concepto Fiscal: {affiliate.conceptoFiscal ?? 'pendiente'}
+          </p>
+        ) : affiliate.aprobacionActa ? (
+          <p className="mt-1 text-[11px] text-ink/45">Acta {affiliate.aprobacionActa}</p>
+        ) : null}
       </td>
       <td className="px-5 py-4 text-right">
         {menuActions.length > 0 ? (

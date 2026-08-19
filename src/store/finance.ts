@@ -23,16 +23,50 @@ export type Movement = {
   status: MovementStatus
   nivel?: NivelGasto // solo egresos
   firmas?: Firmas // solo egresos
+  ordenPago?: string // consecutivo de la orden de pago al egresarse (Art. 26)
 }
 
 export const incomeCategories = ['Recaudo', 'Ingresos varios', 'Reintegros']
+// Rubros de gasto = cuentas del presupuesto (alineadas al PUC sindical).
 export const expenseCategories = ['Bienestar', 'Formación', 'Defensa', 'Operación']
+
+// Presupuesto anual por rubro (Art. 11f/26): la Junta lo aprueba y se controla
+// su ejecución contra los egresos comprometidos.
+export type Presupuesto = { category: string; anual: number }
+
+// Consecutivo de la orden de pago del año en curso: OP-2026-001.
+export function nextOrdenPago(movements: Movement[]): string {
+  const year = 2026
+  const nums = movements
+    .map((m) => /^OP-(\d{4})-(\d+)$/.exec(m.ordenPago || ''))
+    .filter((x): x is RegExpExecArray => x !== null && Number(x[1]) === year)
+    .map((x) => Number(x[2]))
+  const next = (nums.length ? Math.max(...nums) : 0) + 1
+  return `OP-${year}-${String(next).padStart(3, '0')}`
+}
+
+// Ejecución presupuestal por rubro: comprometido = egresos Aprobado o Pagado.
+export function ejecucionPorRubro(movements: Movement[], presupuestos: Presupuesto[]): Array<{ category: string; anual: number; ejecutado: number; pct: number }> {
+  return expenseCategories.map((category) => {
+    const anual = presupuestos.find((p) => p.category === category)?.anual ?? 0
+    const ejecutado = movements
+      .filter((m) => m.kind === 'Egreso' && m.category === category && (m.status === 'Aprobado' || m.status === 'Pagado'))
+      .reduce((s, m) => s + m.amount, 0)
+    const pct = anual > 0 ? Math.round((ejecutado / anual) * 100) : 0
+    return { category, anual, ejecutado, pct }
+  })
+}
+
+// Presupuesto inicial en cero (se define en Parámetros).
+export function seedPresupuestos(): Presupuesto[] {
+  return expenseCategories.map((category) => ({ category, anual: 0 }))
+}
 
 // SMMLV por defecto (parámetro configurable — se actualiza cada enero).
 export const DEFAULT_SMMLV = 1_423_500
 
 export const nivelLabel: Record<NivelGasto, string> = {
-  tesoreria: 'Tesorería (≤ 1 SMMLV)',
+  tesoreria: 'Caja menor · Tesorería (≤ 1 SMMLV)',
   junta: 'Junta Directiva (1–4 SMMLV)',
   jd_asamblea: 'Junta + Asamblea (4–10 SMMLV)',
   asamblea: 'Asamblea 2/3 (> 10 SMMLV)',

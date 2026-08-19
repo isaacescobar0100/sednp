@@ -3,8 +3,8 @@ import { CalendarDaysIcon, CheckCircle2Icon, FileTextIcon, LockIcon, PlusIcon, T
 import { SectionTitle } from '../components/SectionTitle'
 import { StatusBadge } from '../components/StatusBadge'
 import { useDemo } from '../store/DemoStore'
-import { useSession } from '../store/session'
-import { Ballot, GovSession, dayMonthFromISO, formatTime, longDateLabel, meetingPlaces, totalVotes, votePct } from '../store/governance'
+import { juntaDirectiva, useSession } from '../store/session'
+import { Ballot, GovSession, actoLabel, dayMonthFromISO, formatTime, longDateLabel, meetingPlaces, quorumMinimo, totalVotes, votePct } from '../store/governance'
 
 type VoteChoice = 'favor' | 'contra' | 'abstencion'
 
@@ -75,7 +75,11 @@ export function GobernanzaPage() {
           {lastMinutes ? (
             <>
               <h2 className="mt-2 font-display text-lg font-semibold leading-snug">{lastMinutes.title}</h2>
+              <p className="mt-1 text-xs font-semibold text-gold/90">{actoLabel(lastMinutes.organ)} · {lastMinutes.organ}</p>
               <p className="mt-3 text-sm leading-relaxed text-white/62">{lastMinutes.minutes}</p>
+              {typeof lastMinutes.asistentes === 'number' ? (
+                <p className={`mt-3 text-xs font-semibold ${lastMinutes.quorum ? 'text-emerald-300' : 'text-rose-300'}`}>{lastMinutes.asistentes} asistentes · {lastMinutes.quorum ? 'con quórum' : 'sin quórum'}</p>
+              ) : null}
               <div className="mt-6 flex items-center justify-between">
                 <span className="text-xs text-white/50">{lastMinutes.day} {lastMinutes.month} · {lastMinutes.organ}</span>
                 <span className="rounded-lg bg-white/10 px-3 py-2 text-xs font-semibold text-white">Publicada</span>
@@ -99,6 +103,34 @@ export function GobernanzaPage() {
           {ballots.map((b) => <BallotCard key={b.id} ballot={b} />)}
         </div>
       </div>
+
+      <section className="mt-8 overflow-hidden rounded-2xl border border-ink/[0.08] bg-white">
+        <div className="border-b border-ink/[0.07] p-5">
+          <h2 className="font-display text-base font-semibold">Junta Directiva Nacional</h2>
+          <p className="mt-1 text-xs text-ink/50">Composición reglamentaria (Art. 13): cada cargo con principal y suplente.</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[520px] text-left">
+            <thead className="bg-canvas/65 text-[10px] uppercase tracking-[0.12em] text-ink/45">
+              <tr>
+                <th className="px-5 py-3 font-semibold">Cargo</th>
+                <th className="px-5 py-3 font-semibold">Principal</th>
+                <th className="px-5 py-3 font-semibold">Suplente</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-ink/[0.07]">
+              {juntaDirectiva.map((j) => (
+                <tr key={j.cargo}>
+                  <td className="px-5 py-3 text-sm font-medium text-ink">{j.cargo}</td>
+                  <td className="px-5 py-3 text-sm text-ink/70">{j.principal}</td>
+                  <td className="px-5 py-3 text-sm text-ink/45">{j.suplente}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <p className="px-5 py-3 text-[11px] text-ink/40">La Junta se elige por la Asamblea General para periodos de dos (2) años (Art. 13).</p>
+      </section>
 
       {showSchedule ? <ScheduleModal onClose={() => setShowSchedule(false)} /> : null}
       {minutesFor ? <MinutesModal session={minutesFor} onClose={() => setMinutesFor(null)} /> : null}
@@ -132,8 +164,8 @@ function BallotCard({ ballot }: { ballot: Ballot }) {
     <section className="rounded-2xl border border-ink/[0.08] bg-white p-5">
       <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold">{open ? 'Votación en curso' : 'Votación cerrada'}</p>
-          <h2 className="mt-1 font-display text-lg font-semibold">{ballot.title}</h2>
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold">{open ? 'Votación en curso' : 'Votación cerrada'}{ballot.secreta ? ' · secreta' : ''}</p>
+          <h2 className="mt-1 flex items-center gap-2 font-display text-lg font-semibold">{ballot.title}{ballot.secreta ? <span className="inline-flex items-center gap-1 rounded-md bg-night/[0.06] px-2 py-0.5 text-[10px] font-semibold text-night/70"><LockIcon className="h-3 w-3" />Secreta</span> : null}</h2>
           <p className="mt-1 text-sm text-ink/50">{open ? `Cierre de votación: ${ballot.closesAt}` : 'Votación finalizada'}</p>
         </div>
         <div className="flex items-center gap-2">
@@ -254,23 +286,42 @@ function ScheduleModal({ onClose }: { onClose: () => void }) {
 }
 
 function MinutesModal({ session, onClose }: { session: GovSession; onClose: () => void }) {
-  const { publishMinutes } = useDemo()
+  const { publishMinutes, affiliates } = useDemo()
   const [minutes, setMinutes] = useState('')
-  const valid = minutes.trim() !== ''
+  const [asistentesText, setAsistentesText] = useState('')
+  const esAsamblea = session.organ === 'Asamblea'
+  const acto = actoLabel(session.organ)
+  const activos = affiliates.filter((a) => a.status === 'Activo').length
+  const minimo = quorumMinimo(activos)
+  const asistentes = Number(asistentesText.replace(/\D/g, ''))
+  const hayQuorum = asistentes >= minimo
+  const valid = minutes.trim() !== '' && (!esAsamblea || asistentesText.trim() !== '')
 
   function submit() {
     if (!valid) return
-    publishMinutes(session.id, minutes.trim())
+    publishMinutes(session.id, minutes.trim(), esAsamblea ? asistentes : undefined, esAsamblea ? hayQuorum : undefined)
     onClose()
   }
 
   return (
-    <ModalShell eyebrow="Acta de sesión" title={session.title} onClose={onClose}>
-      <p className="-mt-1 mb-4 text-sm text-ink/50">La sesión quedará marcada como <strong>Realizada</strong> y el acta se publicará.</p>
-      <ModalField label="Resumen del acta" required>
+    <ModalShell eyebrow={`Acta · ${acto}`} title={session.title} onClose={onClose}>
+      <p className="-mt-1 mb-4 text-sm text-ink/50">La sesión quedará <strong>Realizada</strong> y su {acto.toLowerCase()} se publicará.</p>
+      {esAsamblea ? (
+        <div className="mb-4">
+          <ModalField label={`Asistentes (quórum mínimo: ${minimo} de ${activos} activos)`} required>
+            <input value={asistentesText} onChange={(e) => setAsistentesText(e.target.value)} inputMode="numeric" placeholder="N.º de asistentes" className={inputClass} />
+          </ModalField>
+          {asistentesText.trim() !== '' ? (
+            <p className={`mt-2 text-xs font-semibold ${hayQuorum ? 'text-emerald-700' : 'text-rose-600'}`}>
+              {hayQuorum ? `Quórum alcanzado (mitad más uno, Art. 10).` : `Sin quórum: se requieren al menos ${minimo} asistentes.`}
+            </p>
+          ) : null}
+        </div>
+      ) : null}
+      <ModalField label={`Resumen del ${acto.toLowerCase()}`} required>
         <textarea value={minutes} onChange={(e) => setMinutes(e.target.value)} rows={4} placeholder="Decisiones y acuerdos de la sesión…" className={`${inputClass} resize-none`} />
       </ModalField>
-      <ModalActions onClose={onClose} onSubmit={submit} disabled={!valid} label="Publicar acta" />
+      <ModalActions onClose={onClose} onSubmit={submit} disabled={!valid} label={`Publicar ${acto.toLowerCase()}`} />
     </ModalShell>
   )
 }
@@ -280,12 +331,13 @@ function BallotModal({ onClose }: { onClose: () => void }) {
   const [title, setTitle] = useState('')
   const [date, setDate] = useState('')
   const [time, setTime] = useState('17:00')
+  const [secreta, setSecreta] = useState(false)
   const valid = title.trim() !== ''
 
   function submit() {
     if (!valid) return
     const closesAt = date ? [longDateLabel(date), formatTime(time)].filter(Boolean).join(' · ') : 'Sin fecha de cierre'
-    addBallot({ title: title.trim(), closesAt })
+    addBallot({ title: title.trim(), closesAt, secreta })
     onClose()
   }
 
@@ -297,6 +349,10 @@ function BallotModal({ onClose }: { onClose: () => void }) {
           <ModalField label="Fecha de cierre"><input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputClass} /></ModalField>
           <ModalField label="Hora de cierre"><input type="time" value={time} onChange={(e) => setTime(e.target.value)} className={inputClass} /></ModalField>
         </div>
+        <label className="flex items-start gap-2.5 rounded-xl border border-ink/10 bg-canvas/40 p-3">
+          <input type="checkbox" checked={secreta} onChange={(e) => setSecreta(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-ink/25 text-night focus:ring-night" />
+          <span className="text-xs text-ink/70"><strong className="text-ink">Votación secreta</strong> (Art. 12b) — se muestran solo los resultados agregados; no se revela el sentido del voto de cada participante.</span>
+        </label>
       </div>
       <ModalActions onClose={onClose} onSubmit={submit} disabled={!valid} label="Abrir votación" />
     </ModalShell>

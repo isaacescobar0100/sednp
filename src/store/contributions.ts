@@ -5,15 +5,25 @@
 export type AporteStatus = 'Pendiente' | 'Pagado'
 export type AporteMethod = 'Portal' | 'Nómina'
 
+export type AporteTipo = 'Ordinaria' | 'Extraordinaria'
+
 export type Aporte = {
   id: string
   affiliateId: string
   period: string // 'YYYY-MM'
   amount: number
+  tipo: AporteTipo
   status: AporteStatus
+  acta?: string // acta de Asamblea que decretó la extraordinaria (Art. 33)
   paidDate?: string
   method?: AporteMethod
 }
+
+// Tope de la cuota extraordinaria: 3% de la asignación básica (Art. 33).
+export const TOPE_EXTRAORDINARIA = 0.03
+
+// Distribución del recaudo: 80% JDN / 20% subdirectivas (Art. 32).
+export const DISTRIBUCION_JDN = 0.8
 
 // Cuota ordinaria = 0,3% de la asignación básica mensual (Art. 32 Estatutos).
 // Es el porcentaje el que se parametriza, no un monto fijo.
@@ -35,6 +45,13 @@ export function periodLabel(period: string): string {
 export function currentPeriod(): string {
   const d = new Date()
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+}
+
+// Meses vencidos de un periodo respecto al mes en curso (para calcular mora).
+export function mesesVencidos(period: string): number {
+  const [cy, cm] = currentPeriod().split('-').map(Number)
+  const [py, pm] = period.split('-').map(Number)
+  return (cy - py) * 12 + (cm - pm)
 }
 
 // Últimos n periodos (YYYY-MM), del más reciente al más antiguo.
