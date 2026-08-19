@@ -38,13 +38,13 @@ Se puede cambiar de rol en caliente desde el conmutador del encabezado. El botó
 | Módulo | Qué hace | Rol operador |
 |---|---|---|
 | **Dashboard** | KPIs y actividad en vivo (según el rol) | Todos |
-| **Afiliación** | Registrar, aprobar, editar y gestionar afiliados | Secretaría / Presidencia |
-| **Financiero** | Ingresos/egresos, aprobación de gastos por SMMLV, triple firma, aportes 0,3% | Tesorería / Presidencia / Fiscal |
-| **Disciplinario** | Expedientes por etapas y fallo (amonestación/multa/exclusión) | Fiscal / Presidencia |
-| **Gobernanza** | Sesiones, actas y votaciones | Secretaría / Presidencia |
+| **Afiliación** | Registrar → concepto del Fiscal → aprobación de la Junta con acta | Secretaría / Fiscal / Presidencia |
+| **Financiero** | Ingresos/egresos, aprobación por SMMLV, triple firma, orden de pago, presupuesto por rubro, aportes 0,3% + cuota extraordinaria | Tesorería / Presidencia / Fiscal |
+| **Disciplinario** | Expedientes por etapas con términos, fallo, multa→Financiero y recursos (reposición/apelación) | Fiscal / Presidencia |
+| **Gobernanza** | Sesiones, actas (Resolución/Acuerdo), quórum de Asamblea, votación secreta, Junta Directiva | Secretaría / Presidencia |
 | **Documental** | Repositorio de documentos (cargar/descargar) | Secretaría |
 | **Comunicaciones** | Comunicados a los afiliados | Secretaría |
-| **Comités** | Comités temáticos e integrantes | Secretaría |
+| **Comités** | Comités temáticos (Art. 27) y órganos estatutarios de quejas/reclamos | Secretaría |
 | **Reportes** | Consolidado en vivo + export CSV | Todos (lectura) |
 | **Parámetros** | Catálogos (cargos, dependencias, tipos de vinculación), cuota % y SMMLV | Secretaría / Presidencia |
 | **Portal del afiliado** | Perfil, aportes, votaciones y documentos | Afiliado |
@@ -52,6 +52,27 @@ Se puede cambiar de rol en caliente desde el conmutador del encabezado. El botó
 **Separación de funciones** (según estatutos): quien **registra** no es quien
 **aprueba**. Cada rol ve solo los módulos que le competen; donde no puede actuar,
 aparece un candado 🔒.
+
+## Cumplimiento estatutario
+
+El borrador implementa, en el frontend, los flujos reglamentarios completos:
+
+- **Afiliación (Art. 5, 25g):** Secretaría registra → Fiscal emite concepto → la
+  Junta aprueba con número de acta.
+- **Aportes (Art. 32, 33, 47g, 49g):** cuota ordinaria 0,3%; cuota extraordinaria
+  decretada por la Asamblea (tope 3%, con acta); indicador de mora (30 días →
+  amonestación, 60 → exclusión); nota de distribución 80/20.
+- **Financiero (Art. 11f, 26, 34, 35):** niveles de gasto por SMMLV, triple firma,
+  caja menor, orden de pago consecutiva y presupuesto por rubro con ejecución.
+- **Gobernanza (Art. 10, 12b, 13, 59):** quórum de Asamblea (mitad + uno), votación
+  secreta, actos según órgano (Resolución/Acuerdo) y Junta Directiva con suplentes.
+- **Disciplinario (Art. 45, 51–57):** términos por etapa, multa que ingresa a
+  Financiero, recursos de reposición/apelación y prescripción a 5 años.
+- **Comités (Art. 27, 43):** cinco comités temáticos + Comité de Quejas y Reclamos
+  y Comisión Estatutaria de Reclamos.
+
+> Las **tablas/esquemas de base de datos** que sugieren los documentos se omiten a
+> propósito: el simulador usa su propia arquitectura en memoria.
 
 ## Estructura del código
 

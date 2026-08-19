@@ -7,8 +7,8 @@ import { StatusBadge } from '../components/StatusBadge'
 import { useDemo } from '../store/DemoStore'
 import { useSession } from '../store/session'
 import { RowMenu, RowAction } from '../components/RowMenu'
-import { FirmaKey, Movement, MovementKind, MovementStatus, expenseCategories, firmaLabel, firmasCount, formatCop, formatCopShort, incomeCategories, isoToLabel, monthlyFlow, nivelGasto, nivelLabel, todayISO } from '../store/finance'
-import { periodLabel, recentPeriods } from '../store/contributions'
+import { FirmaKey, Movement, MovementKind, MovementStatus, ejecucionPorRubro, expenseCategories, firmaLabel, firmasCount, formatCop, formatCopShort, incomeCategories, isoToLabel, monthlyFlow, nivelGasto, nivelLabel, todayISO } from '../store/finance'
+import { TOPE_EXTRAORDINARIA, mesesVencidos, periodLabel, recentPeriods } from '../store/contributions'
 
 const statusTone: Record<MovementStatus, 'positive' | 'warning' | 'negative' | 'neutral' | 'night'> = {
   Confirmado: 'positive',
@@ -140,7 +140,9 @@ export function FinancieroPage() {
         </div>
       </section>
 
-      {can('finance.create') ? <AportesSection /> : null}
+      {can('finance.create') || can('finance.approve') ? <AportesSection /> : null}
+
+      <PresupuestoSection />
 
       {modalKind ? <MovementModal kind={modalKind} onClose={() => setModalKind(null)} /> : null}
       {editing ? <EditMovementModal movement={editing} onClose={() => setEditing(null)} /> : null}
@@ -148,57 +150,160 @@ export function FinancieroPage() {
   )
 }
 
+// Estado de mora de un aporte pendiente (Art. 47g / 49g): a los 30 días es
+// causal de amonestación; a los 60 días continuos, causal de exclusión.
+function moraDe(a: { status: string; period: string }): { meses: number; causal: '' | 'amonestacion' | 'exclusion' } {
+  if (a.status !== 'Pendiente') return { meses: 0, causal: '' }
+  const meses = mesesVencidos(a.period)
+  if (meses >= 2) return { meses, causal: 'exclusion' }
+  if (meses >= 1) return { meses, causal: 'amonestacion' }
+  return { meses, causal: '' }
+}
+
 function AportesSection() {
   const { aportes, affiliates, generateAportes, payAporte, porcentajeCuota } = useDemo()
+  const { can } = useSession()
+  const canCreate = can('finance.create')
+  const canApprove = can('finance.approve')
   const periods = recentPeriods(6)
   const [period, setPeriod] = useState(periods[0])
+  const [extraOpen, setExtraOpen] = useState(false)
   const pctLabel = (porcentajeCuota * 100).toLocaleString('es-CO', { maximumFractionDigits: 2 })
 
   const nameOf = (id: string) => affiliates.find((a) => a.id === id)?.name ?? 'Afiliado'
   const rows = aportes.filter((a) => a.period === period)
   const recaudado = rows.filter((a) => a.status === 'Pagado').reduce((s, a) => s + a.amount, 0)
   const pendiente = rows.filter((a) => a.status === 'Pendiente').reduce((s, a) => s + a.amount, 0)
+  const enMora = rows.filter((a) => moraDe(a).causal !== '').length
 
   return (
     <section className="mt-6 overflow-hidden rounded-2xl border border-ink/[0.08] bg-white">
       <div className="flex flex-col gap-3 border-b border-ink/[0.07] p-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="font-display text-base font-semibold">Aportes sindicales</h2>
-          <p className="mt-1 text-xs text-ink/50">Cuota: {pctLabel}% de la asignación básica · recaudado {formatCop(recaudado)} · pendiente {formatCop(pendiente)}</p>
+          <p className="mt-1 text-xs text-ink/50">Cuota ordinaria: {pctLabel}% de la asignación básica · recaudado {formatCop(recaudado)} · pendiente {formatCop(pendiente)}{enMora ? ` · ${enMora} en mora` : ''}</p>
+          <p className="mt-0.5 text-[11px] text-ink/40">Distribución del recaudo: 80% Junta Directiva Nacional / 20% subdirectivas seccionales (Art. 32) — sin seccionales, 100% JDN.</p>
         </div>
         <div className="flex items-center gap-2">
           <select value={period} onChange={(e) => setPeriod(e.target.value)} className="rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night">
             {periods.map((p) => <option key={p} value={p}>{periodLabel(p)}</option>)}
           </select>
-          <button onClick={() => generateAportes(period)} className="inline-flex items-center gap-2 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep"><PlusIcon className="h-4 w-4" />Generar corte</button>
+          {canApprove ? <button onClick={() => setExtraOpen(true)} className="inline-flex items-center gap-2 rounded-xl border border-night/25 px-4 py-2.5 text-sm font-semibold text-night transition hover:bg-night/5">Decretar extraordinaria</button> : null}
+          {canCreate ? <button onClick={() => generateAportes(period)} className="inline-flex items-center gap-2 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep"><PlusIcon className="h-4 w-4" />Generar corte</button> : null}
         </div>
       </div>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[560px] text-left">
+        <table className="w-full min-w-[620px] text-left">
           <thead className="bg-canvas/65 text-[10px] uppercase tracking-[0.12em] text-ink/45">
             <tr>
               <th className="px-5 py-3 font-semibold">Afiliado</th>
+              <th className="px-5 py-3 font-semibold">Tipo</th>
               <th className="px-5 py-3 font-semibold">Valor</th>
               <th className="px-5 py-3 font-semibold">Estado</th>
               <th className="px-5 py-3 text-right font-semibold">Acción</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-ink/[0.07]">
-            {rows.map((a) => (
-              <tr key={a.id} className="transition hover:bg-canvas/50">
-                <td className="px-5 py-3 text-sm font-medium text-ink">{nameOf(a.affiliateId)}</td>
-                <td className="px-5 py-3 text-sm text-ink/60">{formatCop(a.amount)}</td>
-                <td className="px-5 py-3"><StatusBadge tone={a.status === 'Pagado' ? 'positive' : 'warning'}>{a.status}{a.status === 'Pagado' && a.method ? ` · ${a.method}` : ''}</StatusBadge></td>
-                <td className="px-5 py-3 text-right">
-                  {a.status === 'Pendiente' ? (
-                    <button onClick={() => payAporte(a.id, 'Nómina')} className="rounded-lg border border-ink/12 px-3 py-1.5 text-xs font-semibold text-night transition hover:border-night hover:bg-night/5">Marcar pagado</button>
-                  ) : <span className="text-xs text-ink/35">—</span>}
-                </td>
-              </tr>
-            ))}
-            {rows.length === 0 ? <tr><td colSpan={4} className="px-5 py-12 text-center text-sm text-ink/50">No hay aportes para {periodLabel(period)}. Genera el corte para los afiliados activos.</td></tr> : null}
+            {rows.map((a) => {
+              const mora = moraDe(a)
+              return (
+                <tr key={a.id} className="transition hover:bg-canvas/50">
+                  <td className="px-5 py-3 text-sm font-medium text-ink">{nameOf(a.affiliateId)}</td>
+                  <td className="px-5 py-3">
+                    <span className={`inline-flex rounded-md px-2 py-0.5 text-[10px] font-semibold ${a.tipo === 'Extraordinaria' ? 'bg-amber-100 text-amber-700' : 'bg-ink/[0.06] text-ink/55'}`}>{a.tipo === 'Extraordinaria' ? `Extraordinaria${a.acta ? ` · Acta ${a.acta}` : ''}` : 'Ordinaria'}</span>
+                  </td>
+                  <td className="px-5 py-3 text-sm text-ink/60">{formatCop(a.amount)}</td>
+                  <td className="px-5 py-3">
+                    <StatusBadge tone={a.status === 'Pagado' ? 'positive' : mora.causal ? 'negative' : 'warning'}>{a.status === 'Pagado' ? `Pagado${a.method ? ` · ${a.method}` : ''}` : mora.causal === 'exclusion' ? `En mora · ${mora.meses}m (exclusión)` : mora.causal === 'amonestacion' ? `En mora · ${mora.meses}m (amonestación)` : 'Pendiente'}</StatusBadge>
+                  </td>
+                  <td className="px-5 py-3 text-right">
+                    {a.status === 'Pendiente' && canCreate ? (
+                      <button onClick={() => payAporte(a.id, 'Nómina')} className="rounded-lg border border-ink/12 px-3 py-1.5 text-xs font-semibold text-night transition hover:border-night hover:bg-night/5">Marcar pagado</button>
+                    ) : <span className="text-xs text-ink/35">—</span>}
+                  </td>
+                </tr>
+              )
+            })}
+            {rows.length === 0 ? <tr><td colSpan={5} className="px-5 py-12 text-center text-sm text-ink/50">No hay aportes para {periodLabel(period)}. {canCreate ? 'Genera el corte para los afiliados activos.' : ''}</td></tr> : null}
           </tbody>
         </table>
+      </div>
+      {extraOpen ? <ExtraordinariaModal period={period} onClose={() => setExtraOpen(false)} /> : null}
+    </section>
+  )
+}
+
+// La Asamblea decreta una cuota extraordinaria (Art. 33): tope 3% de la
+// asignación básica y debe constar en acta.
+function ExtraordinariaModal({ period, onClose }: { period: string; onClose: () => void }) {
+  const { decretarExtraordinaria } = useDemo()
+  const [pct, setPct] = useState('1')
+  const [acta, setActa] = useState('')
+  const [error, setError] = useState('')
+  const topePct = TOPE_EXTRAORDINARIA * 100
+
+  const submit = () => {
+    const value = Number(pct.replace(',', '.'))
+    if (!Number.isFinite(value) || value <= 0) return setError('Ingresa un porcentaje válido.')
+    if (value > topePct) return setError(`El tope estatutario es ${topePct}% (Art. 33).`)
+    if (!acta.trim()) return setError('Indica el número de acta de la Asamblea.')
+    decretarExtraordinaria(period, value / 100, acta.trim())
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h3 className="font-display text-lg font-semibold">Decretar cuota extraordinaria</h3>
+          <button onClick={onClose} className="rounded-lg p-1 text-ink/50 hover:bg-canvas"><XIcon className="h-5 w-5" /></button>
+        </div>
+        <p className="mt-1 text-xs text-ink/50">Periodo {periodLabel(period)}. La Asamblea la aprueba en acta; el tope es {topePct}% de la asignación básica (Art. 33). Se genera un aporte extraordinario por cada afiliado activo.</p>
+        <label className="mt-4 block text-xs font-semibold text-ink/60">Porcentaje sobre la asignación básica (%)</label>
+        <input value={pct} onChange={(e) => { setPct(e.target.value); setError('') }} inputMode="decimal" className="mt-1 w-full rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night" placeholder={`Máx. ${topePct}`} />
+        <label className="mt-3 block text-xs font-semibold text-ink/60">Acta de la Asamblea No.</label>
+        <input value={acta} onChange={(e) => { setActa(e.target.value); setError('') }} className="mt-1 w-full rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night" placeholder="p. ej. 03-2026" />
+        {error ? <p className="mt-2 text-xs font-medium text-rose-600">{error}</p> : null}
+        <div className="mt-5 flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-xl border border-ink/12 px-4 py-2.5 text-sm font-semibold text-ink/70 transition hover:bg-canvas">Cancelar</button>
+          <button onClick={submit} className="rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep">Decretar</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Ejecución del presupuesto anual por rubro (Art. 11f/26). El presupuesto se
+// define en Parámetros; aquí se controla lo comprometido contra lo aprobado.
+function PresupuestoSection() {
+  const { movements, presupuestos } = useDemo()
+  const filas = ejecucionPorRubro(movements, presupuestos)
+  const totalAnual = filas.reduce((s, f) => s + f.anual, 0)
+  const totalEjec = filas.reduce((s, f) => s + f.ejecutado, 0)
+  const sinPresupuesto = totalAnual === 0
+
+  return (
+    <section className="mt-6 overflow-hidden rounded-2xl border border-ink/[0.08] bg-white">
+      <div className="border-b border-ink/[0.07] p-4">
+        <h2 className="font-display text-base font-semibold">Ejecución presupuestal</h2>
+        <p className="mt-1 text-xs text-ink/50">Presupuesto anual por rubro y su ejecución (egresos aprobados o pagados). {sinPresupuesto ? 'Define el presupuesto en Parámetros.' : `Ejecutado ${formatCop(totalEjec)} de ${formatCop(totalAnual)}.`}</p>
+      </div>
+      <div className="divide-y divide-ink/[0.07]">
+        {filas.map((f) => {
+          const over = f.anual > 0 && f.ejecutado > f.anual
+          return (
+            <div key={f.category} className="px-5 py-4">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium text-ink">{f.category}</span>
+                <span className="text-ink/55">{formatCop(f.ejecutado)}{f.anual > 0 ? ` / ${formatCop(f.anual)}` : ' · sin presupuesto'}{f.anual > 0 ? ` · ${f.pct}%` : ''}</span>
+              </div>
+              <div className="mt-2 h-2 overflow-hidden rounded-full bg-ink/[0.06]">
+                <div className={`h-full rounded-full ${over ? 'bg-rose-500' : 'bg-night'}`} style={{ width: `${f.anual > 0 ? Math.min(100, f.pct) : 0}%` }} />
+              </div>
+              {over ? <p className="mt-1 text-[11px] font-medium text-rose-600">Ejecución por encima del presupuesto aprobado.</p> : null}
+            </div>
+          )
+        })}
       </div>
     </section>
   )
@@ -248,6 +353,7 @@ function MovementRow({ movement, onEdit }: { movement: Movement; onEdit: (m: Mov
       <td className="px-5 py-4 text-sm">
         <p className="font-medium text-ink">{movement.concept}</p>
         {esEgreso && movement.nivel && (movement.status === 'Por aprobar' || movement.status === 'Aprobado') ? <p className="mt-0.5 text-[11px] text-ink/45">Aprobación: {nivelLabel[movement.nivel]}</p> : null}
+        {esEgreso && movement.ordenPago ? <p className="mt-0.5 text-[11px] font-medium text-night/70">Orden de pago {movement.ordenPago}</p> : null}
       </td>
       <td className="px-5 py-4 text-sm text-ink/55">{movement.category}</td>
       <td className="px-5 py-4">

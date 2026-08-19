@@ -11,6 +11,21 @@ export type GovSession = {
   organ: string
   status: SessionStatus
   minutes?: string // resumen del acta, cuando está Realizada
+  asistentes?: number // asistentes registrados (para verificar quórum de Asamblea)
+  quorum?: boolean // si se alcanzó el quórum reglamentario
+}
+
+// Tipo de acto según el órgano (Art. 12/59): la Asamblea expide Acuerdos; la
+// Junta Directiva, Resoluciones; los comités levantan Actas.
+export function actoLabel(organ: string): 'Acuerdo' | 'Resolución' | 'Acta' {
+  if (organ === 'Asamblea') return 'Acuerdo'
+  if (organ === 'Junta Directiva') return 'Resolución'
+  return 'Acta'
+}
+
+// Quórum reglamentario para deliberar: la mitad más uno (Art. 10).
+export function quorumMinimo(activos: number): number {
+  return Math.floor(activos / 2) + 1
 }
 
 export type VoteStatus = 'En curso' | 'Cerrada'
@@ -25,6 +40,7 @@ export type Ballot = {
   status: VoteStatus
   outcome?: 'Aprobada' | 'Rechazada'
   votedBy?: string[] // ids de afiliados que ya votaron (portal del afiliado)
+  secreta?: boolean // votación secreta (Art. 12b): no se revela el sentido individual
 }
 
 const MONTHS = ['ENE', 'FEB', 'MAR', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEP', 'OCT', 'NOV', 'DIC']

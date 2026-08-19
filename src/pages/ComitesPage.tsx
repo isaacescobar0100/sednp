@@ -74,7 +74,8 @@ function CommitteeCard({ committee, canManage, onEdit }: { committee: Committee;
             </div>
           ) : null}
         </div>
-        <h2 className="mt-5 font-display text-lg font-semibold leading-snug text-ink">{committee.name}</h2>
+        {committee.tipo === 'Estatutario' ? <span className="mt-4 inline-flex rounded-md bg-brick/10 px-2 py-0.5 text-[10px] font-semibold text-brick">Órgano estatutario</span> : committee.tipo === 'Temático' ? <span className="mt-4 inline-flex rounded-md bg-ink/[0.06] px-2 py-0.5 text-[10px] font-semibold text-ink/55">Comité temático (Art. 27)</span> : null}
+        <h2 className="mt-2 font-display text-lg font-semibold leading-snug text-ink">{committee.name}</h2>
         <p className="mt-2 flex items-center gap-1.5 text-xs text-ink/55"><UserRoundIcon className="h-3.5 w-3.5 text-gold" />Coordinación: <span className="font-semibold text-ink/75">{committee.lead || 'Por designar'}</span></p>
 
         <div className="mt-4 border-y border-ink/[0.07] py-3">

@@ -1,5 +1,9 @@
 // Modelo y datos simulados del módulo Comités.
 
+// 'Temático' = comité del Art. 27; 'Estatutario' = órgano de control estatutario
+// (Comité de Quejas y Reclamos, Comisión Estatutaria de Reclamos).
+export type CommitteeTipo = 'Temático' | 'Estatutario'
+
 export type Committee = {
   id: string
   name: string
@@ -8,6 +12,7 @@ export type Committee = {
   next: string
   activity: string
   color: string
+  tipo?: CommitteeTipo
 }
 
 const COLORS = ['bg-night', 'bg-gold', 'bg-brick', 'bg-emerald-600']
@@ -22,24 +27,32 @@ export function memberCount(c: Committee): number {
   return members + (c.lead && c.lead !== 'Por designar' ? 1 : 0)
 }
 
-// Los cinco comités temáticos estatutarios (Art. 27 de los Estatutos).
+// Los cinco comités temáticos (Art. 27) y los dos órganos estatutarios de
+// quejas y reclamos que participan en el procedimiento disciplinario (Art. 43).
 export function seedCommittees(): Committee[] {
-  const names = [
+  const tematicos = [
     'Educación y Desarrollo Humano',
     'Promoción y Fomento del Desarrollo Laboral y Profesional',
     'Planeación e Innovación',
     'Divulgación y Relaciones Públicas',
     'Bienestar, Fomento Cultural y de Seguridad y Salud en el Trabajo',
-  ]
-  return names.map((name, i) => ({
+  ].map((name, i) => ({
     id: `cmt-est-${i}`,
     name,
     lead: 'Por designar',
-    members: [],
+    members: [] as string[],
     next: 'Por programar',
     activity: 'Comité temático estatutario',
     color: committeeColor(i),
+    tipo: 'Temático' as CommitteeTipo,
   }))
+
+  const estatutarios: Committee[] = [
+    { id: 'cmt-org-quejas', name: 'Comité de Quejas y Reclamos', lead: 'Por designar', members: [], next: 'Por programar', activity: 'Instruye el procedimiento disciplinario (Art. 43)', color: 'bg-brick', tipo: 'Estatutario' },
+    { id: 'cmt-org-reclamos', name: 'Comisión Estatutaria de Reclamos', lead: 'Por designar', members: [], next: 'Por programar', activity: 'Atiende reclamos estatutarios de los afiliados', color: 'bg-night', tipo: 'Estatutario' },
+  ]
+
+  return [...tematicos, ...estatutarios]
 }
 
 // Comités de ejemplo (sin uso mientras se prueba con datos reales).

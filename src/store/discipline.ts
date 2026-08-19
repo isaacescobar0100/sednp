@@ -5,10 +5,26 @@
 // Etapas del procedimiento disciplinario (Art. 50).
 export const stages = ['Auto de apertura', 'Pliego de cargos', 'Descargos', 'Práctica de pruebas', 'Traslado a Junta Directiva'] as const
 
+// Términos procesales de cada etapa en días (Arts. 51–54).
+export const stageTerms: number[] = [180, 15, 10, 30, 15]
+
+export function termOf(stageIndex: number): number {
+  return stageTerms[stageIndex] ?? 30
+}
+
+// La acción disciplinaria prescribe a los 5 años (Art. 56).
+export const PRESCRIPCION_ANIOS = 5
+
 export type CaseStatus = 'En trámite' | 'Con fallo' | 'Archivado'
 
 // Sanciones (Art. 45) y el fallo absolutorio.
 export type Sancion = 'Amonestación' | 'Multa' | 'Exclusión' | 'Absuelto'
+
+// Recursos contra el fallo (Art. 57): reposición ante la Junta y apelación ante
+// la Asamblea General.
+export type RecursoTipo = 'Reposición' | 'Apelación'
+export type RecursoEstado = 'Interpuesto' | 'Resuelto'
+export type RecursoResultado = 'Confirma' | 'Revoca'
 
 export type DisciplineCase = {
   id: string
@@ -20,6 +36,10 @@ export type DisciplineCase = {
   daysLeft: number
   status: CaseStatus
   sancion?: Sancion // resultado del fallo (Art. 45)
+  multaMonto?: number // valor de la multa, si la sanción es Multa
+  recursoTipo?: RecursoTipo // recurso interpuesto contra el fallo (Art. 57)
+  recursoEstado?: RecursoEstado
+  recursoResultado?: RecursoResultado
 }
 
 // Tono del término procesal según días restantes.

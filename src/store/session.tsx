@@ -11,6 +11,7 @@ export type Role = 'presidencia' | 'vicepresidencia' | 'secretaria' | 'tesoreria
 export type Permission =
   | 'affiliates.create'
   | 'affiliates.changeStatus'
+  | 'affiliates.concept'
   | 'finance.create'
   | 'finance.approve'
   | 'finance.pay'
@@ -49,7 +50,7 @@ const rolePermissions: Record<Role, Permission[]> = {
   vicepresidencia: ['governance.manage'],
   secretaria: ['affiliates.create', 'governance.manage', 'documents.manage', 'comms.send', 'committees.manage', 'params.manage'],
   tesoreria: ['finance.create', 'finance.pay', 'finance.sign'],
-  fiscal: ['discipline.instruct', 'finance.sign'],
+  fiscal: ['discipline.instruct', 'finance.sign', 'affiliates.concept'],
 }
 
 // Módulos visibles en el menú por rol. Presidencia y Vicepresidencia supervisan
@@ -72,6 +73,14 @@ const roleUser: Record<Role, DemoUser> = {
   tesoreria: { name: 'Lina María Ocampo Palacio', initials: 'LO' },
   fiscal: { name: 'Nini Dahyana Idarraga Garay', initials: 'NI' },
 }
+
+// Junta Directiva Nacional (Art. 13): cada cargo tiene principal y suplente.
+// Los principales provienen de la Resolución 011; los suplentes se designan.
+export const juntaDirectiva = roles.map((r) => ({
+  cargo: roleLabel[r],
+  principal: roleUser[r].name,
+  suplente: 'Por designar',
+}))
 
 type SessionContextValue = {
   role: Role

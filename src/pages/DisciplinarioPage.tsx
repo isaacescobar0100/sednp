@@ -4,7 +4,8 @@ import { SectionTitle } from '../components/SectionTitle'
 import { StatusBadge } from '../components/StatusBadge'
 import { useDemo } from '../store/DemoStore'
 import { useSession } from '../store/session'
-import { CaseStatus, DisciplineCase, Sancion, stages, termTone } from '../store/discipline'
+import { CaseStatus, DisciplineCase, PRESCRIPCION_ANIOS, Sancion, stageTerms, stages, termTone } from '../store/discipline'
+import { formatCop } from '../store/finance'
 
 const statusTone: Record<CaseStatus, 'positive' | 'warning' | 'negative' | 'neutral' | 'night'> = {
   'En trámite': 'night',
@@ -105,6 +106,7 @@ function CaseDetail({ caseItem }: { caseItem: DisciplineCase }) {
   const canRule = can('discipline.rule')
   const open = caseItem.status === 'En trámite'
   const atTraslado = caseItem.stageIndex === stages.length - 1
+  const [askMulta, setAskMulta] = useState(false)
 
   function advance() {
     const next = stages[caseItem.stageIndex + 1]
@@ -112,6 +114,7 @@ function CaseDetail({ caseItem }: { caseItem: DisciplineCase }) {
     notify(`${caseItem.code} avanzó a ${next}.`, 'success')
   }
   function rule(resultado: Sancion | 'Archivado') {
+    if (resultado === 'Multa') { setAskMulta(true); return }
     ruleCase(caseItem.id, resultado)
     notify(`${caseItem.code}: ${resultado === 'Archivado' ? 'archivado' : resultado.toLowerCase()}.`, resultado === 'Absuelto' ? 'success' : 'warning')
   }
@@ -144,7 +147,7 @@ function CaseDetail({ caseItem }: { caseItem: DisciplineCase }) {
               <span className={`absolute -left-[27px] top-0 flex h-3 w-3 items-center justify-center rounded-full ${done ? 'bg-emerald-600' : current ? 'bg-gold ring-4 ring-gold/20' : 'bg-ink/15'}`}>
                 {done ? <CheckCircle2Icon className="h-2.5 w-2.5 text-white" /> : null}
               </span>
-              <p className={`text-sm font-semibold ${current ? 'text-night' : 'text-ink/55'}`}>{step}</p>
+              <p className={`text-sm font-semibold ${current ? 'text-night' : 'text-ink/55'}`}>{step} <span className="font-normal text-ink/40">· término {stageTerms[index]} días</span></p>
               <p className="mt-1 text-xs text-ink/45">{done ? 'Etapa completada' : current ? 'Etapa actual del proceso' : 'Pendiente de iniciar'}</p>
             </div>
           )
@@ -206,9 +209,81 @@ function CaseDetail({ caseItem }: { caseItem: DisciplineCase }) {
               <StatusBadge tone="neutral">{caseItem.status}</StatusBadge>
             )}
           </div>
-          {caseItem.sancion && caseItem.sancion !== 'Absuelto' ? <p className="mt-2 text-xs text-ink/50">Contra el fallo procede reposición ante la Junta Directiva y apelación ante la Asamblea General (Art. 57).</p> : null}
+          {caseItem.sancion === 'Multa' && caseItem.multaMonto ? <p className="mt-2 text-xs text-ink/55">Multa por <strong>{formatCop(caseItem.multaMonto)}</strong>, registrada en Financiero para cobro por nómina.</p> : null}
+          {caseItem.sancion && caseItem.sancion !== 'Absuelto' ? <RecursosPanel caseItem={caseItem} canInstruct={canInstruct} canRule={canRule} /> : null}
+          <p className="mt-3 text-[11px] text-ink/40">La acción disciplinaria prescribe a los {PRESCRIPCION_ANIOS} años (Art. 56).</p>
         </div>
       )}
+      {askMulta ? <MultaModal caseItem={caseItem} onClose={() => setAskMulta(false)} /> : null}
+    </div>
+  )
+}
+
+// Recursos contra el fallo (Art. 57): reposición ante la Junta y, si se
+// confirma, apelación ante la Asamblea General.
+function RecursosPanel({ caseItem, canInstruct, canRule }: { caseItem: DisciplineCase; canInstruct: boolean; canRule: boolean }) {
+  const { interponerRecurso, resolverRecurso } = useDemo()
+  const { tipo, estado, resultado } = { tipo: caseItem.recursoTipo, estado: caseItem.recursoEstado, resultado: caseItem.recursoResultado }
+  const pendiente = estado === 'Interpuesto'
+  const confirmadaReposicion = tipo === 'Reposición' && estado === 'Resuelto' && resultado === 'Confirma'
+
+  return (
+    <div className="mt-3 rounded-xl border border-ink/10 bg-white p-3">
+      <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink/40">Recursos (Art. 57)</p>
+      {tipo ? (
+        <p className="mt-1.5 text-xs text-ink/60">
+          {tipo} · {estado}{resultado ? ` · ${resultado === 'Revoca' ? 'revoca el fallo' : 'confirma el fallo'}` : ''}
+          <span className="text-ink/40">{tipo === 'Reposición' ? ' (ante la Junta Directiva)' : ' (ante la Asamblea General)'}</span>
+        </p>
+      ) : (
+        <p className="mt-1.5 text-xs text-ink/50">Contra el fallo procede reposición ante la Junta Directiva y apelación ante la Asamblea General.</p>
+      )}
+
+      <div className="mt-2.5 flex flex-wrap gap-2">
+        {!tipo && canInstruct ? (
+          <button onClick={() => interponerRecurso(caseItem.id, 'Reposición')} className="rounded-lg border border-ink/12 px-3 py-1.5 text-xs font-semibold text-night transition hover:bg-canvas">Interponer reposición</button>
+        ) : null}
+        {confirmadaReposicion && canInstruct ? (
+          <button onClick={() => interponerRecurso(caseItem.id, 'Apelación')} className="rounded-lg border border-ink/12 px-3 py-1.5 text-xs font-semibold text-night transition hover:bg-canvas">Interponer apelación</button>
+        ) : null}
+        {pendiente && canRule ? (
+          <>
+            <button onClick={() => resolverRecurso(caseItem.id, 'Confirma')} className="rounded-lg bg-night px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-night-deep">Confirmar fallo</button>
+            <button onClick={() => resolverRecurso(caseItem.id, 'Revoca')} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white transition hover:brightness-95">Revocar fallo</button>
+          </>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+// Captura el valor de la multa para registrarla en Financiero (cobro por nómina).
+function MultaModal({ caseItem, onClose }: { caseItem: DisciplineCase; onClose: () => void }) {
+  const { ruleCase, notify } = useDemo()
+  const [text, setText] = useState('')
+  const monto = Number(text.replace(/\D/g, ''))
+
+  function submit() {
+    if (monto <= 0) return
+    ruleCase(caseItem.id, 'Multa', monto)
+    notify(`${caseItem.code}: multa por ${formatCop(monto)}.`, 'warning')
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-night/45 p-4" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h3 className="font-display text-lg font-semibold">Valor de la multa</h3>
+          <button onClick={onClose} className="rounded-lg p-1 text-ink/50 hover:bg-canvas"><XIcon className="h-5 w-5" /></button>
+        </div>
+        <p className="mt-1 text-xs text-ink/50">Se registrará como ingreso en Financiero para cobro por nómina ({caseItem.code}).</p>
+        <input value={text} onChange={(e) => setText(e.target.value)} inputMode="numeric" placeholder="Monto en COP" className="mt-4 w-full rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night" autoFocus />
+        <div className="mt-5 flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-ink/60 hover:bg-canvas">Cancelar</button>
+          <button onClick={submit} disabled={monto <= 0} className="rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">Imponer multa</button>
+        </div>
+      </div>
     </div>
   )
 }
