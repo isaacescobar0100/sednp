@@ -180,35 +180,60 @@ function MisAportes({ affiliateId }: { affiliateId: string }) {
   const { aportes, payAporte } = useDemo()
   const mine = aportes.filter((a) => a.affiliateId === affiliateId).sort((x, y) => (x.period < y.period ? 1 : -1))
   const pendiente = mine.filter((a) => a.status === 'Pendiente').reduce((s, a) => s + a.amount, 0)
+  const pagadoTotal = mine.filter((a) => a.status === 'Pagado').reduce((s, a) => s + a.amount, 0)
+  const alDia = pendiente === 0
 
   if (mine.length === 0) {
     return <EmptyState icon={CircleDollarSignIcon} text="Aún no tienes aportes registrados. La tesorería genera el corte de cada mes." />
   }
 
   return (
-    <div className="space-y-5">
-      <section className={`rounded-2xl border p-5 ${pendiente > 0 ? 'border-brick/25 bg-brick/[0.05]' : 'border-emerald-600/25 bg-emerald-50'}`}>
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold">Estado de cuenta</p>
-        <h2 className="mt-1 font-display text-2xl font-semibold text-ink">{pendiente > 0 ? `Debes ${formatCop(pendiente)}` : 'Estás al día'}</h2>
-        <p className="mt-1 text-sm text-ink/55">{pendiente > 0 ? 'Tienes aportes pendientes de pago.' : 'No tienes aportes pendientes. ¡Gracias!'}</p>
+    <div className="space-y-6">
+      {/* Estado de cuenta (hero) */}
+      <section className={`overflow-hidden rounded-3xl border p-6 sm:p-8 ${alDia ? 'border-emerald-600/20 bg-gradient-to-br from-emerald-50 to-white' : 'border-brick/20 bg-gradient-to-br from-brick/[0.06] to-white'}`}>
+        <div className="flex items-center gap-4">
+          <div className={`flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl ${alDia ? 'bg-emerald-600 text-white' : 'bg-brick text-white'}`}>
+            {alDia ? <CheckCircle2Icon className="h-7 w-7" /> : <WalletIcon className="h-7 w-7" />}
+          </div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-gold">Estado de cuenta</p>
+            <h2 className="mt-0.5 font-display text-2xl font-semibold text-ink sm:text-3xl">{alDia ? 'Estás al día' : `Debes ${formatCop(pendiente)}`}</h2>
+            <p className="mt-0.5 text-sm text-ink/55">{alDia ? 'No tienes aportes pendientes. ¡Gracias!' : 'Tienes aportes pendientes de pago.'}</p>
+          </div>
+        </div>
+        <div className="mt-6 grid grid-cols-3 gap-4 border-t border-ink/[0.07] pt-5">
+          <div><p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/40">Total pagado</p><p className="mt-0.5 font-display text-lg font-semibold text-ink">{formatCop(pagadoTotal)}</p></div>
+          <div><p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/40">Pendiente</p><p className={`mt-0.5 font-display text-lg font-semibold ${alDia ? 'text-ink' : 'text-brick'}`}>{formatCop(pendiente)}</p></div>
+          <div><p className="text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/40">Aportes</p><p className="mt-0.5 font-display text-lg font-semibold text-ink">{mine.length}</p></div>
+        </div>
       </section>
 
+      {/* Historial */}
       <div className="overflow-hidden rounded-2xl border border-ink/[0.08] bg-white">
         <div className="border-b border-ink/[0.07] px-5 py-4"><h3 className="font-display text-base font-semibold">Historial de aportes</h3></div>
         <div className="divide-y divide-ink/[0.07]">
-          {mine.map((a) => (
-            <article key={a.id} className="flex items-center justify-between gap-3 px-5 py-4">
-              <div className="min-w-0">
-                <p className="text-sm font-semibold text-ink">{periodLabel(a.period)}{a.tipo === 'Extraordinaria' ? ` · extraordinaria${a.acta ? ` (Acta ${a.acta})` : ''}` : ''}{a.anticipada ? ' · anticipada (vacaciones)' : ''}</p>
-                <p className="mt-0.5 text-xs text-ink/50">{formatCop(a.amount)}{a.status === 'Pagado' && a.method ? ` · pagado por ${a.method}` : ''}</p>
-              </div>
-              {a.status === 'Pagado' ? (
-                <StatusBadge tone="positive">Pagado</StatusBadge>
-              ) : (
-                <button onClick={() => payAporte(a.id, 'Portal')} className="rounded-xl bg-night px-4 py-2 text-sm font-semibold text-white transition hover:bg-night-deep">Pagar {formatCop(a.amount)}</button>
-              )}
-            </article>
-          ))}
+          {mine.map((a) => {
+            const pagado = a.status === 'Pagado'
+            return (
+              <article key={a.id} className="flex items-center gap-3 px-5 py-4">
+                <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${pagado ? 'bg-emerald-50 text-emerald-600' : 'bg-gold/15 text-gold'}`}><CircleDollarSignIcon className="h-5 w-5" /></div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-semibold text-ink">{periodLabel(a.period)}</p>
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                    <span className="text-xs text-ink/50">{formatCop(a.amount)}</span>
+                    {a.tipo === 'Extraordinaria' ? <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">Extraordinaria{a.acta ? ` · Acta ${a.acta}` : ''}</span> : null}
+                    {a.anticipada ? <span className="rounded-md bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700">Anticipada · vacaciones</span> : null}
+                    {pagado && a.method ? <span className="text-[11px] text-ink/40">· pagado por {a.method}</span> : null}
+                  </div>
+                </div>
+                {pagado ? (
+                  <StatusBadge tone="positive">Pagado</StatusBadge>
+                ) : (
+                  <button onClick={() => payAporte(a.id, 'Portal')} className="shrink-0 rounded-xl bg-night px-4 py-2 text-sm font-semibold text-white transition hover:bg-night-deep">Pagar {formatCop(a.amount)}</button>
+                )}
+              </article>
+            )
+          })}
         </div>
       </div>
     </div>
@@ -228,30 +253,38 @@ function BallotVote({ ballot, affiliateId }: { ballot: Ballot; affiliateId: stri
   const total = totalVotes(ballot)
 
   return (
-    <section className="rounded-2xl border border-ink/[0.08] bg-white p-5">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold">Votación en curso</p>
-          <h2 className="mt-1 font-display text-lg font-semibold">{ballot.title}</h2>
-          <p className="mt-1 text-sm text-ink/50">Cierre: {ballot.closesAt}</p>
+    <section className="overflow-hidden rounded-2xl border border-ink/[0.08] bg-white">
+      <div className="flex items-start justify-between gap-3 border-b border-ink/[0.07] p-5">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold/15 text-gold"><VoteIcon className="h-5 w-5" /></div>
+          <div>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-gold">Votación en curso{ballot.secreta ? ' · secreta' : ''}</p>
+            <h2 className="mt-0.5 font-display text-lg font-semibold leading-snug">{ballot.title}</h2>
+            <p className="mt-1 text-xs text-ink/50">Cierre: {ballot.closesAt}</p>
+          </div>
         </div>
         {voted ? <StatusBadge tone="positive">Ya votaste</StatusBadge> : null}
       </div>
 
-      {voted ? (
-        <div className="mt-5 space-y-3">
-          <Bar label="A favor" pct={votePct(ballot.favor, total)} count={ballot.favor} color="bg-night" />
-          <Bar label="En contra" pct={votePct(ballot.contra, total)} count={ballot.contra} color="bg-brick" />
-          <Bar label="Abstención" pct={votePct(ballot.abstencion, total)} count={ballot.abstencion} color="bg-gold" />
-          <p className="flex items-center gap-1.5 pt-1 text-xs text-emerald-700"><CheckCircle2Icon className="h-3.5 w-3.5" />Gracias por participar.</p>
-        </div>
-      ) : (
-        <div className="mt-5 flex flex-wrap gap-2">
-          {([['favor', 'A favor'], ['contra', 'En contra'], ['abstencion', 'Abstenerme']] as const).map(([choice, label]) => (
-            <button key={choice} onClick={() => castAffiliateVote(ballot.id, choice, affiliateId)} className="rounded-xl border border-ink/12 px-4 py-2.5 text-sm font-semibold text-night transition hover:border-night hover:bg-night/5">{label}</button>
-          ))}
-        </div>
-      )}
+      <div className="p-5">
+        {voted ? (
+          <div className="space-y-3">
+            <Bar label="A favor" pct={votePct(ballot.favor, total)} count={ballot.favor} color="bg-night" />
+            <Bar label="En contra" pct={votePct(ballot.contra, total)} count={ballot.contra} color="bg-brick" />
+            <Bar label="Abstención" pct={votePct(ballot.abstencion, total)} count={ballot.abstencion} color="bg-gold" />
+            <p className="flex items-center gap-1.5 pt-1 text-xs text-emerald-700"><CheckCircle2Icon className="h-3.5 w-3.5" />Gracias por participar.{ballot.secreta ? ' Tu voto es secreto.' : ''}</p>
+          </div>
+        ) : (
+          <>
+            <p className="mb-3 text-xs text-ink/45">Elige tu opción{ballot.secreta ? ' (voto secreto: no se revela tu elección)' : ''}:</p>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {([['favor', 'A favor', 'hover:border-night hover:bg-night/5'], ['contra', 'En contra', 'hover:border-brick hover:bg-brick/5'], ['abstencion', 'Abstenerme', 'hover:border-gold hover:bg-gold/5']] as const).map(([choice, label, hover]) => (
+                <button key={choice} onClick={() => castAffiliateVote(ballot.id, choice, affiliateId)} className={`rounded-xl border border-ink/12 px-4 py-3 text-sm font-semibold text-night transition ${hover}`}>{label}</button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
     </section>
   )
 }
@@ -259,19 +292,17 @@ function BallotVote({ ballot, affiliateId }: { ballot: Ballot; affiliateId: stri
 function Comunicados({ items }: { items: ReturnType<typeof useDemo>['comunicados'] }) {
   if (items.length === 0) return <EmptyState icon={MailIcon} text="No tienes comunicados por ahora." />
   return (
-    <div className="overflow-hidden rounded-2xl border border-ink/[0.08] bg-white">
-      <div className="divide-y divide-ink/[0.07]">
-        {items.map((c) => (
-          <article key={c.id} className="flex items-start gap-3 px-5 py-4">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-night/7"><MailIcon className="h-4 w-4 text-night" /></div>
-            <div className="min-w-0 flex-1">
-              <h3 className="text-sm font-semibold text-ink">{c.subject}</h3>
-              <p className="mt-1 text-xs text-ink/50">{c.audience} · {c.date}</p>
-            </div>
-            <StatusBadge tone={c.status === 'Entregado' ? 'positive' : 'warning'}>{c.status}</StatusBadge>
-          </article>
-        ))}
-      </div>
+    <div className="space-y-3">
+      {items.map((c) => (
+        <article key={c.id} className="flex items-start gap-4 rounded-2xl border border-ink/[0.08] bg-white p-5 transition hover:shadow-[0_8px_24px_rgba(15,27,61,0.06)]">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-night text-white"><MailIcon className="h-5 w-5 text-gold" /></div>
+          <div className="min-w-0 flex-1">
+            <h3 className="font-display text-sm font-semibold text-ink">{c.subject}</h3>
+            <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink/50"><span className="inline-flex items-center gap-1 rounded-full bg-canvas px-2 py-0.5 font-medium text-ink/60">{c.audience}</span><span>{c.date}</span></p>
+          </div>
+          <StatusBadge tone={c.status === 'Entregado' ? 'positive' : 'warning'}>{c.status}</StatusBadge>
+        </article>
+      ))}
     </div>
   )
 }
@@ -302,16 +333,16 @@ function Documentos({ docs }: { docs: Doc[] }) {
   return (
     <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
       {docs.map((doc) => (
-        <article key={doc.id} className="rounded-xl border border-ink/[0.08] bg-white p-4">
+        <article key={doc.id} className="flex flex-col rounded-2xl border border-ink/[0.08] bg-white p-5 transition hover:shadow-[0_8px_24px_rgba(15,27,61,0.06)]">
           <div className="flex items-start justify-between">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gold/12"><FileTextIcon className="h-5 w-5 text-[#9a6b20]" /></div>
+            <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gold/15 text-gold"><FileTextIcon className="h-5 w-5" /></div>
             <StatusBadge tone="night">{doc.type}</StatusBadge>
           </div>
           <h2 className="mt-4 font-display text-sm font-semibold leading-snug text-ink">{doc.title}</h2>
-          <p className="mt-2 text-xs text-ink/50">{doc.code}</p>
-          <div className="mt-4 flex items-center justify-between border-t border-ink/[0.07] pt-3 text-xs text-ink/50">
-            <span>{doc.date} · {formatFileSize(doc.fileSize)}</span>
-            <button onClick={() => download(doc)} className="rounded-lg p-1.5 text-night transition hover:bg-canvas" aria-label={`Descargar ${doc.title}`}><DownloadIcon className="h-4 w-4" /></button>
+          <p className="mt-1 font-mono text-[11px] text-ink/45">{doc.code}</p>
+          <div className="mt-4 flex items-center justify-between border-t border-ink/[0.07] pt-3">
+            <span className="text-xs text-ink/50">{doc.date} · {formatFileSize(doc.fileSize)}</span>
+            <button onClick={() => download(doc)} className="inline-flex items-center gap-1.5 rounded-lg border border-ink/12 px-2.5 py-1.5 text-xs font-semibold text-night transition hover:border-night hover:bg-canvas" aria-label={`Descargar ${doc.title}`}><DownloadIcon className="h-3.5 w-3.5" />Descargar</button>
           </div>
         </article>
       ))}
@@ -330,9 +361,9 @@ function Bar({ label, pct, count, color }: { label: string; pct: number; count: 
 
 function EmptyState({ icon: Icon, text }: { icon: typeof VoteIcon; text: string }) {
   return (
-    <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-ink/15 bg-white px-6 py-14 text-center">
-      <Icon className="h-8 w-8 text-ink/25" />
-      <p className="text-sm text-ink/50">{text}</p>
+    <div className="flex flex-col items-center gap-4 rounded-3xl border border-dashed border-ink/15 bg-white px-6 py-16 text-center">
+      <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-canvas text-ink/30"><Icon className="h-7 w-7" /></div>
+      <p className="max-w-sm text-sm text-ink/50">{text}</p>
     </div>
   )
 }
