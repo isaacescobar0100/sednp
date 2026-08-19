@@ -9,7 +9,8 @@ import { Ballot, GovSession, UMBRAL_DELEGADOS, actoLabel, dayMonthFromISO, forma
 type VoteChoice = 'favor' | 'contra' | 'abstencion'
 
 export function GobernanzaPage() {
-  const { sessions, ballots, deleteSession } = useDemo()
+  const { sessions, ballots, deleteSession, juntaDesde } = useDemo()
+  const proximaEleccion = /^\d{4}-\d{2}-\d{2}$/.test(juntaDesde) ? `${Number(juntaDesde.slice(0, 4)) + 2}${juntaDesde.slice(4)}` : null
   const { can } = useSession()
   const [showSchedule, setShowSchedule] = useState(false)
   const [minutesFor, setMinutesFor] = useState<GovSession | null>(null)
@@ -129,7 +130,7 @@ export function GobernanzaPage() {
             </tbody>
           </table>
         </div>
-        <p className="px-5 py-3 text-[11px] text-ink/40">La Junta se elige por la Asamblea General para periodos de dos (2) años (Art. 13).</p>
+        <p className="px-5 py-3 text-[11px] text-ink/40">La Junta se elige por la Asamblea General para periodos de dos (2) años (Art. 13).{juntaDesde ? ` Periodo actual desde ${juntaDesde}${proximaEleccion ? ` · próxima elección ${proximaEleccion}` : ''}.` : ' Define el periodo en Parámetros.'}</p>
       </section>
 
       {showSchedule ? <ScheduleModal onClose={() => setShowSchedule(false)} /> : null}

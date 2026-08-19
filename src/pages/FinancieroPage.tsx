@@ -7,7 +7,7 @@ import { StatusBadge } from '../components/StatusBadge'
 import { useDemo } from '../store/DemoStore'
 import { useSession } from '../store/session'
 import { RowMenu, RowAction } from '../components/RowMenu'
-import { FirmaKey, Movement, MovementKind, MovementStatus, ejecucionPorRubro, ejecutadoRubro, expenseCategories, firmaLabel, firmasCount, formatCop, formatCopShort, incomeCategories, isoToLabel, monthlyFlow, nivelGasto, nivelLabel, requiereActaAsamblea, todayISO } from '../store/finance'
+import { FirmaKey, Movement, MovementKind, MovementStatus, TOPE_CAJA_SMMLV, ejecucionPorRubro, ejecutadoRubro, expenseCategories, firmaLabel, firmasCount, formatCop, formatCopShort, incomeCategories, isoToLabel, monthlyFlow, movementsToCsv, nivelGasto, nivelLabel, requiereActaAsamblea, todayISO } from '../store/finance'
 import { TOPE_EXTRAORDINARIA, mesesVencidos, periodLabel, recentPeriods } from '../store/contributions'
 
 const statusTone: Record<MovementStatus, 'positive' | 'warning' | 'negative' | 'neutral' | 'night'> = {
@@ -62,6 +62,8 @@ export function FinancieroPage() {
         <MetricCard label="Gastos por aprobar" value={formatCopShort(financeStats.pendingAmount)} detail={`${financeStats.pendingCount} pendiente(s) de aprobación`} icon={ArrowDownLeftIcon} tone="green" />
         <MetricCard label="Saldo en caja" value={formatCopShort(financeStats.balance)} detail="Ingresos confirmados − egresos pagados" icon={WalletCardsIcon} tone="night" />
       </div>
+
+      <CaucionExportBar />
 
       {!can('finance.approve') && !can('finance.create') ? null : can('finance.approve') && !can('finance.create') ? (
         <div className="mt-5 flex items-start gap-3 rounded-xl border border-gold/30 bg-gold/[0.08] px-4 py-3 text-sm text-ink/70">
@@ -144,9 +146,132 @@ export function FinancieroPage() {
 
       <PresupuestoSection />
 
+      {can('finance.create') ? <CajaMenorSection /> : null}
+
       {modalKind ? <MovementModal kind={modalKind} onClose={() => setModalKind(null)} /> : null}
       {editing ? <EditMovementModal movement={editing} onClose={() => setEditing(null)} /> : null}
     </div>
+  )
+}
+
+// Días entre hoy y una fecha ISO (negativo si ya pasó).
+function diasHasta(iso: string): number | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null
+  const [y, m, d] = iso.split('-').map(Number)
+  const target = new Date(y, m - 1, d).getTime()
+  const today = new Date()
+  const base = new Date(today.getFullYear(), today.getMonth(), today.getDate()).getTime()
+  return Math.round((target - base) / 86_400_000)
+}
+
+// Barra con alerta de caución del Tesorero (Art. 26) y exportación a SIIGO.
+function CaucionExportBar() {
+  const { movements, caucionVence } = useDemo()
+  const dias = caucionVence ? diasHasta(caucionVence) : null
+  const caucionAlerta = dias !== null && dias <= 30
+
+  function exportar() {
+    const csv = movementsToCsv(movements)
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'movimientos-siigo.csv'
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    URL.revokeObjectURL(url)
+  }
+
+  return (
+    <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="text-xs text-ink/55">
+        {caucionVence ? (
+          caucionAlerta
+            ? <span className="font-semibold text-rose-600">⚠ Caución del Tesorero {dias !== null && dias < 0 ? 'vencida' : `vence en ${dias} días`} — renovar (Art. 26).</span>
+            : <span>Caución del Tesorero vigente (vence {caucionVence}).</span>
+        ) : <span className="text-ink/40">Caución del Tesorero: sin registrar (defínela en Parámetros).</span>}
+      </div>
+      <button onClick={exportar} disabled={movements.length === 0} className="inline-flex items-center gap-2 self-start rounded-xl border border-ink/12 px-4 py-2.5 text-sm font-semibold text-night transition hover:bg-canvas disabled:opacity-40 sm:self-auto">
+        Exportar movimientos (SIIGO CSV)
+      </button>
+    </div>
+  )
+}
+
+// Caja menor (Art. 26e): fondo ≤ 1 SMMLV, gastos con soporte, alertas de saldo
+// y reembolso que repone el fondo.
+function CajaMenorSection() {
+  const { cajaFondo, cajaGastos, aperturaCaja, addCajaGasto, reembolsoCaja, smmlv } = useDemo()
+  const [fondoText, setFondoText] = useState(String(cajaFondo || ''))
+  const [concepto, setConcepto] = useState('')
+  const [montoText, setMontoText] = useState('')
+  const [soporte, setSoporte] = useState('')
+
+  const tope = TOPE_CAJA_SMMLV * smmlv
+  const nuevoFondo = Number(fondoText.replace(/\D/g, ''))
+  const gastado = cajaGastos.reduce((s, g) => s + g.monto, 0)
+  const saldo = cajaFondo - gastado
+  const pct = cajaFondo > 0 ? Math.round((gastado / cajaFondo) * 100) : 0
+  const monto = Number(montoText.replace(/\D/g, ''))
+  const gastoValido = concepto.trim() !== '' && monto > 0 && monto <= saldo && soporte.trim() !== ''
+  const fondoExcede = nuevoFondo > tope
+
+  return (
+    <section className="mt-6 overflow-hidden rounded-2xl border border-ink/[0.08] bg-white">
+      <div className="flex flex-col gap-3 border-b border-ink/[0.07] p-4 md:flex-row md:items-center md:justify-between">
+        <div>
+          <h2 className="font-display text-base font-semibold">Caja menor</h2>
+          <p className="mt-1 text-xs text-ink/50">Fondo administrado por Tesorería · tope 1 SMMLV ({formatCop(tope)}). Cada gasto requiere soporte (Art. 26e).</p>
+        </div>
+        <div className="flex items-end gap-2">
+          <label className="block">
+            <span className="mb-1 block text-[11px] font-semibold text-ink/60">Fondo de apertura</span>
+            <input value={fondoText} onChange={(e) => setFondoText(e.target.value)} inputMode="numeric" placeholder="Monto ≤ 1 SMMLV" className="w-40 rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2 text-sm outline-none focus:border-night" />
+          </label>
+          <button onClick={() => aperturaCaja(nuevoFondo)} disabled={nuevoFondo <= 0 || fondoExcede} className="rounded-xl bg-night px-4 py-2 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">Abrir / ajustar</button>
+        </div>
+      </div>
+
+      {fondoExcede ? <p className="px-4 pt-3 text-xs font-medium text-rose-600">El fondo no puede exceder 1 SMMLV ({formatCop(tope)}).</p> : null}
+
+      {cajaFondo > 0 ? (
+        <div className="p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+            <span className="text-ink/60">Saldo disponible: <strong className="text-ink">{formatCop(saldo)}</strong> de {formatCop(cajaFondo)}</span>
+            <span className={`text-xs font-semibold ${pct >= 90 ? 'text-rose-600' : pct >= 70 ? 'text-amber-600' : 'text-ink/45'}`}>{pct}% ejecutado{pct >= 90 ? ' · alerta roja' : pct >= 70 ? ' · alerta amarilla' : ''}</span>
+          </div>
+          <div className="mt-2 h-2 overflow-hidden rounded-full bg-ink/[0.06]">
+            <div className={`h-full rounded-full ${pct >= 90 ? 'bg-rose-500' : pct >= 70 ? 'bg-amber-500' : 'bg-night'}`} style={{ width: `${Math.min(100, pct)}%` }} />
+          </div>
+
+          <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_140px_140px_auto]">
+            <input value={concepto} onChange={(e) => setConcepto(e.target.value)} placeholder="Concepto del gasto" className="rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2 text-sm outline-none focus:border-night" />
+            <input value={montoText} onChange={(e) => setMontoText(e.target.value)} inputMode="numeric" placeholder="Monto" className="rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2 text-sm outline-none focus:border-night" />
+            <input value={soporte} onChange={(e) => setSoporte(e.target.value)} placeholder="Soporte (factura/recibo)" className="rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2 text-sm outline-none focus:border-night" />
+            <button onClick={() => { addCajaGasto(concepto.trim(), monto, soporte.trim()); setConcepto(''); setMontoText(''); setSoporte('') }} disabled={!gastoValido} className="rounded-xl bg-night px-4 py-2 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">Registrar</button>
+          </div>
+          {monto > saldo ? <p className="mt-1 text-[11px] font-medium text-rose-600">El gasto supera el saldo de caja menor.</p> : null}
+
+          {cajaGastos.length > 0 ? (
+            <ul className="mt-4 divide-y divide-ink/[0.07] rounded-xl border border-ink/[0.07]">
+              {cajaGastos.map((g) => (
+                <li key={g.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
+                  <span className="min-w-0"><span className="font-medium text-ink">{g.concepto}</span> <span className="text-ink/45">· {g.soporte}</span></span>
+                  <span className="text-ink/60">{formatCop(g.monto)}</span>
+                </li>
+              ))}
+            </ul>
+          ) : <p className="mt-4 text-xs text-ink/45">Sin gastos registrados en el fondo.</p>}
+
+          {gastado > 0 ? (
+            <button onClick={() => reembolsoCaja(gastado)} className="mt-4 rounded-xl border border-night/25 px-4 py-2.5 text-sm font-semibold text-night transition hover:bg-night/5">Reembolsar caja menor ({formatCop(gastado)}) y reponer fondo</button>
+          ) : null}
+        </div>
+      ) : (
+        <p className="px-4 py-8 text-center text-sm text-ink/50">Abre el fondo de caja menor para registrar gastos.</p>
+      )}
+    </section>
   )
 }
 
