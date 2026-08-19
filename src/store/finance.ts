@@ -35,6 +35,61 @@ export const expenseCategories = ['Bienestar', 'Formación', 'Defensa', 'Operaci
 // su ejecución contra los egresos comprometidos.
 export type Presupuesto = { category: string; anual: number }
 
+// Catálogo de cuentas (PUC) parametrizable — sección 2 del conceptual financiero.
+export type CuentaTipo = 'Activo' | 'Ingreso' | 'Gasto'
+export type CuentaNaturaleza = 'Débito' | 'Crédito'
+export type Cuenta = { codigo: string; nombre: string; tipo: CuentaTipo; naturaleza: CuentaNaturaleza; activa: boolean }
+
+export function seedCuentas(): Cuenta[] {
+  const c = (codigo: string, nombre: string, tipo: CuentaTipo, naturaleza: CuentaNaturaleza): Cuenta => ({ codigo, nombre, tipo, naturaleza, activa: true })
+  return [
+    c('1110', 'Bancos (Cuenta Banco Popular)', 'Activo', 'Débito'),
+    c('1105', 'Caja menor', 'Activo', 'Débito'),
+    c('41051001', 'Cuotas ordinarias (0,3% asignación básica)', 'Ingreso', 'Crédito'),
+    c('41052001', 'Cuotas extraordinarias', 'Ingreso', 'Crédito'),
+    c('41053001', 'Multas y sanciones pecuniarias', 'Ingreso', 'Crédito'),
+    c('421010', 'Intereses y rendimientos financieros', 'Ingreso', 'Crédito'),
+    c('511010', 'Asesoría jurídica', 'Gasto', 'Débito'),
+    c('511020', 'Asesoría sindical', 'Gasto', 'Débito'),
+    c('5105', 'Gastos de personal (capacitación)', 'Gasto', 'Débito'),
+    c('5155', 'Gastos de oficina', 'Gasto', 'Débito'),
+    c('5195', 'Actividades sindicales / Bienestar', 'Gasto', 'Débito'),
+    c('530505', 'Gravamen movimientos financieros (GMF)', 'Gasto', 'Débito'),
+  ]
+}
+
+// Caja menor (Art. 26e): fondo ≤ 1 SMMLV administrado por el Tesorero.
+export type CajaGasto = { id: string; date: string; concepto: string; monto: number; soporte: string }
+export const TOPE_CAJA_SMMLV = 1
+
+// Mapeo categoría → cuenta PUC para la exportación contable.
+const CATEGORIA_A_PUC: Record<string, string> = {
+  Recaudo: '41051001', 'Ingresos varios': '421010', Reintegros: '421010',
+  Bienestar: '5195', Formación: '5105', Defensa: '511010', Operación: '5155',
+}
+
+function csvCell(v: string): string {
+  return /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v
+}
+
+// Exportación mensual con asientos de partida doble para SIIGO (sección 6).
+export function movementsToCsv(movements: Movement[]): string {
+  const header = ['Fecha', 'Cuenta PUC', 'Tercero', 'Debito', 'Credito', 'Concepto']
+  const rows: string[][] = [header]
+  for (const m of movements) {
+    const cuenta = CATEGORIA_A_PUC[m.category] ?? ''
+    const monto = String(m.amount)
+    if (m.kind === 'Ingreso') {
+      rows.push([m.date, '1110', 'SERDNP', monto, '', m.concept])
+      rows.push([m.date, cuenta, 'SERDNP', '', monto, m.concept])
+    } else {
+      rows.push([m.date, cuenta, 'SERDNP', monto, '', m.concept])
+      rows.push([m.date, '1110', 'SERDNP', '', monto, m.concept])
+    }
+  }
+  return rows.map((r) => r.map(csvCell).join(',')).join('\r\n')
+}
+
 // Consecutivo de la orden de pago del año en curso: OP-2026-001.
 export function nextOrdenPago(movements: Movement[]): string {
   const year = 2026

@@ -22,6 +22,8 @@ import {
   periodLabel,
 } from './contributions'
 import {
+  CajaGasto,
+  Cuenta,
   DEFAULT_SMMLV,
   FirmaKey,
   Movement,
@@ -30,6 +32,7 @@ import {
   Presupuesto,
   nextOrdenPago,
   nivelGasto,
+  seedCuentas,
   seedMovements,
   seedPresupuestos,
   todayLabel,
@@ -92,6 +95,11 @@ type DemoState = {
   porcentajeCuota: number
   smmlv: number
   presupuestos: Presupuesto[]
+  cuentas: Cuenta[]
+  cajaFondo: number
+  cajaGastos: CajaGasto[]
+  caucionVence: string
+  juntaDesde: string
 }
 
 function seedState(): DemoState {
@@ -111,6 +119,11 @@ function seedState(): DemoState {
     porcentajeCuota: DEFAULT_PORCENTAJE_CUOTA,
     smmlv: DEFAULT_SMMLV,
     presupuestos: seedPresupuestos(),
+    cuentas: seedCuentas(),
+    cajaFondo: 0,
+    cajaGastos: [],
+    caucionVence: '',
+    juntaDesde: '',
   }
 }
 
@@ -159,6 +172,12 @@ type Action =
   | { type: 'anticiparAporte'; id: string }
   | { type: 'setPorcentajeCuota'; value: number }
   | { type: 'setPresupuesto'; category: string; anual: number }
+  | { type: 'setCuentas'; list: Cuenta[] }
+  | { type: 'aperturaCaja'; monto: number }
+  | { type: 'addCajaGasto'; gasto: CajaGasto }
+  | { type: 'reembolsoCaja'; movement: Movement }
+  | { type: 'setCaucion'; fecha: string }
+  | { type: 'setJuntaDesde'; fecha: string }
   | { type: 'reset' }
 
 // Al activar un afiliado, si ya se generó el corte del mes se le crea su aporte
@@ -398,6 +417,20 @@ function reducer(state: DemoState, action: Action): DemoState {
         : [...state.presupuestos, { category: action.category, anual }]
       return { ...state, presupuestos }
     }
+    case 'setCuentas':
+      return { ...state, cuentas: action.list }
+    case 'aperturaCaja':
+      // Abrir/ajustar el fondo de caja menor (tope 1 SMMLV) y limpiar gastos.
+      return { ...state, cajaFondo: Math.max(0, action.monto), cajaGastos: [] }
+    case 'addCajaGasto':
+      return { ...state, cajaGastos: [action.gasto, ...state.cajaGastos] }
+    case 'reembolsoCaja':
+      // El reembolso repone el fondo: sale de bancos y limpia los gastos.
+      return { ...state, cajaGastos: [], movements: [action.movement, ...state.movements] }
+    case 'setCaucion':
+      return { ...state, caucionVence: action.fecha }
+    case 'setJuntaDesde':
+      return { ...state, juntaDesde: action.fecha }
     case 'reset':
       return seedState()
     default:
@@ -432,6 +465,11 @@ function loadInitial(): DemoState {
         porcentajeCuota: typeof parsed.porcentajeCuota === 'number' ? parsed.porcentajeCuota : seeded.porcentajeCuota,
         smmlv: typeof parsed.smmlv === 'number' ? parsed.smmlv : seeded.smmlv,
         presupuestos: Array.isArray(parsed.presupuestos) ? parsed.presupuestos : seeded.presupuestos,
+        cuentas: Array.isArray(parsed.cuentas) ? parsed.cuentas : seeded.cuentas,
+        cajaFondo: typeof parsed.cajaFondo === 'number' ? parsed.cajaFondo : seeded.cajaFondo,
+        cajaGastos: Array.isArray(parsed.cajaGastos) ? parsed.cajaGastos : seeded.cajaGastos,
+        caucionVence: typeof parsed.caucionVence === 'string' ? parsed.caucionVence : seeded.caucionVence,
+        juntaDesde: typeof parsed.juntaDesde === 'string' ? parsed.juntaDesde : seeded.juntaDesde,
       }
     }
   } catch {
@@ -593,6 +631,17 @@ type DemoContextValue = {
   setPorcentajeCuota: (value: number) => void
   presupuestos: Presupuesto[]
   setPresupuesto: (category: string, anual: number) => void
+  cuentas: Cuenta[]
+  setCuentas: (list: Cuenta[]) => void
+  cajaFondo: number
+  cajaGastos: CajaGasto[]
+  aperturaCaja: (monto: number) => void
+  addCajaGasto: (concepto: string, monto: number, soporte: string) => void
+  reembolsoCaja: (total: number) => void
+  caucionVence: string
+  setCaucion: (fecha: string) => void
+  juntaDesde: string
+  setJuntaDesde: (fecha: string) => void
   resetDemo: () => void
   notify: (message: string, tone?: Toast['tone']) => void
 }
@@ -616,6 +665,8 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   smmlvRef.current = state.smmlv
   const affiliatesRef = useRef(state.affiliates)
   affiliatesRef.current = state.affiliates
+  const movementsRef = useRef(state.movements)
+  movementsRef.current = state.movements
 
   useEffect(() => {
     try {
@@ -894,6 +945,46 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     notify('Presupuesto del rubro actualizado.', 'success')
   }, [notify])
 
+  const setCuentas = useCallback((list: Cuenta[]) => {
+    dispatch({ type: 'setCuentas', list })
+  }, [])
+
+  const aperturaCaja = useCallback((monto: number) => {
+    dispatch({ type: 'aperturaCaja', monto })
+    notify('Fondo de caja menor actualizado.', 'success')
+  }, [notify])
+
+  const addCajaGasto = useCallback((concepto: string, monto: number, soporte: string) => {
+    const gasto: CajaGasto = { id: `caja-${Date.now()}`, date: commNowLabel(), concepto, monto, soporte }
+    dispatch({ type: 'addCajaGasto', gasto })
+    notify('Gasto de caja menor registrado.', 'success')
+  }, [notify])
+
+  const reembolsoCaja = useCallback((total: number) => {
+    const movement: Movement = {
+      id: `mov-reemb-${Date.now()}`,
+      date: commNowLabel(),
+      concept: 'Reembolso de caja menor (reposición del fondo)',
+      category: 'Operación',
+      kind: 'Egreso',
+      amount: total,
+      status: 'Pagado',
+      ordenPago: nextOrdenPago(movementsRef.current),
+    }
+    dispatch({ type: 'reembolsoCaja', movement })
+    notify('Caja menor reembolsada; fondo repuesto.', 'success')
+  }, [notify])
+
+  const setCaucion = useCallback((fecha: string) => {
+    dispatch({ type: 'setCaucion', fecha })
+    notify('Caución del Tesorero actualizada.', 'success')
+  }, [notify])
+
+  const setJuntaDesde = useCallback((fecha: string) => {
+    dispatch({ type: 'setJuntaDesde', fecha })
+    notify('Periodo de la Junta actualizado.', 'success')
+  }, [notify])
+
   const resetDemo = useCallback(() => {
     dispatch({ type: 'reset' })
     notify('Demo reiniciada al estado inicial.', 'warning')
@@ -1000,10 +1091,21 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       setPorcentajeCuota,
       presupuestos: state.presupuestos,
       setPresupuesto,
+      cuentas: state.cuentas,
+      setCuentas,
+      cajaFondo: state.cajaFondo,
+      cajaGastos: state.cajaGastos,
+      aperturaCaja,
+      addCajaGasto,
+      reembolsoCaja,
+      caucionVence: state.caucionVence,
+      setCaucion,
+      juntaDesde: state.juntaDesde,
+      setJuntaDesde,
       resetDemo,
       notify,
     }),
-    [state.affiliates, stats, state.movements, financeStats, state.cases, disciplineStats, state.sessions, state.ballots, state.docs, state.comunicados, state.committees, state.cargos, state.dependencias, state.vinculaciones, addAffiliate, setAffiliateStatus, conceptAffiliate, approveAffiliate, updateAffiliate, addMovement, setMovementStatus, updateMovement, deleteMovement, signMovement, state.smmlv, setSmmlv, addCase, advanceCase, ruleCase, interponerRecurso, resolverRecurso, deleteCase, addSession, publishMinutes, deleteSession, addBallot, castVote, castAffiliateVote, closeBallot, deleteBallot, addDoc, updateDoc, deleteDoc, sendComunicado, deleteComunicado, addCommittee, updateCommittee, deleteCommittee, setCargos, setDependencias, setVinculaciones, state.aportes, state.porcentajeCuota, generateAportes, payAporte, decretarExtraordinaria, anticiparAporte, setPorcentajeCuota, state.presupuestos, setPresupuesto, resetDemo, notify],
+    [state.affiliates, stats, state.movements, financeStats, state.cases, disciplineStats, state.sessions, state.ballots, state.docs, state.comunicados, state.committees, state.cargos, state.dependencias, state.vinculaciones, addAffiliate, setAffiliateStatus, conceptAffiliate, approveAffiliate, updateAffiliate, addMovement, setMovementStatus, updateMovement, deleteMovement, signMovement, state.smmlv, setSmmlv, addCase, advanceCase, ruleCase, interponerRecurso, resolverRecurso, deleteCase, addSession, publishMinutes, deleteSession, addBallot, castVote, castAffiliateVote, closeBallot, deleteBallot, addDoc, updateDoc, deleteDoc, sendComunicado, deleteComunicado, addCommittee, updateCommittee, deleteCommittee, setCargos, setDependencias, setVinculaciones, state.aportes, state.porcentajeCuota, generateAportes, payAporte, decretarExtraordinaria, anticiparAporte, setPorcentajeCuota, state.presupuestos, setPresupuesto, state.cuentas, setCuentas, state.cajaFondo, state.cajaGastos, aperturaCaja, addCajaGasto, reembolsoCaja, state.caucionVence, setCaucion, state.juntaDesde, setJuntaDesde, resetDemo, notify],
   )
 
   return (

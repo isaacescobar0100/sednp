@@ -4,7 +4,7 @@ import { SectionTitle } from '../components/SectionTitle'
 import { useDemo } from '../store/DemoStore'
 import { useSession } from '../store/session'
 import { VinculacionType, nextVinculacionColor } from '../store/catalogs'
-import { formatCop } from '../store/finance'
+import { CuentaNaturaleza, CuentaTipo, formatCop } from '../store/finance'
 
 export function ParametrosPage() {
   const { cargos, dependencias, vinculaciones, setCargos, setDependencias, setVinculaciones, notify } = useDemo()
@@ -26,8 +26,15 @@ export function ParametrosPage() {
           <CuotaCard />
           <SmmlvCard />
 
+          <CaucionCard />
+          <JuntaPeriodoCard />
+
           <div className="xl:col-span-2">
             <PresupuestoCard />
+          </div>
+
+          <div className="xl:col-span-2">
+            <PucCatalogCard />
           </div>
 
           <ListCatalog
@@ -120,6 +127,134 @@ function SmmlvCard() {
           </label>
           <button onClick={() => setSmmlv(value)} disabled={!dirty} className="rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">Guardar</button>
         </div>
+      </div>
+    </section>
+  )
+}
+
+// Caución del Tesorero (Art. 26): garantía del manejo de fondos, con vencimiento.
+function CaucionCard() {
+  const { caucionVence, setCaucion } = useDemo()
+  const [date, setDate] = useState(caucionVence)
+  const dirty = date !== caucionVence
+  return (
+    <section className="rounded-2xl border border-ink/[0.08] bg-white p-5">
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-canvas text-night"><ScaleIcon className="h-5 w-5" strokeWidth={1.8} /></div>
+        <div>
+          <h2 className="font-display text-base font-semibold">Caución del Tesorero</h2>
+          <p className="text-xs text-ink/50">Garantía del manejo de fondos (Art. 26){caucionVence ? ` · vence ${caucionVence}` : ' · sin registrar'}</p>
+        </div>
+      </div>
+      <div className="mt-4 flex items-end gap-2">
+        <label className="block">
+          <span className="mb-1.5 block text-xs font-semibold text-ink/70">Fecha de vencimiento</span>
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night" />
+        </label>
+        <button onClick={() => setCaucion(date)} disabled={!dirty} className="rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">Guardar</button>
+      </div>
+    </section>
+  )
+}
+
+// Periodo de la Junta Directiva: se elige por la Asamblea cada 2 años (Art. 13).
+function JuntaPeriodoCard() {
+  const { juntaDesde, setJuntaDesde } = useDemo()
+  const [date, setDate] = useState(juntaDesde)
+  const dirty = date !== juntaDesde
+  const proxima = /^\d{4}-\d{2}-\d{2}$/.test(juntaDesde) ? `${Number(juntaDesde.slice(0, 4)) + 2}${juntaDesde.slice(4)}` : null
+  return (
+    <section className="rounded-2xl border border-ink/[0.08] bg-white p-5">
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-canvas text-night"><LandmarkIcon className="h-5 w-5" strokeWidth={1.8} /></div>
+        <div>
+          <h2 className="font-display text-base font-semibold">Periodo de la Junta Directiva</h2>
+          <p className="text-xs text-ink/50">Elección por la Asamblea cada 2 años (Art. 13){proxima ? ` · próxima elección ${proxima}` : ''}</p>
+        </div>
+      </div>
+      <div className="mt-4 flex items-end gap-2">
+        <label className="block">
+          <span className="mb-1.5 block text-xs font-semibold text-ink/70">Inicio del periodo actual</span>
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night" />
+        </label>
+        <button onClick={() => setJuntaDesde(date)} disabled={!dirty} className="rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">Guardar</button>
+      </div>
+    </section>
+  )
+}
+
+// Catálogo de cuentas (PUC) parametrizable — sección 2 del conceptual financiero.
+function PucCatalogCard() {
+  const { cuentas, setCuentas, notify } = useDemo()
+  const [codigo, setCodigo] = useState('')
+  const [nombre, setNombre] = useState('')
+  const [tipo, setTipo] = useState<CuentaTipo>('Gasto')
+  const naturaleza: CuentaNaturaleza = tipo === 'Ingreso' ? 'Crédito' : 'Débito'
+
+  function add() {
+    const c = codigo.trim(); const n = nombre.trim()
+    if (!c || !n) return
+    if (cuentas.some((x) => x.codigo === c)) { notify(`La cuenta ${c} ya existe.`, 'warning'); return }
+    setCuentas([...cuentas, { codigo: c, nombre: n, tipo, naturaleza, activa: true }])
+    setCodigo(''); setNombre('')
+    notify(`Cuenta ${c} agregada al catálogo.`, 'success')
+  }
+  function toggle(cod: string) {
+    setCuentas(cuentas.map((x) => (x.codigo === cod ? { ...x, activa: !x.activa } : x)))
+  }
+  function remove(cod: string) {
+    setCuentas(cuentas.filter((x) => x.codigo !== cod))
+  }
+
+  const inputClass = 'rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night'
+
+  return (
+    <section className="rounded-2xl border border-ink/[0.08] bg-white p-5">
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-canvas text-night"><TagsIcon className="h-5 w-5" strokeWidth={1.8} /></div>
+        <div>
+          <h2 className="font-display text-base font-semibold">Catálogo de cuentas (PUC)</h2>
+          <p className="text-xs text-ink/50">Plan de cuentas para movimientos y exportación contable · {cuentas.length} cuentas</p>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-[130px_1fr_130px_auto]">
+        <input value={codigo} onChange={(e) => setCodigo(e.target.value)} placeholder="Código" inputMode="numeric" className={inputClass} />
+        <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre de la cuenta" className={inputClass} />
+        <select value={tipo} onChange={(e) => setTipo(e.target.value as CuentaTipo)} className={inputClass}>
+          {(['Activo', 'Ingreso', 'Gasto'] as CuentaTipo[]).map((t) => <option key={t} value={t}>{t}</option>)}
+        </select>
+        <button onClick={add} disabled={!codigo.trim() || !nombre.trim()} className="inline-flex items-center gap-1.5 rounded-xl bg-night px-4 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40"><PlusIcon className="h-4 w-4" />Agregar</button>
+      </div>
+
+      <div className="mt-4 overflow-x-auto">
+        <table className="w-full min-w-[520px] text-left text-sm">
+          <thead className="text-[10px] uppercase tracking-[0.12em] text-ink/45">
+            <tr>
+              <th className="py-2 pr-3 font-semibold">Código</th>
+              <th className="py-2 pr-3 font-semibold">Nombre</th>
+              <th className="py-2 pr-3 font-semibold">Tipo</th>
+              <th className="py-2 pr-3 font-semibold">Naturaleza</th>
+              <th className="py-2 pr-3 text-right font-semibold">Estado</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-ink/[0.07]">
+            {cuentas.map((c) => (
+              <tr key={c.codigo}>
+                <td className="py-2 pr-3 font-mono text-xs text-ink/70">{c.codigo}</td>
+                <td className="py-2 pr-3 text-ink/80">{c.nombre}</td>
+                <td className="py-2 pr-3 text-ink/55">{c.tipo}</td>
+                <td className="py-2 pr-3 text-ink/55">{c.naturaleza}</td>
+                <td className="py-2 pr-3 text-right">
+                  <div className="inline-flex items-center gap-1.5">
+                    <button onClick={() => toggle(c.codigo)} className={`rounded-md px-2 py-0.5 text-[10px] font-semibold ${c.activa ? 'bg-emerald-100 text-emerald-700' : 'bg-ink/[0.06] text-ink/45'}`}>{c.activa ? 'Activa' : 'Inactiva'}</button>
+                    <button onClick={() => remove(c.codigo)} className="rounded-lg p-1 text-ink/40 transition hover:bg-brick/10 hover:text-brick" aria-label={`Eliminar ${c.codigo}`}><Trash2Icon className="h-3.5 w-3.5" /></button>
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </section>
   )
