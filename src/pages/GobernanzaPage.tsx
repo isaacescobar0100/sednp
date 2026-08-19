@@ -4,7 +4,7 @@ import { SectionTitle } from '../components/SectionTitle'
 import { StatusBadge } from '../components/StatusBadge'
 import { useDemo } from '../store/DemoStore'
 import { juntaDirectiva, useSession } from '../store/session'
-import { Ballot, GovSession, actoLabel, dayMonthFromISO, formatTime, longDateLabel, meetingPlaces, quorumMinimo, totalVotes, votePct } from '../store/governance'
+import { Ballot, GovSession, UMBRAL_DELEGADOS, actoLabel, dayMonthFromISO, formatTime, longDateLabel, meetingPlaces, quorumMinimo, totalVotes, votePct } from '../store/governance'
 
 type VoteChoice = 'favor' | 'contra' | 'abstencion'
 
@@ -289,13 +289,18 @@ function MinutesModal({ session, onClose }: { session: GovSession; onClose: () =
   const { publishMinutes, affiliates } = useDemo()
   const [minutes, setMinutes] = useState('')
   const [asistentesText, setAsistentesText] = useState('')
+  const [convocadosText, setConvocadosText] = useState('')
   const esAsamblea = session.organ === 'Asamblea'
   const acto = actoLabel(session.organ)
   const activos = affiliates.filter((a) => a.status === 'Activo').length
-  const minimo = quorumMinimo(activos)
+  // Con más de 100 afiliados la Asamblea es de Delegados: el quórum se calcula
+  // sobre los delegados convocados, no sobre el total de afiliados (Art. 9).
+  const porDelegados = esAsamblea && activos > UMBRAL_DELEGADOS
+  const base = porDelegados ? Number(convocadosText.replace(/\D/g, '')) : activos
+  const minimo = quorumMinimo(base)
   const asistentes = Number(asistentesText.replace(/\D/g, ''))
-  const hayQuorum = asistentes >= minimo
-  const valid = minutes.trim() !== '' && (!esAsamblea || asistentesText.trim() !== '')
+  const hayQuorum = asistentes >= minimo && base > 0
+  const valid = minutes.trim() !== '' && (!esAsamblea || (asistentesText.trim() !== '' && (!porDelegados || convocadosText.trim() !== '')))
 
   function submit() {
     if (!valid) return
@@ -308,12 +313,21 @@ function MinutesModal({ session, onClose }: { session: GovSession; onClose: () =
       <p className="-mt-1 mb-4 text-sm text-ink/50">La sesión quedará <strong>Realizada</strong> y su {acto.toLowerCase()} se publicará.</p>
       {esAsamblea ? (
         <div className="mb-4">
-          <ModalField label={`Asistentes (quórum mínimo: ${minimo} de ${activos} activos)`} required>
+          {porDelegados ? (
+            <>
+              <p className="mb-3 rounded-xl bg-gold/[0.1] px-3 py-2 text-xs text-ink/70">Con {activos} afiliados (más de {UMBRAL_DELEGADOS}), la Asamblea se realiza por <strong>Delegados</strong> (Art. 9). El quórum se calcula sobre los delegados.</p>
+              <ModalField label="Delegados convocados" required>
+                <input value={convocadosText} onChange={(e) => setConvocadosText(e.target.value)} inputMode="numeric" placeholder="N.º de delegados" className={inputClass} />
+              </ModalField>
+              <div className="mt-3" />
+            </>
+          ) : null}
+          <ModalField label={porDelegados ? `Delegados asistentes (quórum mínimo: ${base > 0 ? minimo : '—'})` : `Asistentes (quórum mínimo: ${minimo} de ${activos} activos)`} required>
             <input value={asistentesText} onChange={(e) => setAsistentesText(e.target.value)} inputMode="numeric" placeholder="N.º de asistentes" className={inputClass} />
           </ModalField>
-          {asistentesText.trim() !== '' ? (
+          {asistentesText.trim() !== '' && base > 0 ? (
             <p className={`mt-2 text-xs font-semibold ${hayQuorum ? 'text-emerald-700' : 'text-rose-600'}`}>
-              {hayQuorum ? `Quórum alcanzado (mitad más uno, Art. 10).` : `Sin quórum: se requieren al menos ${minimo} asistentes.`}
+              {hayQuorum ? `Quórum alcanzado (mitad más uno).` : `Sin quórum: se requieren al menos ${minimo} ${porDelegados ? 'delegados' : 'asistentes'}.`}
             </p>
           ) : null}
         </div>

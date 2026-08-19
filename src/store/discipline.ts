@@ -5,15 +5,28 @@
 // Etapas del procedimiento disciplinario (Art. 50).
 export const stages = ['Auto de apertura', 'Pliego de cargos', 'Descargos', 'Práctica de pruebas', 'Traslado a Junta Directiva'] as const
 
-// Términos procesales de cada etapa en días (Arts. 51–54).
-export const stageTerms: number[] = [180, 15, 10, 30, 15]
+// Términos procesales de cada etapa en días, según el procedimiento estatutario
+// (apertura y notificación 5 días; descargos, pruebas y traslado 10 días).
+export const stageTerms: number[] = [5, 10, 10, 10, 10]
 
 export function termOf(stageIndex: number): number {
-  return stageTerms[stageIndex] ?? 30
+  return stageTerms[stageIndex] ?? 10
 }
 
-// La acción disciplinaria prescribe a los 5 años (Art. 56).
+// Plazo para interponer reposición/apelación tras la notificación (10 días).
+export const RECURSO_DIAS = 10
+
+// La acción disciplinaria prescribe a los 5 años.
 export const PRESCRIPCION_ANIOS = 5
+
+// La multa disciplinaria va de 1 a 3 días de SMMLV diario (Art. 48).
+export const MULTA_DIAS_MIN = 1
+export const MULTA_DIAS_MAX = 3
+
+// Valor de la multa = días × (SMMLV / 30).
+export function valorMulta(dias: number, smmlv: number): number {
+  return Math.round(dias * (smmlv / 30))
+}
 
 export type CaseStatus = 'En trámite' | 'Con fallo' | 'Archivado'
 

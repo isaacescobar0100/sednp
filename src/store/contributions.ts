@@ -15,6 +15,7 @@ export type Aporte = {
   tipo: AporteTipo
   status: AporteStatus
   acta?: string // acta de Asamblea que decretó la extraordinaria (Art. 33)
+  anticipada?: boolean // descuento anticipado por vacaciones (Parágrafo Art. 32)
   paidDate?: string
   method?: AporteMethod
 }
