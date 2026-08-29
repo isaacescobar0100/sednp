@@ -95,7 +95,7 @@ function DocCard({ doc, canManage, onEdit }: { doc: Doc; canManage: boolean; onE
       `Fecha: ${doc.date}`,
       `Archivo: ${doc.fileName} (${formatFileSize(doc.fileSize)})`,
       '',
-      'Ficha de referencia (el archivo original no está almacenado en la demo).',
+      'Ficha de referencia (el archivo original no está almacenado en el sistema).',
     ].join('\n')
     const url = URL.createObjectURL(new Blob([body], { type: 'text/plain;charset=utf-8' }))
     const a = document.createElement('a')

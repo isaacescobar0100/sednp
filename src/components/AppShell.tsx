@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { BellIcon, RotateCcwIcon, SearchIcon } from 'lucide-react'
+import { BellIcon, LogOutIcon, SearchIcon } from 'lucide-react'
 import { AppSidebar, MobileMenuButton } from './AppSidebar'
 import { useDemo } from '../store/DemoStore'
 import { roleLabel, useSession } from '../store/session'
@@ -15,13 +15,6 @@ type AppShellProps = {
 
 export function AppShell({ activeModule, module, onNavigate, onLogout, children }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
-  const { resetDemo } = useDemo()
-
-  function handleReset() {
-    if (window.confirm('¿Reiniciar la demo? Se descartarán los cambios y se volverá a los datos de ejemplo.')) {
-      resetDemo()
-    }
-  }
 
   return (
     <div className="min-h-screen w-full bg-canvas">
@@ -39,9 +32,7 @@ export function AppShell({ activeModule, module, onNavigate, onLogout, children 
             <GlobalSearch onNavigate={onNavigate} />
             <UserChip />
             <NotificationsBell onNavigate={onNavigate} />
-            <button onClick={handleReset} title="Reiniciar la demo a los datos de ejemplo" className="inline-flex items-center gap-1.5 rounded-xl border border-ink/10 px-2.5 py-2 text-xs font-semibold text-ink/60 transition hover:border-night/20 hover:text-night">
-              <RotateCcwIcon className="h-3.5 w-3.5" /><span className="hidden lg:inline">Reiniciar demo</span>
-            </button>
+            <LogoutButton onLogout={onLogout} />
           </div>
         </header>
         <main className="p-5 sm:p-8">{children}</main>
@@ -156,6 +147,14 @@ function NotificationsBell({ onNavigate }: { onNavigate: (module: ModuleKey) => 
         </>
       ) : null}
     </div>
+  )
+}
+
+function LogoutButton({ onLogout }: { onLogout: () => void }) {
+  return (
+    <button onClick={onLogout} title="Cerrar sesión" className="inline-flex items-center gap-1.5 rounded-xl border border-ink/10 px-2.5 py-2 text-xs font-semibold text-ink/60 transition hover:border-brick/30 hover:text-brick">
+      <LogOutIcon className="h-3.5 w-3.5" /><span className="hidden lg:inline">Salir</span>
+    </button>
   )
 }
 

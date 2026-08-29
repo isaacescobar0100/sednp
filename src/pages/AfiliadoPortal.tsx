@@ -320,7 +320,7 @@ function Documentos({ docs }: { docs: Doc[] }) {
       notify(`Descargando ${doc.fileName}…`, 'info')
       return
     }
-    const body = `SIG-SERDNP\nDocumento: ${doc.title}\nCódigo: ${doc.code}\nArchivo: ${doc.fileName}\n\nFicha de referencia (archivo no almacenado en la demo).`
+    const body = `SIG-SERDNP\nDocumento: ${doc.title}\nCódigo: ${doc.code}\nArchivo: ${doc.fileName}\n\nFicha de referencia (archivo no almacenado en el sistema).`
     const url = URL.createObjectURL(new Blob([body], { type: 'text/plain;charset=utf-8' }))
     const a = document.createElement('a')
     a.href = url
