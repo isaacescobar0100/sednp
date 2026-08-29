@@ -6,6 +6,7 @@ import { fetchAportes, insertAportes, patchAporte } from './aportesApi'
 import { fetchMovements, insertMovement, patchMovement, deleteMovementRow } from './movementsApi'
 import { Params, clearCajaGastos, fetchCajaGastos, fetchCuentas, fetchParams, fetchPresupuestos, insertCajaGasto, replaceCuentas, upsertParams, upsertPresupuesto } from './configApi'
 import { deleteCaseRow, fetchCases, insertCase, patchCase } from './casesApi'
+import { CaseEvent, fetchCaseEvents, insertCaseEvent } from './caseEventsApi'
 import {
   Affiliate,
   AffiliateStatus,
@@ -38,6 +39,7 @@ import {
   MovementKind,
   MovementStatus,
   Presupuesto,
+  formatCop,
   nextOrdenPago,
   nivelGasto,
   seedCuentas,
@@ -91,6 +93,7 @@ type DemoState = {
   affiliates: Affiliate[]
   movements: Movement[]
   cases: DisciplineCase[]
+  caseEvents: CaseEvent[]
   sessions: GovSession[]
   ballots: Ballot[]
   docs: Doc[]
@@ -116,6 +119,7 @@ function seedState(): DemoState {
     affiliates: seedAffiliates(),
     movements: seedMovements(),
     cases: seedCases(),
+    caseEvents: [],
     sessions: seedSessions(),
     ballots: seedBallots(),
     docs: seedDocs(),
@@ -155,6 +159,8 @@ type Action =
   | { type: 'signMovement'; id: string; who: FirmaKey }
   | { type: 'setSmmlv'; value: number }
   | { type: 'setCases'; list: DisciplineCase[] }
+  | { type: 'setCaseEvents'; list: CaseEvent[] }
+  | { type: 'addCaseEvent'; event: CaseEvent }
   | { type: 'addCase'; case: DisciplineCase }
   | { type: 'advanceCase'; id: string }
   | { type: 'ruleCase'; id: string; resultado: Sancion | 'Archivado'; monto?: number }
@@ -270,6 +276,10 @@ function reducer(state: DemoState, action: Action): DemoState {
       return { ...state, smmlv: Math.max(0, action.value) }
     case 'setCases':
       return { ...state, cases: action.list }
+    case 'setCaseEvents':
+      return { ...state, caseEvents: action.list }
+    case 'addCaseEvent':
+      return { ...state, caseEvents: [...state.caseEvents, action.event] }
     case 'addCase':
       return { ...state, cases: [action.case, ...state.cases] }
     case 'advanceCase':
@@ -459,6 +469,7 @@ function loadInitial(): DemoState {
         affiliates: seeded.affiliates, // los afiliados se cargan desde Supabase, no de localStorage
         movements: seeded.movements, // los movimientos se cargan desde Supabase
         cases: seeded.cases, // los expedientes se cargan desde Supabase
+        caseEvents: seeded.caseEvents,
         sessions: Array.isArray(parsed.sessions) ? parsed.sessions : seeded.sessions,
         ballots: Array.isArray(parsed.ballots) ? parsed.ballots : seeded.ballots,
         docs: Array.isArray(parsed.docs) ? parsed.docs : seeded.docs,
@@ -605,6 +616,8 @@ type DemoContextValue = {
   interponerRecurso: (id: string, tipo: RecursoTipo) => void
   resolverRecurso: (id: string, resultado: RecursoResultado) => void
   deleteCase: (id: string, code: string) => void
+  caseEvents: CaseEvent[]
+  addCaseEvent: (caseId: string, tipo: string, nota?: string, soportePath?: string) => void
   sessions: GovSession[]
   ballots: Ballot[]
   addSession: (input: NewSessionInput) => void
@@ -664,7 +677,9 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, loadInitial)
   const [toasts, setToasts] = useState<Toast[]>([])
   const [toastSeq, setToastSeq] = useState(0)
-  const { session } = useAuth()
+  const { session, profile } = useAuth()
+  const roleRef = useRef(profile?.role ?? '')
+  roleRef.current = profile?.role ?? ''
 
   // Afiliados: fuente de verdad en Supabase. Se cargan al iniciar sesión y se
   // limpian al salir. Las demás tablas se migran en fases posteriores.
@@ -700,6 +715,9 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       .catch(() => {})
     fetchCases()
       .then((list) => { if (active) dispatch({ type: 'setCases', list }) })
+      .catch(() => {})
+    fetchCaseEvents()
+      .then((list) => { if (active) dispatch({ type: 'setCaseEvents', list }) })
       .catch(() => {})
     return () => { active = false }
   }, [session])
@@ -863,6 +881,20 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     notify(`Movimiento eliminado: ${concept}.`, 'warning')
   }, [notify])
 
+  // Registra una actuación en la bitácora (append-only) de un expediente.
+  const logCaseEvent = useCallback((caseId: string, tipo: string, nota = '', soportePath?: string) => {
+    insertCaseEvent({ caseId, tipo, fecha: caseTodayLabel(), actorRole: roleRef.current, nota, soportePath })
+      .then((ev) => dispatch({ type: 'addCaseEvent', event: ev }))
+      .catch(() => {})
+  }, [])
+
+  // Actuación registrada manualmente (con documento adjunto opcional).
+  const addCaseEvent = useCallback((caseId: string, tipo: string, nota?: string, soportePath?: string) => {
+    insertCaseEvent({ caseId, tipo, fecha: caseTodayLabel(), actorRole: roleRef.current, nota, soportePath })
+      .then((ev) => { dispatch({ type: 'addCaseEvent', event: ev }); notify('Actuación registrada en la bitácora.', 'success') })
+      .catch(() => notify('No se pudo registrar la actuación en el servidor.', 'warning'))
+  }, [notify])
+
   const addCase = useCallback((input: NewCaseInput) => {
     const draft: DisciplineCase = {
       id: '',
@@ -875,9 +907,13 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       status: 'En trámite',
     }
     insertCase(draft)
-      .then((saved) => { dispatch({ type: 'addCase', case: saved }); notify(`Expediente ${saved.code} abierto en etapa de Apertura.`, 'info') })
+      .then((saved) => {
+        dispatch({ type: 'addCase', case: saved })
+        logCaseEvent(saved.id, 'Auto de apertura', input.subject)
+        notify(`Expediente ${saved.code} abierto en etapa de Apertura.`, 'info')
+      })
       .catch(() => notify('No se pudo abrir el expediente en el servidor.', 'warning'))
-  }, [notify])
+  }, [notify, logCaseEvent])
 
   const advanceCase = useCallback((id: string) => {
     const target = casesRef.current.find((c) => c.id === id)
@@ -885,7 +921,8 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     const stageIndex = Math.min(stages.length - 1, target.stageIndex + 1)
     dispatch({ type: 'advanceCase', id })
     patchCase(id, { stageIndex, daysLeft: termOf(stageIndex) }).catch(() => notify('No se pudo guardar el avance en el servidor.', 'warning'))
-  }, [notify])
+    logCaseEvent(id, stages[stageIndex])
+  }, [notify, logCaseEvent])
 
   const ruleCase = useCallback((id: string, resultado: Sancion | 'Archivado', monto?: number) => {
     dispatch({ type: 'ruleCase', id, resultado, monto })
@@ -893,6 +930,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       ? { status: 'Archivado', sancion: undefined }
       : { status: 'Con fallo', sancion: resultado, multaMonto: resultado === 'Multa' ? monto : undefined }
     patchCase(id, changes).catch(() => notify('No se pudo guardar el fallo en el servidor.', 'warning'))
+    logCaseEvent(id, resultado === 'Archivado' ? 'Archivo del expediente' : `Fallo: ${resultado}`, resultado === 'Multa' && monto ? `Multa por ${formatCop(monto)}` : '')
     // La multa ingresa al libro contable (Supabase) para cobro por nómina.
     if (resultado === 'Multa' && (monto ?? 0) > 0) {
       const target = casesRef.current.find((c) => c.id === id)
@@ -903,21 +941,23 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       }
       insertMovement(mov).then((saved) => dispatch({ type: 'addMovement', movement: saved })).catch(() => {})
     }
-  }, [notify])
+  }, [notify, logCaseEvent])
 
   const interponerRecurso = useCallback((id: string, tipo: RecursoTipo) => {
     dispatch({ type: 'interponerRecurso', id, tipo })
     patchCase(id, { recursoTipo: tipo, recursoEstado: 'Interpuesto', recursoResultado: undefined }).catch(() => notify('No se pudo guardar el recurso en el servidor.', 'warning'))
+    logCaseEvent(id, `Recurso de ${tipo.toLowerCase()} interpuesto`)
     notify(`Recurso de ${tipo.toLowerCase()} interpuesto.`, 'info')
-  }, [notify])
+  }, [notify, logCaseEvent])
 
   const resolverRecurso = useCallback((id: string, resultado: RecursoResultado) => {
     dispatch({ type: 'resolverRecurso', id, resultado })
     const changes: Partial<DisciplineCase> = { recursoEstado: 'Resuelto', recursoResultado: resultado }
     if (resultado === 'Revoca') changes.sancion = 'Absuelto'
     patchCase(id, changes).catch(() => notify('No se pudo guardar la resolución en el servidor.', 'warning'))
+    logCaseEvent(id, `Resolución de recurso: ${resultado === 'Revoca' ? 'revoca el fallo' : 'confirma el fallo'}`)
     notify(`Recurso resuelto: ${resultado === 'Revoca' ? 'revoca el fallo' : 'confirma el fallo'}.`, resultado === 'Revoca' ? 'success' : 'warning')
-  }, [notify])
+  }, [notify, logCaseEvent])
 
   const deleteCase = useCallback((id: string, code: string) => {
     dispatch({ type: 'deleteCase', id })
@@ -1214,6 +1254,8 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       interponerRecurso,
       resolverRecurso,
       deleteCase,
+      caseEvents: state.caseEvents,
+      addCaseEvent,
       sessions: state.sessions,
       ballots: state.ballots,
       addSession,
@@ -1266,7 +1308,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       resetDemo,
       notify,
     }),
-    [state.affiliates, stats, state.movements, financeStats, state.cases, disciplineStats, state.sessions, state.ballots, state.docs, state.comunicados, state.committees, state.cargos, state.dependencias, state.vinculaciones, addAffiliate, setAffiliateStatus, conceptAffiliate, approveAffiliate, updateAffiliate, addMovement, setMovementStatus, updateMovement, deleteMovement, signMovement, state.smmlv, setSmmlv, addCase, advanceCase, ruleCase, interponerRecurso, resolverRecurso, deleteCase, addSession, publishMinutes, deleteSession, addBallot, castVote, castAffiliateVote, closeBallot, deleteBallot, addDoc, updateDoc, deleteDoc, sendComunicado, deleteComunicado, addCommittee, updateCommittee, deleteCommittee, setCargos, setDependencias, setVinculaciones, state.escalas, setEscalas, state.aportes, state.porcentajeCuota, generateAportes, payAporte, decretarExtraordinaria, anticiparAporte, setPorcentajeCuota, state.presupuestos, setPresupuesto, state.cuentas, setCuentas, state.cajaFondo, state.cajaGastos, aperturaCaja, addCajaGasto, reembolsoCaja, state.caucionVence, setCaucion, state.juntaDesde, setJuntaDesde, resetDemo, notify],
+    [state.affiliates, stats, state.movements, financeStats, state.cases, disciplineStats, state.sessions, state.ballots, state.docs, state.comunicados, state.committees, state.cargos, state.dependencias, state.vinculaciones, addAffiliate, setAffiliateStatus, conceptAffiliate, approveAffiliate, updateAffiliate, addMovement, setMovementStatus, updateMovement, deleteMovement, signMovement, state.smmlv, setSmmlv, addCase, advanceCase, ruleCase, interponerRecurso, resolverRecurso, deleteCase, state.caseEvents, addCaseEvent, addSession, publishMinutes, deleteSession, addBallot, castVote, castAffiliateVote, closeBallot, deleteBallot, addDoc, updateDoc, deleteDoc, sendComunicado, deleteComunicado, addCommittee, updateCommittee, deleteCommittee, setCargos, setDependencias, setVinculaciones, state.escalas, setEscalas, state.aportes, state.porcentajeCuota, generateAportes, payAporte, decretarExtraordinaria, anticiparAporte, setPorcentajeCuota, state.presupuestos, setPresupuesto, state.cuentas, setCuentas, state.cajaFondo, state.cajaGastos, aperturaCaja, addCajaGasto, reembolsoCaja, state.caucionVence, setCaucion, state.juntaDesde, setJuntaDesde, resetDemo, notify],
   )
 
   return (
