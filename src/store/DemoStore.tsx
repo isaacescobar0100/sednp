@@ -3,6 +3,7 @@ import { useAuth } from './auth'
 import { hasSupabase } from '../lib/supabase'
 import { fetchAffiliates, insertAffiliate, patchAffiliate } from './affiliatesApi'
 import { fetchAportes, insertAportes, patchAporte } from './aportesApi'
+import { fetchMovements, insertMovement, patchMovement, deleteMovementRow } from './movementsApi'
 import {
   Affiliate,
   AffiliateStatus,
@@ -144,6 +145,7 @@ type Action =
   | { type: 'conceptAffiliate'; id: string; concepto: 'Positivo' | 'Negativo' }
   | { type: 'approveAffiliate'; id: string; acta: string; fecha: string }
   | { type: 'updateAffiliate'; id: string; changes: Partial<Affiliate> }
+  | { type: 'setMovements'; list: Movement[] }
   | { type: 'addMovement'; movement: Movement }
   | { type: 'setMovementStatus'; id: string; status: MovementStatus }
   | { type: 'updateMovement'; id: string; changes: Partial<Movement> }
@@ -185,7 +187,7 @@ type Action =
   | { type: 'setCuentas'; list: Cuenta[] }
   | { type: 'aperturaCaja'; monto: number }
   | { type: 'addCajaGasto'; gasto: CajaGasto }
-  | { type: 'reembolsoCaja'; movement: Movement }
+  | { type: 'reembolsoCaja' }
   | { type: 'setCaucion'; fecha: string }
   | { type: 'setJuntaDesde'; fecha: string }
   | { type: 'reset' }
@@ -232,6 +234,8 @@ function reducer(state: DemoState, action: Action): DemoState {
         ...state,
         affiliates: state.affiliates.map((a) => (a.id === action.id ? { ...a, ...action.changes } : a)),
       }
+    case 'setMovements':
+      return { ...state, movements: action.list }
     case 'addMovement':
       return { ...state, movements: [action.movement, ...state.movements] }
     case 'setMovementStatus': {
@@ -270,24 +274,9 @@ function reducer(state: DemoState, action: Action): DemoState {
         }),
       }
     case 'ruleCase': {
-      const target = state.cases.find((c) => c.id === action.id)
-      // Una multa (Art. 45) ingresa al libro contable como ingreso a cobrar por nómina.
-      let movements = state.movements
-      if (action.resultado === 'Multa' && (action.monto ?? 0) > 0 && target) {
-        const mov: Movement = {
-          id: `mov-multa-${target.id}`,
-          date: todayLabel(),
-          concept: `Multa disciplinaria ${target.code} — ${target.person} (cobro por nómina)`,
-          category: 'Ingresos varios',
-          kind: 'Ingreso',
-          amount: action.monto as number,
-          status: 'Confirmado',
-        }
-        movements = [mov, ...state.movements.filter((m) => m.id !== mov.id)]
-      }
+      // La multa ingresa al libro contable; ese movimiento lo inserta el callback.
       return {
         ...state,
-        movements,
         cases: state.cases.map((c) =>
           c.id === action.id
             ? action.resultado === 'Archivado'
@@ -390,21 +379,10 @@ function reducer(state: DemoState, action: Action): DemoState {
     case 'payAporte': {
       const aporte = state.aportes.find((a) => a.id === action.id)
       if (!aporte || aporte.status === 'Pagado') return state
-      const affiliate = state.affiliates.find((a) => a.id === aporte.affiliateId)
-      // Al pagarse, el aporte entra al libro contable como ingreso confirmado.
-      const movement: Movement = {
-        id: `mov-apt-${aporte.id}`,
-        date: action.date,
-        concept: `Aporte ${aporte.tipo === 'Extraordinaria' ? 'extraordinario' : 'ordinario'} ${periodLabel(aporte.period)} — ${affiliate?.name ?? 'Afiliado'}`,
-        category: 'Recaudo',
-        kind: 'Ingreso',
-        amount: aporte.amount,
-        status: 'Confirmado',
-      }
+      // Marca el aporte pagado; el ingreso al libro contable lo inserta el callback.
       return {
         ...state,
         aportes: state.aportes.map((a) => (a.id === action.id ? { ...a, status: 'Pagado', paidDate: action.date, method: action.method } : a)),
-        movements: [movement, ...state.movements],
       }
     }
     case 'decretarExtraordinaria': {
@@ -442,8 +420,8 @@ function reducer(state: DemoState, action: Action): DemoState {
     case 'addCajaGasto':
       return { ...state, cajaGastos: [action.gasto, ...state.cajaGastos] }
     case 'reembolsoCaja':
-      // El reembolso repone el fondo: sale de bancos y limpia los gastos.
-      return { ...state, cajaGastos: [], movements: [action.movement, ...state.movements] }
+      // El reembolso repone el fondo (limpia gastos); el egreso lo inserta el callback.
+      return { ...state, cajaGastos: [] }
     case 'setCaucion':
       return { ...state, caucionVence: action.fecha }
     case 'setJuntaDesde':
@@ -465,7 +443,7 @@ function loadInitial(): DemoState {
       const parsed = JSON.parse(raw) as Partial<DemoState>
       return {
         affiliates: seeded.affiliates, // los afiliados se cargan desde Supabase, no de localStorage
-        movements: Array.isArray(parsed.movements) ? parsed.movements : seeded.movements,
+        movements: seeded.movements, // los movimientos se cargan desde Supabase
         cases: Array.isArray(parsed.cases) ? parsed.cases : seeded.cases,
         sessions: Array.isArray(parsed.sessions) ? parsed.sessions : seeded.sessions,
         ballots: Array.isArray(parsed.ballots) ? parsed.ballots : seeded.ballots,
@@ -681,6 +659,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     if (!session) {
       dispatch({ type: 'setAffiliates', list: [] })
       dispatch({ type: 'setAportes', list: [] })
+      dispatch({ type: 'setMovements', list: [] })
       return
     }
     let active = true
@@ -689,6 +668,9 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       .catch(() => { /* RLS o red: se conserva lo que haya */ })
     fetchAportes()
       .then((list) => { if (active) dispatch({ type: 'setAportes', list }) })
+      .catch(() => {})
+    fetchMovements()
+      .then((list) => { if (active) dispatch({ type: 'setMovements', list }) })
       .catch(() => {})
     return () => { active = false }
   }, [session])
@@ -793,7 +775,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     // Gasto ≤ 1 SMMLV: Tesorería lo aprueba de una; el resto queda 'Por aprobar'.
     const status: MovementStatus = !esEgreso ? 'Confirmado' : nivel === 'tesoreria' ? 'Aprobado' : 'Por aprobar'
     const movement: Movement = {
-      id: `mov-${Date.now()}`,
+      id: '',
       date: input.date || todayLabel(),
       concept: input.concept,
       category: input.category,
@@ -803,23 +785,34 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       nivel,
       firmas: esEgreso ? {} : undefined,
     }
-    dispatch({ type: 'addMovement', movement })
-    notify(
-      !esEgreso
-        ? `Ingreso registrado y confirmado: ${input.concept}.`
-        : status === 'Aprobado'
-          ? `Gasto registrado (≤ 1 SMMLV): pendiente de firmas.`
-          : `Gasto registrado, queda por aprobar: ${input.concept}.`,
-      'info',
-    )
+    insertMovement(movement)
+      .then((saved) => {
+        dispatch({ type: 'addMovement', movement: saved })
+        notify(
+          !esEgreso
+            ? `Ingreso registrado y confirmado: ${input.concept}.`
+            : status === 'Aprobado'
+              ? `Gasto registrado (≤ 1 SMMLV): pendiente de firmas.`
+              : `Gasto registrado, queda por aprobar: ${input.concept}.`,
+          'info',
+        )
+      })
+      .catch(() => notify('No se pudo registrar el movimiento en el servidor.', 'warning'))
   }, [notify])
 
   const setMovementStatus = useCallback((id: string, status: MovementStatus) => {
+    const target = movementsRef.current.find((m) => m.id === id)
+    const asignaOP = status === 'Pagado' && target?.kind === 'Egreso' && !target?.ordenPago
+    const op = asignaOP ? nextOrdenPago(movementsRef.current) : undefined
     dispatch({ type: 'setMovementStatus', id, status })
-  }, [])
+    patchMovement(id, { status, ...(op ? { ordenPago: op } : {}) }).catch(() => notify('No se pudo guardar el cambio en el servidor.', 'warning'))
+  }, [notify])
 
   const signMovement = useCallback((id: string, who: FirmaKey) => {
+    const target = movementsRef.current.find((m) => m.id === id)
+    const firmas = { ...(target?.firmas ?? {}), [who]: true }
     dispatch({ type: 'signMovement', id, who })
+    patchMovement(id, { firmas }).catch(() => notify('No se pudo guardar la firma en el servidor.', 'warning'))
     notify('Firma registrada en la orden de pago.', 'success')
   }, [notify])
 
@@ -830,11 +823,13 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
 
   const updateMovement = useCallback((id: string, changes: Partial<Movement>) => {
     dispatch({ type: 'updateMovement', id, changes })
+    patchMovement(id, changes).catch(() => notify('No se pudo guardar el movimiento en el servidor.', 'warning'))
     notify('Movimiento actualizado.', 'success')
   }, [notify])
 
   const deleteMovement = useCallback((id: string, concept: string) => {
     dispatch({ type: 'deleteMovement', id })
+    deleteMovementRow(id).catch(() => notify('No se pudo eliminar en el servidor.', 'warning'))
     notify(`Movimiento eliminado: ${concept}.`, 'warning')
   }, [notify])
 
@@ -859,6 +854,16 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
 
   const ruleCase = useCallback((id: string, resultado: Sancion | 'Archivado', monto?: number) => {
     dispatch({ type: 'ruleCase', id, resultado, monto })
+    // La multa ingresa al libro contable (Supabase) para cobro por nómina.
+    if (resultado === 'Multa' && (monto ?? 0) > 0) {
+      const target = casesRef.current.find((c) => c.id === id)
+      const mov: Movement = {
+        id: '', date: todayLabel(),
+        concept: `Multa disciplinaria ${target?.code ?? ''} — ${target?.person ?? ''} (cobro por nómina)`,
+        category: 'Ingresos varios', kind: 'Ingreso', amount: monto as number, status: 'Confirmado',
+      }
+      insertMovement(mov).then((saved) => dispatch({ type: 'addMovement', movement: saved })).catch(() => {})
+    }
   }, [])
 
   const interponerRecurso = useCallback((id: string, tipo: RecursoTipo) => {
@@ -996,9 +1001,21 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   }, [notify])
 
   const payAporte = useCallback((id: string, method: AporteMethod) => {
-    // Optimista: marca pagado y crea el ingreso local; persiste el pago en Supabase.
-    dispatch({ type: 'payAporte', id, method, date: commNowLabel() })
-    patchAporte(id, { status: 'Pagado', paidDate: commNowLabel(), method }).catch(() => notify('No se pudo guardar el pago en el servidor.', 'warning'))
+    const date = commNowLabel()
+    const aporte = aportesRef.current.find((a) => a.id === id)
+    dispatch({ type: 'payAporte', id, method, date })
+    patchAporte(id, { status: 'Pagado', paidDate: date, method }).catch(() => notify('No se pudo guardar el pago en el servidor.', 'warning'))
+    // El ingreso al libro contable lo registra Tesorería (Nómina); en el portal
+    // el afiliado no tiene permiso de insertar movimientos (lo concilia Tesorería).
+    if (method === 'Nómina' && aporte) {
+      const affiliate = affiliatesRef.current.find((a) => a.id === aporte.affiliateId)
+      const mov: Movement = {
+        id: '', date,
+        concept: `Aporte ${aporte.tipo === 'Extraordinaria' ? 'extraordinario' : 'ordinario'} ${periodLabel(aporte.period)} — ${affiliate?.name ?? 'Afiliado'}`,
+        category: 'Recaudo', kind: 'Ingreso', amount: aporte.amount, status: 'Confirmado',
+      }
+      insertMovement(mov).then((saved) => dispatch({ type: 'addMovement', movement: saved })).catch(() => {})
+    }
     notify(method === 'Portal' ? 'Pago de aporte registrado. ¡Gracias!' : 'Aporte marcado como pagado.', 'success')
   }, [notify])
 
@@ -1047,16 +1064,20 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
 
   const reembolsoCaja = useCallback((total: number) => {
     const movement: Movement = {
-      id: `mov-reemb-${Date.now()}`,
+      id: '',
       date: commNowLabel(),
       concept: 'Reembolso de caja menor (reposición del fondo)',
       category: 'Operación',
       kind: 'Egreso',
       amount: total,
       status: 'Pagado',
+      firmas: { presidente: true, tesorero: true, fiscal: true },
       ordenPago: nextOrdenPago(movementsRef.current),
     }
-    dispatch({ type: 'reembolsoCaja', movement })
+    dispatch({ type: 'reembolsoCaja' })
+    insertMovement(movement)
+      .then((saved) => dispatch({ type: 'addMovement', movement: saved }))
+      .catch(() => notify('No se pudo registrar el reembolso en el servidor.', 'warning'))
     notify('Caja menor reembolsada; fondo repuesto.', 'success')
   }, [notify])
 
