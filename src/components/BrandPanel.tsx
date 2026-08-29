@@ -1,11 +1,18 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { UsersIcon } from 'lucide-react'
 import { AndesRange } from './AndesRange'
-import { useDemo } from '../store/DemoStore'
+import { supabase } from '../lib/supabase'
 
 export function BrandPanel() {
-  const { stats } = useDemo()
-  const activos = stats.active
+  // Conteo público de afiliados activos (RPC), visible sin iniciar sesión.
+  const [activos, setActivos] = useState(0)
+  useEffect(() => {
+    let on = true
+    supabase.rpc('contar_afiliados_activos').then(({ data, error }) => {
+      if (on && !error && typeof data === 'number') setActivos(data)
+    })
+    return () => { on = false }
+  }, [])
   return (
     <section className="relative hidden overflow-hidden bg-night text-white lg:flex lg:w-[46%] xl:w-[42%]">
       <div
