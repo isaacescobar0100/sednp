@@ -34,23 +34,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const loadProfile = useCallback(async (s: Session | null) => {
     if (!s?.user) { setProfile(null); return }
-    const { data } = await supabase.from('profiles').select('id, full_name, role').eq('id', s.user.id).maybeSingle()
-    const fullName = data?.full_name || (s.user.user_metadata?.full_name as string) || ''
-    const role = (data?.role as AppRole) || 'afiliado'
-    setProfile({ id: s.user.id, full_name: fullName, role, initials: initialsOf(fullName, s.user.email ?? '') })
+    const meta = (s.user.user_metadata?.full_name as string) || ''
+    try {
+      const { data } = await supabase.from('profiles').select('id, full_name, role').eq('id', s.user.id).maybeSingle()
+      const fullName = data?.full_name || meta
+      const role = (data?.role as AppRole) || 'afiliado'
+      setProfile({ id: s.user.id, full_name: fullName, role, initials: initialsOf(fullName, s.user.email ?? '') })
+    } catch {
+      // Si la consulta falla (red/RLS), no dejamos la app colgada: perfil mínimo.
+      setProfile({ id: s.user.id, full_name: meta, role: 'afiliado', initials: initialsOf(meta, s.user.email ?? '') })
+    }
   }, [])
 
   useEffect(() => {
     let active = true
-    supabase.auth.getSession().then(async ({ data }) => {
-      if (!active) return
-      setSession(data.session)
-      await loadProfile(data.session)
-      setLoading(false)
-    })
-    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, s) => {
+    // Desbloquea la app apenas sabemos si hay sesión; el perfil se carga aparte.
+    supabase.auth.getSession()
+      .then(({ data }) => {
+        if (!active) return
+        setSession(data.session)
+        setLoading(false)
+        void loadProfile(data.session)
+      })
+      .catch(() => { if (active) setLoading(false) })
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s)
-      await loadProfile(s)
+      void loadProfile(s)
     })
     return () => { active = false; sub.subscription.unsubscribe() }
   }, [loadProfile])
