@@ -4,6 +4,7 @@ import { useDemo } from '../store/DemoStore'
 import { useSession } from '../store/session'
 import { Affiliate, AffiliateStatus, AffiliateType, BENEFICIOS, MEDIOS } from '../store/affiliates'
 import { formatCop } from '../store/finance'
+import { escalaLabel, sortEscalas } from '../store/payscale'
 import { SectionTitle } from '../components/SectionTitle'
 import { StatusBadge } from '../components/StatusBadge'
 import { RowMenu, RowAction } from '../components/RowMenu'
@@ -326,7 +327,7 @@ function parseMoney(text: string): number {
 }
 
 function EnrollmentModal({ onClose }: { onClose: () => void }) {
-  const { addAffiliate, affiliates, cargos, dependencias, vinculaciones, porcentajeCuota } = useDemo()
+  const { addAffiliate, affiliates, cargos, dependencias, vinculaciones, escalas, porcentajeCuota } = useDemo()
   const [step, setStep] = useState(1)
   const [form, setForm] = useState(() => ({ ...emptyForm, type: vinculaciones[0]?.name ?? '' }))
   const steps = ['Datos personales', 'Información laboral', 'Revisión']
@@ -426,6 +427,15 @@ function EnrollmentModal({ onClose }: { onClose: () => void }) {
                   <ChoiceField label="Dependencia" value={form.dependency} onChange={(v) => set('dependency', v)} options={dependencias} placeholder="Seleccionar dependencia" />
                   <ChoiceField label="Cargo titular en el DNP" value={form.cargoTitular} onChange={(v) => set('cargoTitular', v)} options={cargos} placeholder="Seleccionar cargo titular" />
                   <ChoiceField label="Cargo que ocupa en el DNP" value={form.role} onChange={(v) => set('role', v)} options={cargos} placeholder="Seleccionar cargo" />
+                  {escalas.length > 0 ? (
+                    <ChoiceField
+                      label="Escala salarial (autocompleta)"
+                      value=""
+                      onChange={(v) => { const e = sortEscalas(escalas).find((x) => `${escalaLabel(x)} · ${formatCop(x.asignacionBasica)}` === v); if (e) set('asignacionBasica', String(e.asignacionBasica)) }}
+                      options={sortEscalas(escalas).map((e) => `${escalaLabel(e)} · ${formatCop(e.asignacionBasica)}`)}
+                      placeholder="Elegir nivel/grado"
+                    />
+                  ) : null}
                   <label className="block">
                     <span className="mb-1.5 block text-xs font-semibold text-ink/70">Asignación básica mensual</span>
                     <input value={form.asignacionBasica} onChange={(e) => set('asignacionBasica', e.target.value)} inputMode="numeric" placeholder="$ 3.500.000" className="w-full rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
@@ -482,7 +492,7 @@ function EnrollmentModal({ onClose }: { onClose: () => void }) {
 }
 
 function EditAffiliateModal({ affiliate, onClose }: { affiliate: Affiliate; onClose: () => void }) {
-  const { updateAffiliate, affiliates, cargos, dependencias, vinculaciones, porcentajeCuota } = useDemo()
+  const { updateAffiliate, affiliates, cargos, dependencias, vinculaciones, escalas, porcentajeCuota } = useDemo()
   const [form, setForm] = useState({
     name: affiliate.name,
     doc: affiliate.doc,
@@ -547,6 +557,15 @@ function EditAffiliateModal({ affiliate, onClose }: { affiliate: Affiliate; onCl
           <ChoiceField label="Dependencia" value={form.dependency} onChange={(v) => set('dependency', v)} options={dependencias} placeholder="Seleccionar dependencia" />
           <ChoiceField label="Tipo de vinculación" value={form.type} onChange={(v) => set('type', v)} options={vinculaciones.map((t) => t.name)} placeholder="Seleccionar tipo" />
           <DateField label="Fecha de vinculación" value={form.joinDate} onChange={(v) => set('joinDate', v)} />
+          {escalas.length > 0 ? (
+            <ChoiceField
+              label="Escala salarial (autocompleta)"
+              value=""
+              onChange={(v) => { const e = sortEscalas(escalas).find((x) => `${escalaLabel(x)} · ${formatCop(x.asignacionBasica)}` === v); if (e) set('asignacionBasica', String(e.asignacionBasica)) }}
+              options={sortEscalas(escalas).map((e) => `${escalaLabel(e)} · ${formatCop(e.asignacionBasica)}`)}
+              placeholder="Elegir nivel/grado"
+            />
+          ) : null}
           <label className="block sm:col-span-2">
             <span className="mb-1.5 block text-xs font-semibold text-ink/70">Asignación básica mensual</span>
             <input value={form.asignacionBasica} onChange={(e) => set('asignacionBasica', e.target.value)} inputMode="numeric" placeholder="$ 3.500.000" className="w-full rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10" />

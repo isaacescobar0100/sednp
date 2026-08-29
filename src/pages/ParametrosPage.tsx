@@ -5,6 +5,7 @@ import { useDemo } from '../store/DemoStore'
 import { useSession } from '../store/session'
 import { VinculacionType, nextVinculacionColor } from '../store/catalogs'
 import { CuentaNaturaleza, CuentaTipo, formatCop } from '../store/finance'
+import { AJUSTE_ANUAL, NIVELES, sortEscalas } from '../store/payscale'
 
 export function ParametrosPage() {
   const { cargos, dependencias, vinculaciones, setCargos, setDependencias, setVinculaciones, notify } = useDemo()
@@ -31,6 +32,10 @@ export function ParametrosPage() {
 
           <div className="xl:col-span-2">
             <PresupuestoCard />
+          </div>
+
+          <div className="xl:col-span-2">
+            <EscalasCard />
           </div>
 
           <div className="xl:col-span-2">
@@ -178,6 +183,82 @@ function JuntaPeriodoCard() {
           <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night" />
         </label>
         <button onClick={() => setJuntaDesde(date)} disabled={!dirty} className="rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">Guardar</button>
+      </div>
+    </section>
+  )
+}
+
+// Escalas salariales (Decreto anual de la Función Pública): nivel/grado →
+// asignación básica. Alimenta el autocompletado de la asignación al afiliar y
+// permite el ajuste anual en bloque.
+function EscalasCard() {
+  const { escalas, setEscalas, notify } = useDemo()
+  const [nivel, setNivel] = useState(NIVELES[0])
+  const [grado, setGrado] = useState('')
+  const [monto, setMonto] = useState('')
+  const asignacion = Number(monto.replace(/\D/g, ''))
+  const ordered = sortEscalas(escalas)
+
+  function add() {
+    const g = grado.trim()
+    if (!g || asignacion <= 0) return
+    if (escalas.some((e) => e.nivel === nivel && e.grado === g)) { notify(`La escala ${nivel} grado ${g} ya existe.`, 'warning'); return }
+    setEscalas([...escalas, { id: `esc-${Date.now()}`, nivel, grado: g, asignacionBasica: asignacion }])
+    setGrado(''); setMonto('')
+    notify(`Escala ${nivel} grado ${g} agregada.`, 'success')
+  }
+  function remove(id: string) {
+    setEscalas(escalas.filter((e) => e.id !== id))
+  }
+  function ajustar() {
+    if (escalas.length === 0) return
+    if (!window.confirm(`¿Aplicar el ajuste anual de ${AJUSTE_ANUAL * 100}% a todas las escalas?`)) return
+    setEscalas(escalas.map((e) => ({ ...e, asignacionBasica: Math.round(e.asignacionBasica * (1 + AJUSTE_ANUAL)) })))
+    notify(`Ajuste de ${AJUSTE_ANUAL * 100}% aplicado a las escalas.`, 'success')
+  }
+
+  const inputClass = 'rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night'
+
+  return (
+    <section className="rounded-2xl border border-ink/[0.08] bg-white p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-canvas text-night"><CircleDollarSignIcon className="h-5 w-5" strokeWidth={1.8} /></div>
+          <div>
+            <h2 className="font-display text-base font-semibold">Escalas salariales</h2>
+            <p className="text-xs text-ink/50">Nivel/grado → asignación básica (Decreto Función Pública) · {escalas.length} escalas</p>
+          </div>
+        </div>
+        <button onClick={ajustar} disabled={escalas.length === 0} className="rounded-xl border border-night/25 px-3 py-2 text-xs font-semibold text-night transition hover:bg-night/5 disabled:opacity-40">Ajuste anual +{AJUSTE_ANUAL * 100}%</button>
+      </div>
+
+      <div className="mt-4 grid gap-2 sm:grid-cols-[150px_110px_1fr_auto]">
+        <select value={nivel} onChange={(e) => setNivel(e.target.value)} className={inputClass}>
+          {NIVELES.map((n) => <option key={n} value={n}>{n}</option>)}
+        </select>
+        <input value={grado} onChange={(e) => setGrado(e.target.value)} placeholder="Grado" className={inputClass} />
+        <input value={monto} onChange={(e) => setMonto(e.target.value)} inputMode="numeric" placeholder="Asignación básica" className={inputClass} />
+        <button onClick={add} disabled={!grado.trim() || asignacion <= 0} className="inline-flex items-center gap-1.5 rounded-xl bg-night px-4 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40"><PlusIcon className="h-4 w-4" />Agregar</button>
+      </div>
+
+      <div className="mt-4 overflow-x-auto">
+        {ordered.length > 0 ? (
+          <table className="w-full min-w-[420px] text-left text-sm">
+            <thead className="text-[10px] uppercase tracking-[0.12em] text-ink/45">
+              <tr><th className="py-2 pr-3 font-semibold">Nivel</th><th className="py-2 pr-3 font-semibold">Grado</th><th className="py-2 pr-3 font-semibold">Asignación básica</th><th className="py-2 text-right font-semibold"></th></tr>
+            </thead>
+            <tbody className="divide-y divide-ink/[0.07]">
+              {ordered.map((e) => (
+                <tr key={e.id}>
+                  <td className="py-2 pr-3 text-ink/80">{e.nivel}</td>
+                  <td className="py-2 pr-3 text-ink/60">{e.grado}</td>
+                  <td className="py-2 pr-3 font-medium text-ink">{formatCop(e.asignacionBasica)}</td>
+                  <td className="py-2 text-right"><button onClick={() => remove(e.id)} className="rounded-lg p-1 text-ink/40 transition hover:bg-brick/10 hover:text-brick" aria-label={`Eliminar ${e.nivel} ${e.grado}`}><Trash2Icon className="h-3.5 w-3.5" /></button></td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        ) : <p className="py-6 text-center text-xs text-ink/45">Sin escalas. Carga los valores del decreto vigente para autocompletar la asignación al afiliar.</p>}
       </div>
     </section>
   )

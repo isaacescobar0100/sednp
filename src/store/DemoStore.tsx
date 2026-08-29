@@ -21,6 +21,7 @@ import {
   currentPeriod,
   periodLabel,
 } from './contributions'
+import { Escala, seedEscalas } from './payscale'
 import {
   CajaGasto,
   Cuenta,
@@ -95,6 +96,7 @@ type DemoState = {
   porcentajeCuota: number
   smmlv: number
   presupuestos: Presupuesto[]
+  escalas: Escala[]
   cuentas: Cuenta[]
   cajaFondo: number
   cajaGastos: CajaGasto[]
@@ -119,6 +121,7 @@ function seedState(): DemoState {
     porcentajeCuota: DEFAULT_PORCENTAJE_CUOTA,
     smmlv: DEFAULT_SMMLV,
     presupuestos: seedPresupuestos(),
+    escalas: seedEscalas(),
     cuentas: seedCuentas(),
     cajaFondo: 0,
     cajaGastos: [],
@@ -166,6 +169,7 @@ type Action =
   | { type: 'setCargos'; list: string[] }
   | { type: 'setDependencias'; list: string[] }
   | { type: 'setVinculaciones'; list: VinculacionType[] }
+  | { type: 'setEscalas'; list: Escala[] }
   | { type: 'generateAportes'; period: string }
   | { type: 'decretarExtraordinaria'; period: string; pct: number; acta: string }
   | { type: 'payAporte'; id: string; method: AporteMethod; date: string }
@@ -360,6 +364,8 @@ function reducer(state: DemoState, action: Action): DemoState {
       return { ...state, dependencias: action.list }
     case 'setVinculaciones':
       return { ...state, vinculaciones: action.list }
+    case 'setEscalas':
+      return { ...state, escalas: action.list }
     case 'generateAportes': {
       // Genera un aporte pendiente por cada afiliado ACTIVO que aún no lo tenga
       // en ese periodo (idempotente: no duplica).
@@ -465,6 +471,7 @@ function loadInitial(): DemoState {
         porcentajeCuota: typeof parsed.porcentajeCuota === 'number' ? parsed.porcentajeCuota : seeded.porcentajeCuota,
         smmlv: typeof parsed.smmlv === 'number' ? parsed.smmlv : seeded.smmlv,
         presupuestos: Array.isArray(parsed.presupuestos) ? parsed.presupuestos : seeded.presupuestos,
+        escalas: Array.isArray(parsed.escalas) ? parsed.escalas : seeded.escalas,
         cuentas: Array.isArray(parsed.cuentas) ? parsed.cuentas : seeded.cuentas,
         cajaFondo: typeof parsed.cajaFondo === 'number' ? parsed.cajaFondo : seeded.cajaFondo,
         cajaGastos: Array.isArray(parsed.cajaGastos) ? parsed.cajaGastos : seeded.cajaGastos,
@@ -622,6 +629,8 @@ type DemoContextValue = {
   setCargos: (list: string[]) => void
   setDependencias: (list: string[]) => void
   setVinculaciones: (list: VinculacionType[]) => void
+  escalas: Escala[]
+  setEscalas: (list: Escala[]) => void
   aportes: Aporte[]
   porcentajeCuota: number
   generateAportes: (period: string) => void
@@ -914,6 +923,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   const setCargos = useCallback((list: string[]) => dispatch({ type: 'setCargos', list }), [])
   const setDependencias = useCallback((list: string[]) => dispatch({ type: 'setDependencias', list }), [])
   const setVinculaciones = useCallback((list: VinculacionType[]) => dispatch({ type: 'setVinculaciones', list }), [])
+  const setEscalas = useCallback((list: Escala[]) => dispatch({ type: 'setEscalas', list }), [])
 
   const generateAportes = useCallback((period: string) => {
     dispatch({ type: 'generateAportes', period })
@@ -1082,6 +1092,8 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       setCargos,
       setDependencias,
       setVinculaciones,
+      escalas: state.escalas,
+      setEscalas,
       aportes: state.aportes,
       porcentajeCuota: state.porcentajeCuota,
       generateAportes,
@@ -1105,7 +1117,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       resetDemo,
       notify,
     }),
-    [state.affiliates, stats, state.movements, financeStats, state.cases, disciplineStats, state.sessions, state.ballots, state.docs, state.comunicados, state.committees, state.cargos, state.dependencias, state.vinculaciones, addAffiliate, setAffiliateStatus, conceptAffiliate, approveAffiliate, updateAffiliate, addMovement, setMovementStatus, updateMovement, deleteMovement, signMovement, state.smmlv, setSmmlv, addCase, advanceCase, ruleCase, interponerRecurso, resolverRecurso, deleteCase, addSession, publishMinutes, deleteSession, addBallot, castVote, castAffiliateVote, closeBallot, deleteBallot, addDoc, updateDoc, deleteDoc, sendComunicado, deleteComunicado, addCommittee, updateCommittee, deleteCommittee, setCargos, setDependencias, setVinculaciones, state.aportes, state.porcentajeCuota, generateAportes, payAporte, decretarExtraordinaria, anticiparAporte, setPorcentajeCuota, state.presupuestos, setPresupuesto, state.cuentas, setCuentas, state.cajaFondo, state.cajaGastos, aperturaCaja, addCajaGasto, reembolsoCaja, state.caucionVence, setCaucion, state.juntaDesde, setJuntaDesde, resetDemo, notify],
+    [state.affiliates, stats, state.movements, financeStats, state.cases, disciplineStats, state.sessions, state.ballots, state.docs, state.comunicados, state.committees, state.cargos, state.dependencias, state.vinculaciones, addAffiliate, setAffiliateStatus, conceptAffiliate, approveAffiliate, updateAffiliate, addMovement, setMovementStatus, updateMovement, deleteMovement, signMovement, state.smmlv, setSmmlv, addCase, advanceCase, ruleCase, interponerRecurso, resolverRecurso, deleteCase, addSession, publishMinutes, deleteSession, addBallot, castVote, castAffiliateVote, closeBallot, deleteBallot, addDoc, updateDoc, deleteDoc, sendComunicado, deleteComunicado, addCommittee, updateCommittee, deleteCommittee, setCargos, setDependencias, setVinculaciones, state.escalas, setEscalas, state.aportes, state.porcentajeCuota, generateAportes, payAporte, decretarExtraordinaria, anticiparAporte, setPorcentajeCuota, state.presupuestos, setPresupuesto, state.cuentas, setCuentas, state.cajaFondo, state.cajaGastos, aperturaCaja, addCajaGasto, reembolsoCaja, state.caucionVence, setCaucion, state.juntaDesde, setJuntaDesde, resetDemo, notify],
   )
 
   return (
