@@ -1,8 +1,8 @@
 import React, { useState } from 'react'
-import { BellIcon, CheckIcon, ChevronDownIcon, RotateCcwIcon, SearchIcon, UserCogIcon } from 'lucide-react'
+import { BellIcon, RotateCcwIcon, SearchIcon } from 'lucide-react'
 import { AppSidebar, MobileMenuButton } from './AppSidebar'
 import { useDemo } from '../store/DemoStore'
-import { Role, roleLabel, roleSummary, roles, useSession } from '../store/session'
+import { roleLabel, useSession } from '../store/session'
 import { ModuleKey, ModuleMeta } from '../types/navigation'
 
 type AppShellProps = {
@@ -37,7 +37,7 @@ export function AppShell({ activeModule, module, onNavigate, onLogout, children 
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
             <GlobalSearch onNavigate={onNavigate} />
-            <RoleSwitcher />
+            <UserChip />
             <NotificationsBell onNavigate={onNavigate} />
             <button onClick={handleReset} title="Reiniciar la demo a los datos de ejemplo" className="inline-flex items-center gap-1.5 rounded-xl border border-ink/10 px-2.5 py-2 text-xs font-semibold text-ink/60 transition hover:border-night/20 hover:text-night">
               <RotateCcwIcon className="h-3.5 w-3.5" /><span className="hidden lg:inline">Reiniciar demo</span>
@@ -159,50 +159,17 @@ function NotificationsBell({ onNavigate }: { onNavigate: (module: ModuleKey) => 
   )
 }
 
-function RoleSwitcher() {
-  const { role, setRole } = useSession()
-  const { notify } = useDemo()
-  const [open, setOpen] = useState(false)
-
-  function choose(next: Role) {
-    setOpen(false)
-    if (next === role) return
-    setRole(next)
-    notify(`Ahora estás viendo el sistema como ${roleLabel[next]}.`, 'info')
-  }
-
+// Ficha del usuario autenticado (nombre + rol). Ya no hay cambiador de rol:
+// cada persona opera con el rol de su cuenta.
+function UserChip() {
+  const { role, user } = useSession()
   return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className="inline-flex items-center gap-1.5 rounded-xl border border-ink/10 bg-white px-2.5 py-2 text-xs font-semibold text-ink/70 transition hover:border-night/20 hover:text-night"
-        title="Cambiar de rol (demo)"
-      >
-        <UserCogIcon className="h-3.5 w-3.5 text-gold" />
-        <span className="hidden max-w-[120px] truncate sm:inline">{roleLabel[role]}</span>
-        <ChevronDownIcon className="h-3.5 w-3.5" />
-      </button>
-      {open ? (
-        <>
-          <button className="fixed inset-0 z-30 cursor-default" aria-hidden="true" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-11 z-40 w-64 overflow-hidden rounded-xl border border-ink/10 bg-white py-1 shadow-xl shadow-night/10">
-            <p className="px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-ink/40">Cambiar de rol (demo)</p>
-            {roles.map((item) => (
-              <button
-                key={item}
-                onClick={() => choose(item)}
-                className="flex w-full items-start gap-2.5 px-4 py-2.5 text-left transition hover:bg-canvas"
-              >
-                <CheckIcon className={`mt-0.5 h-4 w-4 shrink-0 ${item === role ? 'text-night' : 'text-transparent'}`} />
-                <span className="min-w-0">
-                  <span className="block text-sm font-semibold text-ink">{roleLabel[item]}</span>
-                  <span className="block text-xs text-ink/50">{roleSummary[item]}</span>
-                </span>
-              </button>
-            ))}
-          </div>
-        </>
-      ) : null}
+    <div className="inline-flex items-center gap-2 rounded-xl border border-ink/10 bg-white px-2 py-1.5">
+      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-night font-display text-[11px] font-semibold text-gold">{user.initials}</div>
+      <div className="hidden min-w-0 leading-tight sm:block">
+        <p className="max-w-[140px] truncate text-xs font-semibold text-ink">{user.name}</p>
+        <p className="text-[10px] text-ink/50">{roleLabel[role]}</p>
+      </div>
     </div>
   )
 }
