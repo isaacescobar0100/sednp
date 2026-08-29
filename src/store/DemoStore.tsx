@@ -5,6 +5,7 @@ import { fetchAffiliates, insertAffiliate, patchAffiliate } from './affiliatesAp
 import { fetchAportes, insertAportes, patchAporte } from './aportesApi'
 import { fetchMovements, insertMovement, patchMovement, deleteMovementRow } from './movementsApi'
 import { Params, clearCajaGastos, fetchCajaGastos, fetchCuentas, fetchParams, fetchPresupuestos, insertCajaGasto, replaceCuentas, upsertParams, upsertPresupuesto } from './configApi'
+import { deleteCaseRow, fetchCases, insertCase, patchCase } from './casesApi'
 import {
   Affiliate,
   AffiliateStatus,
@@ -153,6 +154,7 @@ type Action =
   | { type: 'deleteMovement'; id: string }
   | { type: 'signMovement'; id: string; who: FirmaKey }
   | { type: 'setSmmlv'; value: number }
+  | { type: 'setCases'; list: DisciplineCase[] }
   | { type: 'addCase'; case: DisciplineCase }
   | { type: 'advanceCase'; id: string }
   | { type: 'ruleCase'; id: string; resultado: Sancion | 'Archivado'; monto?: number }
@@ -266,6 +268,8 @@ function reducer(state: DemoState, action: Action): DemoState {
       }
     case 'setSmmlv':
       return { ...state, smmlv: Math.max(0, action.value) }
+    case 'setCases':
+      return { ...state, cases: action.list }
     case 'addCase':
       return { ...state, cases: [action.case, ...state.cases] }
     case 'advanceCase':
@@ -454,7 +458,7 @@ function loadInitial(): DemoState {
       return {
         affiliates: seeded.affiliates, // los afiliados se cargan desde Supabase, no de localStorage
         movements: seeded.movements, // los movimientos se cargan desde Supabase
-        cases: Array.isArray(parsed.cases) ? parsed.cases : seeded.cases,
+        cases: seeded.cases, // los expedientes se cargan desde Supabase
         sessions: Array.isArray(parsed.sessions) ? parsed.sessions : seeded.sessions,
         ballots: Array.isArray(parsed.ballots) ? parsed.ballots : seeded.ballots,
         docs: Array.isArray(parsed.docs) ? parsed.docs : seeded.docs,
@@ -694,6 +698,9 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     fetchCajaGastos()
       .then((list) => { if (active) dispatch({ type: 'setCajaGastos', list }) })
       .catch(() => {})
+    fetchCases()
+      .then((list) => { if (active) dispatch({ type: 'setCases', list }) })
+      .catch(() => {})
     return () => { active = false }
   }, [session])
 
@@ -857,8 +864,8 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   }, [notify])
 
   const addCase = useCallback((input: NewCaseInput) => {
-    const newCase: DisciplineCase = {
-      id: `exp-${Date.now()}`,
+    const draft: DisciplineCase = {
+      id: '',
       code: nextCaseCode(casesRef.current),
       subject: input.subject,
       person: input.person || 'Funcionario vinculado',
@@ -867,16 +874,25 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       daysLeft: input.daysLeft,
       status: 'En trámite',
     }
-    dispatch({ type: 'addCase', case: newCase })
-    notify(`Expediente ${newCase.code} abierto en etapa de Apertura.`, 'info')
+    insertCase(draft)
+      .then((saved) => { dispatch({ type: 'addCase', case: saved }); notify(`Expediente ${saved.code} abierto en etapa de Apertura.`, 'info') })
+      .catch(() => notify('No se pudo abrir el expediente en el servidor.', 'warning'))
   }, [notify])
 
   const advanceCase = useCallback((id: string) => {
+    const target = casesRef.current.find((c) => c.id === id)
+    if (!target) return
+    const stageIndex = Math.min(stages.length - 1, target.stageIndex + 1)
     dispatch({ type: 'advanceCase', id })
-  }, [])
+    patchCase(id, { stageIndex, daysLeft: termOf(stageIndex) }).catch(() => notify('No se pudo guardar el avance en el servidor.', 'warning'))
+  }, [notify])
 
   const ruleCase = useCallback((id: string, resultado: Sancion | 'Archivado', monto?: number) => {
     dispatch({ type: 'ruleCase', id, resultado, monto })
+    const changes: Partial<DisciplineCase> = resultado === 'Archivado'
+      ? { status: 'Archivado', sancion: undefined }
+      : { status: 'Con fallo', sancion: resultado, multaMonto: resultado === 'Multa' ? monto : undefined }
+    patchCase(id, changes).catch(() => notify('No se pudo guardar el fallo en el servidor.', 'warning'))
     // La multa ingresa al libro contable (Supabase) para cobro por nómina.
     if (resultado === 'Multa' && (monto ?? 0) > 0) {
       const target = casesRef.current.find((c) => c.id === id)
@@ -887,20 +903,25 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       }
       insertMovement(mov).then((saved) => dispatch({ type: 'addMovement', movement: saved })).catch(() => {})
     }
-  }, [])
+  }, [notify])
 
   const interponerRecurso = useCallback((id: string, tipo: RecursoTipo) => {
     dispatch({ type: 'interponerRecurso', id, tipo })
+    patchCase(id, { recursoTipo: tipo, recursoEstado: 'Interpuesto', recursoResultado: undefined }).catch(() => notify('No se pudo guardar el recurso en el servidor.', 'warning'))
     notify(`Recurso de ${tipo.toLowerCase()} interpuesto.`, 'info')
   }, [notify])
 
   const resolverRecurso = useCallback((id: string, resultado: RecursoResultado) => {
     dispatch({ type: 'resolverRecurso', id, resultado })
+    const changes: Partial<DisciplineCase> = { recursoEstado: 'Resuelto', recursoResultado: resultado }
+    if (resultado === 'Revoca') changes.sancion = 'Absuelto'
+    patchCase(id, changes).catch(() => notify('No se pudo guardar la resolución en el servidor.', 'warning'))
     notify(`Recurso resuelto: ${resultado === 'Revoca' ? 'revoca el fallo' : 'confirma el fallo'}.`, resultado === 'Revoca' ? 'success' : 'warning')
   }, [notify])
 
   const deleteCase = useCallback((id: string, code: string) => {
     dispatch({ type: 'deleteCase', id })
+    deleteCaseRow(id).catch(() => notify('No se pudo eliminar en el servidor.', 'warning'))
     notify(`Expediente eliminado: ${code}.`, 'warning')
   }, [notify])
 
