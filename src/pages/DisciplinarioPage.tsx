@@ -1,11 +1,12 @@
 import React, { useState } from 'react'
-import { CheckCircle2Icon, Clock3Icon, EyeIcon, LockIcon, PlusIcon, SearchIcon, Trash2Icon, XIcon } from 'lucide-react'
+import { CheckCircle2Icon, Clock3Icon, EyeIcon, LockIcon, PaperclipIcon, PlusIcon, SearchIcon, Trash2Icon, XIcon } from 'lucide-react'
 import { SectionTitle } from '../components/SectionTitle'
 import { StatusBadge } from '../components/StatusBadge'
 import { useDemo } from '../store/DemoStore'
-import { useSession } from '../store/session'
+import { Role, roleLabel, useSession } from '../store/session'
 import { CaseStatus, DisciplineCase, MULTA_DIAS_MAX, MULTA_DIAS_MIN, PRESCRIPCION_ANIOS, Sancion, stageTerms, stages, termTone, valorMulta } from '../store/discipline'
 import { formatCop } from '../store/finance'
+import { abrirSoporte, nombreSoporte, subirSoporte } from '../store/storageApi'
 
 const statusTone: Record<CaseStatus, 'positive' | 'warning' | 'negative' | 'neutral' | 'night'> = {
   'En trámite': 'night',
@@ -214,7 +215,99 @@ function CaseDetail({ caseItem }: { caseItem: DisciplineCase }) {
           <p className="mt-3 text-[11px] text-ink/40">La acción disciplinaria prescribe a los {PRESCRIPCION_ANIOS} años (Art. 56).</p>
         </div>
       )}
+      <Bitacora caseItem={caseItem} canAct={canInstruct || canRule} />
+
       {askMulta ? <MultaModal caseItem={caseItem} onClose={() => setAskMulta(false)} /> : null}
+    </div>
+  )
+}
+
+// Bitácora de actuaciones (historial inmutable) del expediente, con adjuntos.
+function Bitacora({ caseItem, canAct }: { caseItem: DisciplineCase; canAct: boolean }) {
+  const { caseEvents } = useDemo()
+  const [open, setOpen] = useState(false)
+  const eventos = caseEvents.filter((e) => e.caseId === caseItem.id)
+
+  return (
+    <div className="mt-6 border-t border-ink/[0.08] pt-5">
+      <div className="flex items-center justify-between">
+        <h3 className="font-display text-sm font-semibold text-ink">Bitácora de actuaciones</h3>
+        {canAct ? <button onClick={() => setOpen(true)} className="rounded-lg border border-ink/12 px-3 py-1.5 text-xs font-semibold text-night transition hover:bg-canvas">+ Registrar actuación</button> : null}
+      </div>
+
+      {eventos.length > 0 ? (
+        <ol className="mt-4 space-y-3">
+          {eventos.map((e) => (
+            <li key={e.id} className="rounded-xl border border-ink/[0.08] bg-white p-3">
+              <div className="flex items-start justify-between gap-2">
+                <p className="text-sm font-semibold text-ink">{e.tipo}</p>
+                <span className="shrink-0 text-[11px] text-ink/45">{e.fecha}</span>
+              </div>
+              <p className="mt-0.5 text-[11px] text-ink/50">{e.actorRole ? roleLabel[e.actorRole as Role] ?? e.actorRole : '—'}</p>
+              {e.nota ? <p className="mt-1 text-xs text-ink/70">{e.nota}</p> : null}
+              {e.soportePath ? (
+                <button onClick={() => abrirSoporte(e.soportePath!)} className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-night underline decoration-dotted underline-offset-2 hover:text-night-deep">
+                  <PaperclipIcon className="h-3.5 w-3.5" />{nombreSoporte(e.soportePath)}
+                </button>
+              ) : null}
+            </li>
+          ))}
+        </ol>
+      ) : (
+        <p className="mt-3 text-xs text-ink/45">Sin actuaciones registradas todavía.</p>
+      )}
+
+      {open ? <ActuacionModal caseItem={caseItem} onClose={() => setOpen(false)} /> : null}
+    </div>
+  )
+}
+
+// Registra una actuación manual con documento adjunto (auto, pliego, descargos…).
+function ActuacionModal({ caseItem, onClose }: { caseItem: DisciplineCase; onClose: () => void }) {
+  const { addCaseEvent, notify } = useDemo()
+  const [tipo, setTipo] = useState<string>(stages[caseItem.stageIndex] ?? 'Actuación')
+  const [nota, setNota] = useState('')
+  const [file, setFile] = useState<File | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  async function submit() {
+    setBusy(true)
+    try {
+      const path = file ? await subirSoporte('disciplinario', file) : undefined
+      addCaseEvent(caseItem.id, tipo, nota.trim() || undefined, path)
+      onClose()
+    } catch {
+      notify('No se pudo subir el documento de la actuación.', 'warning')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-night/45 p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between">
+          <h3 className="font-display text-lg font-semibold">Registrar actuación</h3>
+          <button onClick={onClose} className="rounded-lg p-1 text-ink/50 hover:bg-canvas"><XIcon className="h-5 w-5" /></button>
+        </div>
+        <p className="mt-1 text-xs text-ink/50">Queda en la bitácora del expediente {caseItem.code} (no se sobrescribe).</p>
+
+        <label className="mt-4 block text-xs font-semibold text-ink/60">Tipo de actuación</label>
+        <select value={tipo} onChange={(e) => setTipo(e.target.value)} className="mt-1 w-full rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night">
+          {[...stages, 'Auto de apertura', 'Pliego de cargos', 'Fallo', 'Recurso', 'Notificación', 'Otra actuación'].filter((v, i, a) => a.indexOf(v) === i).map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+
+        <label className="mt-3 block text-xs font-semibold text-ink/60">Nota / descripción</label>
+        <textarea value={nota} onChange={(e) => setNota(e.target.value)} rows={3} placeholder="Detalle de la actuación…" className="mt-1 w-full resize-none rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night" />
+
+        <label className="mt-3 block text-xs font-semibold text-ink/60">Documento adjunto (imagen o PDF)</label>
+        <input type="file" accept="image/*,application/pdf" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="mt-1 w-full rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2 text-xs outline-none file:mr-2 file:rounded-md file:border-0 file:bg-night file:px-2 file:py-1 file:text-white" />
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-ink/60 hover:bg-canvas">Cancelar</button>
+          <button onClick={submit} disabled={busy} className="rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-50">{busy ? 'Guardando…' : 'Registrar'}</button>
+        </div>
+      </div>
     </div>
   )
 }
