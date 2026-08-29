@@ -1,8 +1,9 @@
 import React, { useState } from 'react'
 import { AppShell } from './components/AppShell'
-import { DemoProvider } from './store/DemoStore'
-import { SessionProvider, useSession } from './store/session'
-import { LoginScreen } from './components/LoginScreen'
+import { DemoProvider, useDemo } from './store/DemoStore'
+import { SessionProvider, useSession, Role } from './store/session'
+import { AuthProvider, useAuth } from './store/auth'
+import { AuthScreen } from './components/AuthScreen'
 import { AfiliadoPortal } from './pages/AfiliadoPortal'
 import { AfiliacionPage } from './pages/AfiliacionPage'
 import { ComitesPage } from './pages/ComitesPage'
@@ -29,41 +30,73 @@ const modules: Record<ModuleKey, ModuleMeta> = {
   parametros: { key: 'parametros', label: 'Parámetros', subtitle: 'Catálogos y datos maestros del sistema' },
 }
 
-type Auth = null | { type: 'directiva' } | { type: 'afiliado'; id: string }
-
 export function App() {
   return (
-    <SessionProvider>
+    <AuthProvider>
       <DemoProvider>
-        <AppBody />
+        <Root />
       </DemoProvider>
+    </AuthProvider>
+  )
+}
+
+function Splash({ text }: { text?: string }) {
+  return (
+    <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-canvas">
+      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-night"><span className="font-display text-2xl font-bold text-gold">S</span></div>
+      <p className="text-sm text-ink/50">{text ?? 'Cargando…'}</p>
+    </div>
+  )
+}
+
+function Root() {
+  const { loading, session, profile } = useAuth()
+
+  if (loading) return <Splash />
+  if (!session) return <AuthScreen />
+  if (!profile) return <Splash text="Preparando tu cuenta…" />
+
+  if (profile.role === 'afiliado') return <AfiliadoGate />
+
+  return (
+    <SessionProvider role={profile.role as Role} userName={profile.full_name}>
+      <DirectivaApp />
     </SessionProvider>
   )
 }
 
-function AppBody() {
-  const { setRole, canSeeModule } = useSession()
-  const [auth, setAuth] = useState<Auth>(null)
-  const [activeModule, setActiveModule] = useState<ModuleKey>('dashboard')
+// Portal del afiliado: vincula la cuenta autenticada con su ficha del padrón.
+// Durante la migración, el enlace se hace por correo; luego será por user_id.
+function AfiliadoGate() {
+  const { session, signOut } = useAuth()
+  const { affiliates } = useDemo()
+  const email = session?.user.email?.trim().toLowerCase() ?? ''
+  const me = affiliates.find((a) => a.email.trim().toLowerCase() === email)
 
-  if (!auth) {
+  if (!me || me.status !== 'Activo') {
     return (
-      <LoginScreen
-        onDirectivaLogin={(role) => {
-          setRole(role)
-          setAuth({ type: 'directiva' })
-        }}
-        onAfiliadoLogin={(id) => setAuth({ type: 'afiliado', id })}
-      />
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-canvas p-6 text-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-night"><span className="font-display text-2xl font-bold text-gold">S</span></div>
+        <p className="max-w-md text-sm text-ink/60">
+          {!me
+            ? 'Tu cuenta aún no está vinculada a una afiliación. La Secretaría debe registrarte con este correo y la Presidencia aprobar tu afiliación.'
+            : me.status === 'Pendiente'
+              ? 'Tu afiliación está pendiente de aprobación por la Junta Directiva.'
+              : me.status === 'Suspendido'
+                ? 'Tu afiliación está suspendida. Consulta con la Secretaría.'
+                : 'Tu afiliación fue retirada.'}
+        </p>
+        <button onClick={signOut} className="rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep">Cerrar sesión</button>
+      </div>
     )
   }
+  return <AfiliadoPortal affiliateId={me.id} onLogout={signOut} />
+}
 
-  if (auth.type === 'afiliado') {
-    return <AfiliadoPortal affiliateId={auth.id} onLogout={() => setAuth(null)} />
-  }
-
-  // Si el rol activo no puede ver el módulo seleccionado (p. ej. tras cambiar de
-  // rol), se muestra Dashboard sin borrar la selección previa.
+function DirectivaApp() {
+  const { canSeeModule } = useSession()
+  const { signOut } = useAuth()
+  const [activeModule, setActiveModule] = useState<ModuleKey>('dashboard')
   const effectiveModule: ModuleKey = canSeeModule(activeModule) ? activeModule : 'dashboard'
 
   return (
@@ -71,7 +104,7 @@ function AppBody() {
       activeModule={effectiveModule}
       module={modules[effectiveModule]}
       onNavigate={setActiveModule}
-      onLogout={() => setAuth(null)}
+      onLogout={signOut}
     >
       <ActivePage module={effectiveModule} />
     </AppShell>

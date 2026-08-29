@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import React, { createContext, useCallback, useContext, useMemo } from 'react'
 import { ModuleKey } from '../types/navigation'
 
 // Sesión y roles de la demo. No hay autenticación real: el rol se elige al
@@ -85,7 +85,6 @@ export const juntaDirectiva = roles.map((r) => ({
 type SessionContextValue = {
   role: Role
   user: DemoUser
-  setRole: (role: Role) => void
   can: (permission: Permission) => boolean
   modules: ModuleKey[]
   canSeeModule: (module: ModuleKey) => boolean
@@ -93,15 +92,21 @@ type SessionContextValue = {
 
 const SessionContext = createContext<SessionContextValue | null>(null)
 
-export function SessionProvider({ children }: { children: React.ReactNode }) {
-  const [role, setRole] = useState<Role>('secretaria')
-
+// El rol viene del perfil autenticado (Supabase). Cada persona opera con su rol.
+export function SessionProvider({ role, userName, children }: { role: Role; userName?: string; children: React.ReactNode }) {
   const can = useCallback((permission: Permission) => rolePermissions[role].includes(permission), [role])
   const canSeeModule = useCallback((module: ModuleKey) => roleModules[role].includes(module), [role])
 
+  const user = useMemo<DemoUser>(() => {
+    const base = roleUser[role]
+    if (!userName) return base
+    const initials = userName.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase()
+    return { name: userName, initials: initials || base.initials }
+  }, [role, userName])
+
   const value = useMemo<SessionContextValue>(
-    () => ({ role, user: roleUser[role], setRole, can, modules: roleModules[role], canSeeModule }),
-    [role, can, canSeeModule],
+    () => ({ role, user, can, modules: roleModules[role], canSeeModule }),
+    [role, user, can, canSeeModule],
   )
 
   return <SessionContext.Provider value={value}>{children}</SessionContext.Provider>
