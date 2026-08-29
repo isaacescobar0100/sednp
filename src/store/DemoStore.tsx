@@ -4,6 +4,7 @@ import { hasSupabase } from '../lib/supabase'
 import { fetchAffiliates, insertAffiliate, patchAffiliate } from './affiliatesApi'
 import { fetchAportes, insertAportes, patchAporte } from './aportesApi'
 import { fetchMovements, insertMovement, patchMovement, deleteMovementRow } from './movementsApi'
+import { Params, clearCajaGastos, fetchCajaGastos, fetchCuentas, fetchParams, fetchPresupuestos, insertCajaGasto, replaceCuentas, upsertParams, upsertPresupuesto } from './configApi'
 import {
   Affiliate,
   AffiliateStatus,
@@ -185,6 +186,9 @@ type Action =
   | { type: 'setPorcentajeCuota'; value: number }
   | { type: 'setPresupuesto'; category: string; anual: number }
   | { type: 'setCuentas'; list: Cuenta[] }
+  | { type: 'setParams'; value: Params }
+  | { type: 'setPresupuestos'; list: Presupuesto[] }
+  | { type: 'setCajaGastos'; list: CajaGasto[] }
   | { type: 'aperturaCaja'; monto: number }
   | { type: 'addCajaGasto'; gasto: CajaGasto }
   | { type: 'reembolsoCaja' }
@@ -414,6 +418,12 @@ function reducer(state: DemoState, action: Action): DemoState {
     }
     case 'setCuentas':
       return { ...state, cuentas: action.list }
+    case 'setParams':
+      return { ...state, porcentajeCuota: action.value.porcentajeCuota, smmlv: action.value.smmlv, caucionVence: action.value.caucionVence, juntaDesde: action.value.juntaDesde, cajaFondo: action.value.cajaFondo }
+    case 'setPresupuestos':
+      return { ...state, presupuestos: action.list }
+    case 'setCajaGastos':
+      return { ...state, cajaGastos: action.list }
     case 'aperturaCaja':
       // Abrir/ajustar el fondo de caja menor (tope 1 SMMLV) y limpiar gastos.
       return { ...state, cajaFondo: Math.max(0, action.monto), cajaGastos: [] }
@@ -672,6 +682,18 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     fetchMovements()
       .then((list) => { if (active) dispatch({ type: 'setMovements', list }) })
       .catch(() => {})
+    fetchParams()
+      .then((p) => { if (active && p) dispatch({ type: 'setParams', value: p }) })
+      .catch(() => {})
+    fetchPresupuestos()
+      .then((list) => { if (active && list.length) dispatch({ type: 'setPresupuestos', list }) })
+      .catch(() => {})
+    fetchCuentas()
+      .then((list) => { if (active && list.length) dispatch({ type: 'setCuentas', list }) })
+      .catch(() => {})
+    fetchCajaGastos()
+      .then((list) => { if (active) dispatch({ type: 'setCajaGastos', list }) })
+      .catch(() => {})
     return () => { active = false }
   }, [session])
 
@@ -818,6 +840,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
 
   const setSmmlv = useCallback((value: number) => {
     dispatch({ type: 'setSmmlv', value })
+    upsertParams({ smmlv: value }).catch(() => notify('No se pudo guardar el SMMLV en el servidor.', 'warning'))
     notify('SMMLV actualizado.', 'success')
   }, [notify])
 
@@ -1039,27 +1062,33 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
 
   const setPorcentajeCuota = useCallback((value: number) => {
     dispatch({ type: 'setPorcentajeCuota', value })
+    upsertParams({ porcentajeCuota: value }).catch(() => notify('No se pudo guardar la cuota en el servidor.', 'warning'))
     notify('Porcentaje de cuota actualizado.', 'success')
   }, [notify])
 
   const setPresupuesto = useCallback((category: string, anual: number) => {
     dispatch({ type: 'setPresupuesto', category, anual })
+    upsertPresupuesto(category, Math.max(0, anual)).catch(() => notify('No se pudo guardar el presupuesto en el servidor.', 'warning'))
     notify('Presupuesto del rubro actualizado.', 'success')
   }, [notify])
 
   const setCuentas = useCallback((list: Cuenta[]) => {
     dispatch({ type: 'setCuentas', list })
-  }, [])
+    replaceCuentas(list).catch(() => notify('No se pudo guardar el catálogo en el servidor.', 'warning'))
+  }, [notify])
 
   const aperturaCaja = useCallback((monto: number) => {
     dispatch({ type: 'aperturaCaja', monto })
+    upsertParams({ cajaFondo: Math.max(0, monto) }).catch(() => {})
+    clearCajaGastos().catch(() => {})
     notify('Fondo de caja menor actualizado.', 'success')
   }, [notify])
 
   const addCajaGasto = useCallback((concepto: string, monto: number, soporte: string) => {
-    const gasto: CajaGasto = { id: `caja-${Date.now()}`, date: commNowLabel(), concepto, monto, soporte }
-    dispatch({ type: 'addCajaGasto', gasto })
-    notify('Gasto de caja menor registrado.', 'success')
+    const gasto: CajaGasto = { id: '', date: commNowLabel(), concepto, monto, soporte }
+    insertCajaGasto(gasto)
+      .then((saved) => { dispatch({ type: 'addCajaGasto', gasto: saved }); notify('Gasto de caja menor registrado.', 'success') })
+      .catch(() => notify('No se pudo registrar el gasto de caja en el servidor.', 'warning'))
   }, [notify])
 
   const reembolsoCaja = useCallback((total: number) => {
@@ -1075,6 +1104,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       ordenPago: nextOrdenPago(movementsRef.current),
     }
     dispatch({ type: 'reembolsoCaja' })
+    clearCajaGastos().catch(() => {})
     insertMovement(movement)
       .then((saved) => dispatch({ type: 'addMovement', movement: saved }))
       .catch(() => notify('No se pudo registrar el reembolso en el servidor.', 'warning'))
@@ -1083,11 +1113,13 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
 
   const setCaucion = useCallback((fecha: string) => {
     dispatch({ type: 'setCaucion', fecha })
+    upsertParams({ caucionVence: fecha }).catch(() => notify('No se pudo guardar la caución en el servidor.', 'warning'))
     notify('Caución del Tesorero actualizada.', 'success')
   }, [notify])
 
   const setJuntaDesde = useCallback((fecha: string) => {
     dispatch({ type: 'setJuntaDesde', fecha })
+    upsertParams({ juntaDesde: fecha }).catch(() => notify('No se pudo guardar el periodo en el servidor.', 'warning'))
     notify('Periodo de la Junta actualizado.', 'success')
   }, [notify])
 
