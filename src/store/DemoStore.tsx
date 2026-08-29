@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { useAuth } from './auth'
 import { hasSupabase } from '../lib/supabase'
 import { fetchAffiliates, insertAffiliate, patchAffiliate } from './affiliatesApi'
+import { fetchAportes, insertAportes, patchAporte } from './aportesApi'
 import {
   Affiliate,
   AffiliateStatus,
@@ -137,6 +138,7 @@ type VoteChoice = 'favor' | 'contra' | 'abstencion'
 
 type Action =
   | { type: 'setAffiliates'; list: Affiliate[] }
+  | { type: 'setAportes'; list: Aporte[] }
   | { type: 'add'; affiliate: Affiliate }
   | { type: 'setStatus'; id: string; status: AffiliateStatus }
   | { type: 'conceptAffiliate'; id: string; concepto: 'Positivo' | 'Negativo' }
@@ -190,15 +192,17 @@ type Action =
 
 // Al activar un afiliado, si ya se generó el corte del mes se le crea su aporte
 // pendiente para no quedar fuera del periodo.
-function aporteAlActivar(state: DemoState, affiliates: Affiliate[], id: string): Aporte[] {
+// Devuelve el aporte pendiente a crear al activar un afiliado (o null): solo si
+// ya se generó el corte del mes y el afiliado aún no tiene aporte en él.
+function aporteParaActivar(aportes: Aporte[], target: Affiliate | undefined, porcentaje: number): Aporte | null {
+  if (!target) return null
   const period = currentPeriod()
-  const corteExists = state.aportes.some((a) => a.period === period)
-  const yaTiene = state.aportes.some((a) => a.period === period && a.affiliateId === id)
-  const target = affiliates.find((a) => a.id === id)
-  if (corteExists && !yaTiene && target) {
-    return [{ id: `apt-${period}-${id}`, affiliateId: id, period, amount: calcularCuota(target.asignacionBasica, state.porcentajeCuota), tipo: 'Ordinaria', status: 'Pendiente' }, ...state.aportes]
+  const corteExists = aportes.some((a) => a.period === period)
+  const yaTiene = aportes.some((a) => a.period === period && a.affiliateId === target.id)
+  if (corteExists && !yaTiene) {
+    return { id: '', affiliateId: target.id, period, amount: calcularCuota(target.asignacionBasica, porcentaje), tipo: 'Ordinaria', status: 'Pendiente' }
   }
-  return state.aportes
+  return null
 }
 
 function reducer(state: DemoState, action: Action): DemoState {
@@ -207,10 +211,11 @@ function reducer(state: DemoState, action: Action): DemoState {
       return { ...state, affiliates: action.list }
     case 'add':
       return { ...state, affiliates: [action.affiliate, ...state.affiliates] }
+    case 'setAportes':
+      return { ...state, aportes: action.list }
     case 'setStatus': {
       const affiliates = state.affiliates.map((a) => (a.id === action.id ? { ...a, status: action.status } : a))
-      const aportes = action.status === 'Activo' ? aporteAlActivar(state, affiliates, action.id) : state.aportes
-      return { ...state, affiliates, aportes }
+      return { ...state, affiliates }
     }
     case 'conceptAffiliate':
       return {
@@ -220,7 +225,7 @@ function reducer(state: DemoState, action: Action): DemoState {
     case 'approveAffiliate': {
       // La Junta Directiva aprueba con acta (Art. 5d): queda Activo.
       const affiliates = state.affiliates.map((a) => (a.id === action.id ? { ...a, status: 'Activo' as AffiliateStatus, aprobacionActa: action.acta, aprobacionFecha: action.fecha } : a))
-      return { ...state, affiliates, aportes: aporteAlActivar(state, affiliates, action.id) }
+      return { ...state, affiliates }
     }
     case 'updateAffiliate':
       return {
@@ -473,7 +478,7 @@ function loadInitial(): DemoState {
         cargos: Array.isArray(parsed.cargos) ? parsed.cargos : seeded.cargos,
         dependencias: Array.isArray(parsed.dependencias) ? parsed.dependencias : seeded.dependencias,
         vinculaciones: Array.isArray(parsed.vinculaciones) ? parsed.vinculaciones : seeded.vinculaciones,
-        aportes: Array.isArray(parsed.aportes) ? parsed.aportes : seeded.aportes,
+        aportes: seeded.aportes, // los aportes se cargan desde Supabase
         porcentajeCuota: typeof parsed.porcentajeCuota === 'number' ? parsed.porcentajeCuota : seeded.porcentajeCuota,
         smmlv: typeof parsed.smmlv === 'number' ? parsed.smmlv : seeded.smmlv,
         presupuestos: Array.isArray(parsed.presupuestos) ? parsed.presupuestos : seeded.presupuestos,
@@ -673,11 +678,18 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   // limpian al salir. Las demás tablas se migran en fases posteriores.
   useEffect(() => {
     if (!hasSupabase) return
-    if (!session) { dispatch({ type: 'setAffiliates', list: [] }); return }
+    if (!session) {
+      dispatch({ type: 'setAffiliates', list: [] })
+      dispatch({ type: 'setAportes', list: [] })
+      return
+    }
     let active = true
     fetchAffiliates()
       .then((list) => { if (active) dispatch({ type: 'setAffiliates', list }) })
       .catch(() => { /* RLS o red: se conserva lo que haya */ })
+    fetchAportes()
+      .then((list) => { if (active) dispatch({ type: 'setAportes', list }) })
+      .catch(() => {})
     return () => { active = false }
   }, [session])
 
@@ -695,6 +707,10 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   affiliatesRef.current = state.affiliates
   const movementsRef = useRef(state.movements)
   movementsRef.current = state.movements
+  const aportesRef = useRef(state.aportes)
+  aportesRef.current = state.aportes
+  const porcentajeRef = useRef(state.porcentajeCuota)
+  porcentajeRef.current = state.porcentajeCuota
 
   useEffect(() => {
     try {
@@ -733,10 +749,22 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     notify('Tu voto quedó registrado.', 'success')
   }, [notify])
 
+  // Al activar un afiliado, si ya hay corte del mes, se le crea su aporte
+  // pendiente en Supabase.
+  const crearAporteAlActivar = useCallback((id: string) => {
+    const target = affiliatesRef.current.find((a) => a.id === id)
+    const draft = aporteParaActivar(aportesRef.current, target, porcentajeRef.current)
+    if (!draft) return
+    insertAportes([draft])
+      .then((saved) => dispatch({ type: 'setAportes', list: [...saved, ...aportesRef.current] }))
+      .catch(() => {})
+  }, [])
+
   const setAffiliateStatus = useCallback((id: string, status: AffiliateStatus) => {
     dispatch({ type: 'setStatus', id, status })
     patchAffiliate(id, { status }).catch(() => notify('No se pudo guardar el estado en el servidor.', 'warning'))
-  }, [notify])
+    if (status === 'Activo') crearAporteAlActivar(id)
+  }, [notify, crearAporteAlActivar])
 
   const conceptAffiliate = useCallback((id: string, concepto: 'Positivo' | 'Negativo') => {
     dispatch({ type: 'conceptAffiliate', id, concepto })
@@ -749,8 +777,9 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     dispatch({ type: 'approveAffiliate', id, acta, fecha })
     patchAffiliate(id, { status: 'Activo', aprobacionActa: acta, aprobacionFecha: fecha })
       .catch(() => notify('No se pudo guardar la aprobación en el servidor.', 'warning'))
+    crearAporteAlActivar(id)
     notify('Afiliación aprobada por la Junta Directiva.', 'success')
-  }, [notify])
+  }, [notify, crearAporteAlActivar])
 
   const updateAffiliate = useCallback((id: string, changes: Partial<Affiliate>) => {
     dispatch({ type: 'updateAffiliate', id, changes })
@@ -955,22 +984,39 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   const setEscalas = useCallback((list: Escala[]) => dispatch({ type: 'setEscalas', list }), [])
 
   const generateAportes = useCallback((period: string) => {
-    dispatch({ type: 'generateAportes', period })
-    notify('Corte de aportes generado para el periodo.', 'success')
+    // Un aporte pendiente por afiliado activo que aún no lo tenga en el periodo.
+    const existing = new Set(aportesRef.current.filter((a) => a.period === period).map((a) => a.affiliateId))
+    const nuevos: Aporte[] = affiliatesRef.current
+      .filter((a) => a.status === 'Activo' && !existing.has(a.id))
+      .map((a) => ({ id: '', affiliateId: a.id, period, amount: calcularCuota(a.asignacionBasica, porcentajeRef.current), tipo: 'Ordinaria', status: 'Pendiente' }))
+    if (nuevos.length === 0) { notify('No hay afiliados activos sin aporte en el periodo.', 'info'); return }
+    insertAportes(nuevos)
+      .then((saved) => { dispatch({ type: 'setAportes', list: [...saved, ...aportesRef.current] }); notify('Corte de aportes generado para el periodo.', 'success') })
+      .catch(() => notify('No se pudo generar el corte en el servidor.', 'warning'))
   }, [notify])
 
   const payAporte = useCallback((id: string, method: AporteMethod) => {
+    // Optimista: marca pagado y crea el ingreso local; persiste el pago en Supabase.
     dispatch({ type: 'payAporte', id, method, date: commNowLabel() })
+    patchAporte(id, { status: 'Pagado', paidDate: commNowLabel(), method }).catch(() => notify('No se pudo guardar el pago en el servidor.', 'warning'))
     notify(method === 'Portal' ? 'Pago de aporte registrado. ¡Gracias!' : 'Aporte marcado como pagado.', 'success')
   }, [notify])
 
   const decretarExtraordinaria = useCallback((period: string, pct: number, acta: string) => {
-    dispatch({ type: 'decretarExtraordinaria', period, pct: Math.min(TOPE_EXTRAORDINARIA, pct), acta })
-    notify('Cuota extraordinaria decretada por la Asamblea.', 'success')
+    const p = Math.min(TOPE_EXTRAORDINARIA, Math.max(0, pct))
+    const yaCon = new Set(aportesRef.current.filter((a) => a.tipo === 'Extraordinaria' && a.period === period && a.acta === acta).map((a) => a.affiliateId))
+    const nuevos: Aporte[] = affiliatesRef.current
+      .filter((a) => a.status === 'Activo' && !yaCon.has(a.id))
+      .map((a) => ({ id: '', affiliateId: a.id, period, amount: calcularCuota(a.asignacionBasica, p), tipo: 'Extraordinaria', acta, status: 'Pendiente' }))
+    if (nuevos.length === 0) { notify('No hay afiliados activos para la cuota extraordinaria.', 'info'); return }
+    insertAportes(nuevos)
+      .then((saved) => { dispatch({ type: 'setAportes', list: [...saved, ...aportesRef.current] }); notify('Cuota extraordinaria decretada por la Asamblea.', 'success') })
+      .catch(() => notify('No se pudo decretar la cuota extraordinaria en el servidor.', 'warning'))
   }, [notify])
 
   const anticiparAporte = useCallback((id: string) => {
     dispatch({ type: 'anticiparAporte', id })
+    patchAporte(id, { anticipada: true }).catch(() => notify('No se pudo guardar en el servidor.', 'warning'))
     notify('Cuota marcada como descuento anticipado por vacaciones.', 'info')
   }, [notify])
 
