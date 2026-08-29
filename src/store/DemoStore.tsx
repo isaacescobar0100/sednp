@@ -1,4 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react'
+import { useAuth } from './auth'
+import { hasSupabase } from '../lib/supabase'
+import { fetchAffiliates, insertAffiliate, patchAffiliate } from './affiliatesApi'
 import {
   Affiliate,
   AffiliateStatus,
@@ -133,6 +136,7 @@ function seedState(): DemoState {
 type VoteChoice = 'favor' | 'contra' | 'abstencion'
 
 type Action =
+  | { type: 'setAffiliates'; list: Affiliate[] }
   | { type: 'add'; affiliate: Affiliate }
   | { type: 'setStatus'; id: string; status: AffiliateStatus }
   | { type: 'conceptAffiliate'; id: string; concepto: 'Positivo' | 'Negativo' }
@@ -199,6 +203,8 @@ function aporteAlActivar(state: DemoState, affiliates: Affiliate[], id: string):
 
 function reducer(state: DemoState, action: Action): DemoState {
   switch (action.type) {
+    case 'setAffiliates':
+      return { ...state, affiliates: action.list }
     case 'add':
       return { ...state, affiliates: [action.affiliate, ...state.affiliates] }
     case 'setStatus': {
@@ -453,7 +459,7 @@ function loadInitial(): DemoState {
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<DemoState>
       return {
-        affiliates: Array.isArray(parsed.affiliates) ? parsed.affiliates : seeded.affiliates,
+        affiliates: seeded.affiliates, // los afiliados se cargan desde Supabase, no de localStorage
         movements: Array.isArray(parsed.movements) ? parsed.movements : seeded.movements,
         cases: Array.isArray(parsed.cases) ? parsed.cases : seeded.cases,
         sessions: Array.isArray(parsed.sessions) ? parsed.sessions : seeded.sessions,
@@ -661,6 +667,19 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, loadInitial)
   const [toasts, setToasts] = useState<Toast[]>([])
   const [toastSeq, setToastSeq] = useState(0)
+  const { session } = useAuth()
+
+  // Afiliados: fuente de verdad en Supabase. Se cargan al iniciar sesión y se
+  // limpian al salir. Las demás tablas se migran en fases posteriores.
+  useEffect(() => {
+    if (!hasSupabase) return
+    if (!session) { dispatch({ type: 'setAffiliates', list: [] }); return }
+    let active = true
+    fetchAffiliates()
+      .then((list) => { if (active) dispatch({ type: 'setAffiliates', list }) })
+      .catch(() => { /* RLS o red: se conserva lo que haya */ })
+    return () => { active = false }
+  }, [session])
 
   // Refs con los datos actuales, para generar códigos consecutivos sin recrear
   // los callbacks en cada cambio de estado.
@@ -695,14 +714,18 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const addAffiliate = useCallback((input: NewAffiliateInput) => {
-    const affiliate: Affiliate = {
+    const draft: Affiliate = {
       ...input,
-      id: `af-${Date.now()}`,
+      id: '',
       solicitudNo: nextSolicitud(affiliatesRef.current),
       status: 'Pendiente',
     }
-    dispatch({ type: 'add', affiliate })
-    notify(`${input.name || 'Nuevo afiliado'} (${affiliate.solicitudNo}) quedó en revisión.`, 'info')
+    insertAffiliate(draft)
+      .then((saved) => {
+        dispatch({ type: 'add', affiliate: saved })
+        notify(`${saved.name || 'Nuevo afiliado'} (${saved.solicitudNo}) quedó en revisión.`, 'info')
+      })
+      .catch(() => notify('No se pudo registrar el afiliado. Verifica tu sesión y permisos.', 'warning'))
   }, [notify])
 
   const castAffiliateVote = useCallback((id: string, choice: VoteChoice, affiliateId: string) => {
@@ -712,20 +735,26 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
 
   const setAffiliateStatus = useCallback((id: string, status: AffiliateStatus) => {
     dispatch({ type: 'setStatus', id, status })
-  }, [])
+    patchAffiliate(id, { status }).catch(() => notify('No se pudo guardar el estado en el servidor.', 'warning'))
+  }, [notify])
 
   const conceptAffiliate = useCallback((id: string, concepto: 'Positivo' | 'Negativo') => {
     dispatch({ type: 'conceptAffiliate', id, concepto })
+    patchAffiliate(id, { conceptoFiscal: concepto }).catch(() => notify('No se pudo guardar el concepto en el servidor.', 'warning'))
     notify(`Concepto del Fiscal registrado: ${concepto}.`, concepto === 'Positivo' ? 'success' : 'warning')
   }, [notify])
 
   const approveAffiliate = useCallback((id: string, acta: string) => {
-    dispatch({ type: 'approveAffiliate', id, acta, fecha: commNowLabel() })
+    const fecha = commNowLabel()
+    dispatch({ type: 'approveAffiliate', id, acta, fecha })
+    patchAffiliate(id, { status: 'Activo', aprobacionActa: acta, aprobacionFecha: fecha })
+      .catch(() => notify('No se pudo guardar la aprobación en el servidor.', 'warning'))
     notify('Afiliación aprobada por la Junta Directiva.', 'success')
   }, [notify])
 
   const updateAffiliate = useCallback((id: string, changes: Partial<Affiliate>) => {
     dispatch({ type: 'updateAffiliate', id, changes })
+    patchAffiliate(id, changes).catch(() => notify('No se pudieron guardar los cambios en el servidor.', 'warning'))
     notify('Datos del afiliado actualizados.', 'success')
   }, [notify])
 
