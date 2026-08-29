@@ -9,6 +9,7 @@ import { useSession } from '../store/session'
 import { RowMenu, RowAction } from '../components/RowMenu'
 import { FirmaKey, Movement, MovementKind, MovementStatus, TOPE_CAJA_SMMLV, ejecucionPorRubro, ejecutadoRubro, expenseCategories, firmaLabel, firmasCount, formatCop, formatCopShort, incomeCategories, isoToLabel, monthlyFlow, movementsToCsv, nivelGasto, nivelLabel, requiereActaAsamblea, todayISO } from '../store/finance'
 import { TOPE_EXTRAORDINARIA, mesesVencidos, periodLabel, recentPeriods } from '../store/contributions'
+import { abrirSoporte, nombreSoporte, subirSoporte } from '../store/storageApi'
 
 const statusTone: Record<MovementStatus, 'positive' | 'warning' | 'negative' | 'neutral' | 'night'> = {
   Confirmado: 'positive',
@@ -202,11 +203,13 @@ function CaucionExportBar() {
 // Caja menor (Art. 26e): fondo ≤ 1 SMMLV, gastos con soporte, alertas de saldo
 // y reembolso que repone el fondo.
 function CajaMenorSection() {
-  const { cajaFondo, cajaGastos, aperturaCaja, addCajaGasto, reembolsoCaja, smmlv } = useDemo()
+  const { cajaFondo, cajaGastos, aperturaCaja, addCajaGasto, reembolsoCaja, smmlv, notify } = useDemo()
   const [fondoText, setFondoText] = useState(String(cajaFondo || ''))
   const [concepto, setConcepto] = useState('')
   const [montoText, setMontoText] = useState('')
-  const [soporte, setSoporte] = useState('')
+  const [file, setFile] = useState<File | null>(null)
+  const [subiendo, setSubiendo] = useState(false)
+  const fileRef = React.useRef<HTMLInputElement>(null)
 
   const tope = TOPE_CAJA_SMMLV * smmlv
   const nuevoFondo = Number(fondoText.replace(/\D/g, ''))
@@ -214,8 +217,23 @@ function CajaMenorSection() {
   const saldo = cajaFondo - gastado
   const pct = cajaFondo > 0 ? Math.round((gastado / cajaFondo) * 100) : 0
   const monto = Number(montoText.replace(/\D/g, ''))
-  const gastoValido = concepto.trim() !== '' && monto > 0 && monto <= saldo && soporte.trim() !== ''
+  const gastoValido = concepto.trim() !== '' && monto > 0 && monto <= saldo && !!file
   const fondoExcede = nuevoFondo > tope
+
+  async function registrar() {
+    if (!file) return
+    setSubiendo(true)
+    try {
+      const path = await subirSoporte('caja', file)
+      addCajaGasto(concepto.trim(), monto, path)
+      setConcepto(''); setMontoText(''); setFile(null)
+      if (fileRef.current) fileRef.current.value = ''
+    } catch {
+      notify('No se pudo subir el soporte. Revisa el bucket de Storage.', 'warning')
+    } finally {
+      setSubiendo(false)
+    }
+  }
 
   return (
     <section className="mt-6 overflow-hidden rounded-2xl border border-ink/[0.08] bg-white">
@@ -245,20 +263,21 @@ function CajaMenorSection() {
             <div className={`h-full rounded-full ${pct >= 90 ? 'bg-rose-500' : pct >= 70 ? 'bg-amber-500' : 'bg-night'}`} style={{ width: `${Math.min(100, pct)}%` }} />
           </div>
 
-          <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_140px_140px_auto]">
+          <div className="mt-4 grid gap-2 sm:grid-cols-[1fr_130px_1fr_auto]">
             <input value={concepto} onChange={(e) => setConcepto(e.target.value)} placeholder="Concepto del gasto" className="rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2 text-sm outline-none focus:border-night" />
             <input value={montoText} onChange={(e) => setMontoText(e.target.value)} inputMode="numeric" placeholder="Monto" className="rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2 text-sm outline-none focus:border-night" />
-            <input value={soporte} onChange={(e) => setSoporte(e.target.value)} placeholder="Soporte (factura/recibo)" className="rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2 text-sm outline-none focus:border-night" />
-            <button onClick={() => { addCajaGasto(concepto.trim(), monto, soporte.trim()); setConcepto(''); setMontoText(''); setSoporte('') }} disabled={!gastoValido} className="rounded-xl bg-night px-4 py-2 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">Registrar</button>
+            <input ref={fileRef} type="file" accept="image/*,application/pdf" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="rounded-xl border border-ink/12 bg-canvas/45 px-3 py-1.5 text-xs outline-none file:mr-2 file:rounded-md file:border-0 file:bg-night file:px-2 file:py-1 file:text-white focus:border-night" title="Soporte: factura o recibo (imagen o PDF)" />
+            <button onClick={registrar} disabled={!gastoValido || subiendo} className="rounded-xl bg-night px-4 py-2 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">{subiendo ? 'Subiendo…' : 'Registrar'}</button>
           </div>
+          <p className="mt-1 text-[11px] text-ink/40">El soporte (factura/recibo) es obligatorio: imagen o PDF (Art. 26e).</p>
           {monto > saldo ? <p className="mt-1 text-[11px] font-medium text-rose-600">El gasto supera el saldo de caja menor.</p> : null}
 
           {cajaGastos.length > 0 ? (
             <ul className="mt-4 divide-y divide-ink/[0.07] rounded-xl border border-ink/[0.07]">
               {cajaGastos.map((g) => (
-                <li key={g.id} className="flex items-center justify-between px-4 py-2.5 text-sm">
-                  <span className="min-w-0"><span className="font-medium text-ink">{g.concepto}</span> <span className="text-ink/45">· {g.soporte}</span></span>
-                  <span className="text-ink/60">{formatCop(g.monto)}</span>
+                <li key={g.id} className="flex items-center justify-between gap-3 px-4 py-2.5 text-sm">
+                  <span className="min-w-0"><span className="font-medium text-ink">{g.concepto}</span> {g.soporte ? <button onClick={() => abrirSoporte(g.soporte)} className="text-xs font-medium text-night underline decoration-dotted underline-offset-2 hover:text-night-deep">· {nombreSoporte(g.soporte)}</button> : null}</span>
+                  <span className="shrink-0 text-ink/60">{formatCop(g.monto)}</span>
                 </li>
               ))}
             </ul>
