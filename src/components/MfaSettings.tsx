@@ -34,7 +34,8 @@ export function MfaSettings({ onClose }: { onClose: () => void }) {
     for (const f of list?.totp ?? []) {
       if (f.status !== 'verified') await supabase.auth.mfa.unenroll({ factorId: f.id })
     }
-    const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: `SERDNP-${Date.now()}` })
+    // `issuer` es el nombre que muestra la app autenticadora (no depende del dominio).
+    const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: `SERDNP-${Date.now()}`, issuer: 'SERDNP' })
     if (error || !data) { setError('No se pudo iniciar la activación. Inténtalo de nuevo.'); setBusy(false); return }
     setFactorId(data.id)
     setQr(data.totp.qr_code)
