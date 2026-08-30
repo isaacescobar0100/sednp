@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { AlertCircleIcon, ArrowRightIcon, CheckCircle2Icon, EyeIcon, EyeOffIcon, LockIcon, MailIcon, UserIcon } from 'lucide-react'
 import { BrandPanel } from './BrandPanel'
+import { Logo } from './Logo'
 import { useAuth } from '../store/auth'
 
 type Mode = 'login' | 'signup'
@@ -46,7 +47,7 @@ export function AuthScreen() {
       <section className="flex flex-1 items-center justify-center overflow-y-auto px-6 py-12 sm:px-10">
         <form onSubmit={handleSubmit} className="w-full max-w-sm" noValidate>
           <div className="mb-8 flex items-center gap-2.5 lg:hidden">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-night"><span className="font-display text-lg font-bold leading-none text-gold">S</span></div>
+            <Logo size={36} />
             <span className="font-display text-lg font-semibold tracking-[0.16em] text-ink">SERDNP</span>
           </div>
 

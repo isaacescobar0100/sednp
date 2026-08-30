@@ -4,6 +4,7 @@ import { DemoProvider, useDemo } from './store/DemoStore'
 import { SessionProvider, useSession, Role } from './store/session'
 import { AuthProvider, useAuth } from './store/auth'
 import { AuthScreen } from './components/AuthScreen'
+import { Logo } from './components/Logo'
 import { AfiliadoPortal } from './pages/AfiliadoPortal'
 import { AfiliacionPage } from './pages/AfiliacionPage'
 import { ComitesPage } from './pages/ComitesPage'
@@ -43,7 +44,7 @@ export function App() {
 function Splash({ text }: { text?: string }) {
   return (
     <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-canvas">
-      <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-night"><span className="font-display text-2xl font-bold text-gold">S</span></div>
+      <Logo size={48} rounded="rounded-xl" />
       <p className="text-sm text-ink/50">{text ?? 'Cargando…'}</p>
     </div>
   )
@@ -76,7 +77,7 @@ function AfiliadoGate() {
   if (!me || me.status !== 'Activo') {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-canvas p-6 text-center">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-night"><span className="font-display text-2xl font-bold text-gold">S</span></div>
+        <Logo size={48} rounded="rounded-xl" />
         <p className="max-w-md text-sm text-ink/60">
           {!me
             ? 'Tu cuenta aún no está vinculada a una afiliación. La Secretaría debe registrarte con este correo y la Presidencia aprobar tu afiliación.'

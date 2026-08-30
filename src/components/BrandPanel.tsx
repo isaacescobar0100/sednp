@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { UsersIcon } from 'lucide-react'
 import { AndesRange } from './AndesRange'
+import { Logo } from './Logo'
 import { supabase } from '../lib/supabase'
 
 export function BrandPanel() {
@@ -25,9 +26,7 @@ export function BrandPanel() {
       <div className="relative z-10 flex w-full flex-col justify-between px-10 py-12 xl:px-14">
         <div>
           <div className="flex items-center gap-3">
-            <div className="flex h-11 w-11 items-center justify-center rounded-lg bg-gold shadow-lg shadow-black/30">
-              <span className="font-display text-2xl font-700 leading-none text-night">S</span>
-            </div>
+            <Logo size={44} rounded="rounded-xl" className="shadow-lg shadow-black/30" />
             <span className="font-display text-2xl font-600 tracking-[0.18em] text-white">
               SERDNP
             </span>
