@@ -140,19 +140,15 @@ export function GobernanzaPage() {
 }
 
 function BallotCard({ ballot }: { ballot: Ballot }) {
-  const { castVote, closeBallot, deleteBallot, notify } = useDemo()
-  const { role, can } = useSession()
-  const [votedKeys, setVotedKeys] = useState<Set<string>>(new Set())
+  const { castVote, closeBallot, deleteBallot, notify, myVotes } = useDemo()
+  const { can } = useSession()
   const total = totalVotes(ballot)
   const open = ballot.status === 'En curso'
-  const myKey = `${role}:${ballot.id}`
-  const alreadyVoted = votedKeys.has(myKey)
+  const alreadyVoted = myVotes.includes(ballot.id)
 
   function vote(choice: VoteChoice) {
     if (!open || alreadyVoted) return
     castVote(ballot.id, choice)
-    setVotedKeys((prev) => new Set(prev).add(myKey))
-    notify('Voto registrado.', 'success')
   }
   function close() {
     closeBallot(ballot.id)

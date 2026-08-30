@@ -248,8 +248,8 @@ function Votaciones({ ballots, affiliateId }: { ballots: Ballot[]; affiliateId: 
 }
 
 function BallotVote({ ballot, affiliateId }: { ballot: Ballot; affiliateId: string }) {
-  const { castAffiliateVote } = useDemo()
-  const voted = (ballot.votedBy ?? []).includes(affiliateId)
+  const { castAffiliateVote, myVotes } = useDemo()
+  const voted = myVotes.includes(ballot.id)
   const total = totalVotes(ballot)
 
   return (
