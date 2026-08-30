@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
-import { BellIcon, LogOutIcon, SearchIcon } from 'lucide-react'
+import { BellIcon, LogOutIcon, SearchIcon, ShieldCheckIcon } from 'lucide-react'
 import { AppSidebar, MobileMenuButton } from './AppSidebar'
+import { MfaSettings } from './MfaSettings'
 import { useDemo } from '../store/DemoStore'
 import { roleLabel, useSession } from '../store/session'
 import { ModuleKey, ModuleMeta } from '../types/navigation'
@@ -15,6 +16,7 @@ type AppShellProps = {
 
 export function AppShell({ activeModule, module, onNavigate, onLogout, children }: AppShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [securityOpen, setSecurityOpen] = useState(false)
 
   return (
     <div className="min-h-screen w-full bg-canvas">
@@ -32,12 +34,22 @@ export function AppShell({ activeModule, module, onNavigate, onLogout, children 
             <GlobalSearch onNavigate={onNavigate} />
             <UserChip />
             <NotificationsBell onNavigate={onNavigate} />
+            <SecurityButton onClick={() => setSecurityOpen(true)} />
             <LogoutButton onLogout={onLogout} />
           </div>
         </header>
         <main className="p-5 sm:p-8">{children}</main>
       </div>
+      {securityOpen ? <MfaSettings onClose={() => setSecurityOpen(false)} /> : null}
     </div>
+  )
+}
+
+function SecurityButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button onClick={onClick} title="Seguridad · verificación en dos pasos" aria-label="Seguridad" className="rounded-xl p-2 text-ink/60 transition hover:bg-white hover:text-night">
+      <ShieldCheckIcon className="h-5 w-5" strokeWidth={1.8} />
+    </button>
   )
 }
 
