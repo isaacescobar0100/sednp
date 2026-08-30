@@ -7,7 +7,7 @@ import { fetchMovements, insertMovement, patchMovement, deleteMovementRow } from
 import { Params, clearCajaGastos, fetchCajaGastos, fetchCuentas, fetchParams, fetchPresupuestos, insertCajaGasto, replaceCuentas, upsertParams, upsertPresupuesto } from './configApi'
 import { deleteCaseRow, fetchCases, insertCase, patchCase } from './casesApi'
 import { CaseEvent, fetchCaseEvents, insertCaseEvent } from './caseEventsApi'
-import { deleteBallotRow, deleteSessionRow, emitirVoto, fetchBallots, fetchMyVotes, fetchSessions, insertBallot, insertSession, patchBallot, patchSession } from './governanceApi'
+import { cerrarVencidas, deleteBallotRow, deleteSessionRow, emitirVoto, fetchBallots, fetchMyVotes, fetchSessions, insertBallot, insertSession, patchBallot, patchSession } from './governanceApi'
 import {
   Affiliate,
   AffiliateStatus,
@@ -581,6 +581,7 @@ type NewSessionInput = {
 type NewBallotInput = {
   title: string
   closesAt: string
+  closesAtTs?: string
   secreta?: boolean
 }
 
@@ -739,9 +740,12 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     fetchSessions()
       .then((list) => { if (active) dispatch({ type: 'setSessions', list }) })
       .catch(() => {})
-    fetchBallots()
-      .then((list) => { if (active) dispatch({ type: 'setBallots', list }) })
-      .catch(() => {})
+    // Cierra las vencidas en el servidor y luego carga el estado ya actualizado.
+    cerrarVencidas().catch(() => {}).finally(() => {
+      fetchBallots()
+        .then((list) => { if (active) dispatch({ type: 'setBallots', list }) })
+        .catch(() => {})
+    })
     fetchMyVotes()
       .then((list) => { if (active) dispatch({ type: 'setMyVotes', list }) })
       .catch(() => {})
@@ -1009,7 +1013,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   }, [notify])
 
   const addBallot = useCallback((input: NewBallotInput) => {
-    insertBallot({ title: input.title, closesAt: input.closesAt, secreta: input.secreta })
+    insertBallot({ title: input.title, closesAt: input.closesAt, closesAtTs: input.closesAtTs, secreta: input.secreta })
       .then((saved) => { dispatch({ type: 'addBallot', ballot: saved }); notify(`Votación abierta: "${input.title}".`, 'info') })
       .catch(() => notify('No se pudo abrir la votación en el servidor.', 'warning'))
   }, [notify])

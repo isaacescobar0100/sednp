@@ -95,12 +95,18 @@ export async function fetchBallots(): Promise<Ballot[]> {
   return (data as BallotRow[]).map(rowToBallot)
 }
 
-export async function insertBallot(b: { title: string; closesAt: string; secreta?: boolean }): Promise<Ballot> {
+export async function insertBallot(b: { title: string; closesAt: string; closesAtTs?: string; secreta?: boolean }): Promise<Ballot> {
   const { data, error } = await supabase.from('ballots')
-    .insert({ title: b.title, closes_at: b.closesAt, secreta: !!b.secreta })
+    .insert({ title: b.title, closes_at: b.closesAt, closes_at_ts: b.closesAtTs ?? null, secreta: !!b.secreta })
     .select().single()
   if (error) throw error
   return rowToBallot(data as BallotRow)
+}
+
+// Cierra en el servidor las votaciones cuya hora de cierre ya pasó.
+export async function cerrarVencidas(): Promise<void> {
+  const { error } = await supabase.rpc('cerrar_votaciones_vencidas')
+  if (error) throw error
 }
 
 export async function patchBallot(id: string, changes: Partial<Ballot>): Promise<void> {
