@@ -6,6 +6,11 @@ import { useAuth } from '../store/auth'
 
 type Mode = 'login' | 'signup'
 
+// Contraseña fuerte: mínimo 8 caracteres, con al menos una letra y un número.
+function strongPassword(p: string): boolean {
+  return p.length >= 8 && /[a-zA-Z]/.test(p) && /\d/.test(p)
+}
+
 export function AuthScreen() {
   const { signIn, signUp } = useAuth()
   const [mode, setMode] = useState<Mode>('login')
@@ -30,7 +35,7 @@ export function AuthScreen() {
         if (error) setError(error)
       } else {
         if (fullName.trim().length < 3) { setError('Escribe tu nombre completo.'); return }
-        if (password.length < 6) { setError('La contraseña debe tener al menos 6 caracteres.'); return }
+        if (!strongPassword(password)) { setError('La contraseña debe tener mínimo 8 caracteres, con letras y números.'); return }
         const { error, needsConfirmation } = await signUp(email, password, fullName)
         if (error) setError(error)
         else if (needsConfirmation) setInfo('Cuenta creada. Revisa tu correo para confirmarla y luego inicia sesión.')
@@ -77,6 +82,9 @@ export function AuthScreen() {
               {showPassword ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}
             </button>
           </Field>
+          {mode === 'signup' ? (
+            <p className={`-mt-2 mb-4 text-[11px] ${password && !strongPassword(password) ? 'text-brick' : 'text-ink/45'}`}>Mínimo 8 caracteres, con letras y números.</p>
+          ) : null}
 
           {error ? (
             <div className="mb-4 flex items-start gap-2 rounded-xl border border-brick/25 bg-red-50 px-3 py-2.5 text-sm text-brick">

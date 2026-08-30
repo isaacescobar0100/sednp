@@ -1,6 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useReducer, useRef, useState } from 'react'
 import { useAuth } from './auth'
-import { hasSupabase } from '../lib/supabase'
+import { hasSupabase, supabase } from '../lib/supabase'
 import { fetchAffiliates, insertAffiliate, patchAffiliate } from './affiliatesApi'
 import { fetchAportes, insertAportes, patchAporte } from './aportesApi'
 import { fetchMovements, insertMovement, patchMovement, deleteMovementRow } from './movementsApi'
@@ -782,6 +782,37 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       .then((list) => { if (active) dispatch({ type: 'setEscalas', list }) })
       .catch(() => {})
     return () => { active = false }
+  }, [session])
+
+  // Realtime: cuando otra persona cambia datos, esta sesión se actualiza en vivo
+  // (votaciones, dashboard, padrón…). Refetch por tabla con anti-rebote.
+  useEffect(() => {
+    if (!hasSupabase || !session) return
+    const timers: Record<string, number> = {}
+    const debounced = (key: string, fn: () => void) => {
+      window.clearTimeout(timers[key])
+      timers[key] = window.setTimeout(fn, 400)
+    }
+    const handlers: Record<string, () => void> = {
+      affiliates: () => fetchAffiliates().then((list) => dispatch({ type: 'setAffiliates', list })).catch(() => {}),
+      aportes: () => fetchAportes().then((list) => dispatch({ type: 'setAportes', list })).catch(() => {}),
+      movements: () => fetchMovements().then((list) => dispatch({ type: 'setMovements', list })).catch(() => {}),
+      cases: () => fetchCases().then((list) => dispatch({ type: 'setCases', list })).catch(() => {}),
+      ballots: () => fetchBallots().then((list) => dispatch({ type: 'setBallots', list })).catch(() => {}),
+      sessions: () => fetchSessions().then((list) => dispatch({ type: 'setSessions', list })).catch(() => {}),
+      comunicados: () => fetchComunicados().then((list) => dispatch({ type: 'setComunicados', list })).catch(() => {}),
+      committees: () => fetchCommittees().then((list) => dispatch({ type: 'setCommittees', list })).catch(() => {}),
+      docs: () => fetchDocs().then((list) => dispatch({ type: 'setDocs', list })).catch(() => {}),
+    }
+    const channel = supabase.channel('serdnp-live')
+    Object.keys(handlers).forEach((table) => {
+      channel.on('postgres_changes' as never, { event: '*', schema: 'public', table } as never, () => debounced(table, handlers[table]))
+    })
+    channel.subscribe()
+    return () => {
+      Object.values(timers).forEach((t) => window.clearTimeout(t))
+      supabase.removeChannel(channel)
+    }
   }, [session])
 
   // Refs con los datos actuales, para generar códigos consecutivos sin recrear

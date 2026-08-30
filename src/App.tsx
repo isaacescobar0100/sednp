@@ -1,22 +1,25 @@
-import React, { useState } from 'react'
+import React, { Suspense, lazy, useState } from 'react'
 import { AppShell } from './components/AppShell'
 import { DemoProvider, useDemo } from './store/DemoStore'
 import { SessionProvider, useSession, Role } from './store/session'
 import { AuthProvider, useAuth } from './store/auth'
 import { AuthScreen } from './components/AuthScreen'
 import { Logo } from './components/Logo'
-import { AfiliadoPortal } from './pages/AfiliadoPortal'
-import { AfiliacionPage } from './pages/AfiliacionPage'
-import { ComitesPage } from './pages/ComitesPage'
-import { ComunicacionesPage } from './pages/ComunicacionesPage'
-import { DashboardPage } from './pages/DashboardPage'
-import { DisciplinarioPage } from './pages/DisciplinarioPage'
-import { DocumentalPage } from './pages/DocumentalPage'
-import { FinancieroPage } from './pages/FinancieroPage'
-import { GobernanzaPage } from './pages/GobernanzaPage'
-import { ParametrosPage } from './pages/ParametrosPage'
-import { ReportesPage } from './pages/ReportesPage'
 import { ModuleKey, ModuleMeta } from './types/navigation'
+
+// Carga diferida por módulo (code-splitting): cada página se descarga solo
+// cuando se abre, aligerando la primera carga.
+const AfiliadoPortal = lazy(() => import('./pages/AfiliadoPortal').then((m) => ({ default: m.AfiliadoPortal })))
+const AfiliacionPage = lazy(() => import('./pages/AfiliacionPage').then((m) => ({ default: m.AfiliacionPage })))
+const ComitesPage = lazy(() => import('./pages/ComitesPage').then((m) => ({ default: m.ComitesPage })))
+const ComunicacionesPage = lazy(() => import('./pages/ComunicacionesPage').then((m) => ({ default: m.ComunicacionesPage })))
+const DashboardPage = lazy(() => import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })))
+const DisciplinarioPage = lazy(() => import('./pages/DisciplinarioPage').then((m) => ({ default: m.DisciplinarioPage })))
+const DocumentalPage = lazy(() => import('./pages/DocumentalPage').then((m) => ({ default: m.DocumentalPage })))
+const FinancieroPage = lazy(() => import('./pages/FinancieroPage').then((m) => ({ default: m.FinancieroPage })))
+const GobernanzaPage = lazy(() => import('./pages/GobernanzaPage').then((m) => ({ default: m.GobernanzaPage })))
+const ParametrosPage = lazy(() => import('./pages/ParametrosPage').then((m) => ({ default: m.ParametrosPage })))
+const ReportesPage = lazy(() => import('./pages/ReportesPage').then((m) => ({ default: m.ReportesPage })))
 
 const modules: Record<ModuleKey, ModuleMeta> = {
   dashboard: { key: 'dashboard', label: 'Dashboard', subtitle: 'Resumen general de la organización' },
@@ -46,6 +49,14 @@ function Splash({ text }: { text?: string }) {
     <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-canvas">
       <Logo size={48} rounded="rounded-xl" />
       <p className="text-sm text-ink/50">{text ?? 'Cargando…'}</p>
+    </div>
+  )
+}
+
+function PageLoader() {
+  return (
+    <div className="flex min-h-[50vh] items-center justify-center">
+      <span className="h-8 w-8 animate-spin rounded-full border-2 border-ink/15 border-t-night" />
     </div>
   )
 }
@@ -91,7 +102,11 @@ function AfiliadoGate() {
       </div>
     )
   }
-  return <AfiliadoPortal affiliateId={me.id} onLogout={signOut} />
+  return (
+    <Suspense fallback={<Splash />}>
+      <AfiliadoPortal affiliateId={me.id} onLogout={signOut} />
+    </Suspense>
+  )
 }
 
 function DirectivaApp() {
@@ -107,7 +122,9 @@ function DirectivaApp() {
       onNavigate={setActiveModule}
       onLogout={signOut}
     >
-      <ActivePage module={effectiveModule} />
+      <Suspense fallback={<PageLoader />}>
+        <ActivePage module={effectiveModule} />
+      </Suspense>
     </AppShell>
   )
 }
