@@ -7,6 +7,7 @@ import { fetchMovements, insertMovement, patchMovement, deleteMovementRow } from
 import { Params, clearCajaGastos, fetchCajaGastos, fetchCuentas, fetchParams, fetchPresupuestos, insertCajaGasto, replaceCuentas, upsertParams, upsertPresupuesto } from './configApi'
 import { deleteCaseRow, fetchCases, insertCase, patchCase } from './casesApi'
 import { CaseEvent, fetchCaseEvents, insertCaseEvent } from './caseEventsApi'
+import { deleteBallotRow, deleteSessionRow, emitirVoto, fetchBallots, fetchMyVotes, fetchSessions, insertBallot, insertSession, patchBallot, patchSession } from './governanceApi'
 import {
   Affiliate,
   AffiliateStatus,
@@ -96,6 +97,7 @@ type DemoState = {
   caseEvents: CaseEvent[]
   sessions: GovSession[]
   ballots: Ballot[]
+  myVotes: string[]
   docs: Doc[]
   comunicados: Comunicado[]
   committees: Committee[]
@@ -122,6 +124,7 @@ function seedState(): DemoState {
     caseEvents: [],
     sessions: seedSessions(),
     ballots: seedBallots(),
+    myVotes: [],
     docs: seedDocs(),
     comunicados: seedComunicados(),
     committees: seedCommittees(),
@@ -167,6 +170,10 @@ type Action =
   | { type: 'interponerRecurso'; id: string; tipo: RecursoTipo }
   | { type: 'resolverRecurso'; id: string; resultado: RecursoResultado }
   | { type: 'deleteCase'; id: string }
+  | { type: 'setSessions'; list: GovSession[] }
+  | { type: 'setBallots'; list: Ballot[] }
+  | { type: 'setMyVotes'; list: string[] }
+  | { type: 'addMyVote'; id: string }
   | { type: 'addSession'; session: GovSession }
   | { type: 'publishMinutes'; id: string; minutes: string; asistentes?: number; quorum?: boolean }
   | { type: 'deleteSession'; id: string }
@@ -320,6 +327,14 @@ function reducer(state: DemoState, action: Action): DemoState {
       }
     case 'deleteCase':
       return { ...state, cases: state.cases.filter((c) => c.id !== action.id) }
+    case 'setSessions':
+      return { ...state, sessions: action.list }
+    case 'setBallots':
+      return { ...state, ballots: action.list }
+    case 'setMyVotes':
+      return { ...state, myVotes: action.list }
+    case 'addMyVote':
+      return { ...state, myVotes: [...state.myVotes, action.id] }
     case 'addSession':
       return { ...state, sessions: [action.session, ...state.sessions] }
     case 'publishMinutes': {
@@ -470,8 +485,9 @@ function loadInitial(): DemoState {
         movements: seeded.movements, // los movimientos se cargan desde Supabase
         cases: seeded.cases, // los expedientes se cargan desde Supabase
         caseEvents: seeded.caseEvents,
-        sessions: Array.isArray(parsed.sessions) ? parsed.sessions : seeded.sessions,
-        ballots: Array.isArray(parsed.ballots) ? parsed.ballots : seeded.ballots,
+        sessions: seeded.sessions, // se cargan desde Supabase
+        ballots: seeded.ballots,   // se cargan desde Supabase
+        myVotes: seeded.myVotes,
         docs: Array.isArray(parsed.docs) ? parsed.docs : seeded.docs,
         comunicados: Array.isArray(parsed.comunicados) ? parsed.comunicados : seeded.comunicados,
         // Normaliza comités guardados con el modelo anterior (members numérico → lista).
@@ -620,6 +636,7 @@ type DemoContextValue = {
   addCaseEvent: (caseId: string, tipo: string, nota?: string, soportePath?: string) => void
   sessions: GovSession[]
   ballots: Ballot[]
+  myVotes: string[]
   addSession: (input: NewSessionInput) => void
   publishMinutes: (id: string, minutes: string, asistentes?: number, quorum?: boolean) => void
   deleteSession: (id: string, title: string) => void
@@ -719,6 +736,15 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     fetchCaseEvents()
       .then((list) => { if (active) dispatch({ type: 'setCaseEvents', list }) })
       .catch(() => {})
+    fetchSessions()
+      .then((list) => { if (active) dispatch({ type: 'setSessions', list }) })
+      .catch(() => {})
+    fetchBallots()
+      .then((list) => { if (active) dispatch({ type: 'setBallots', list }) })
+      .catch(() => {})
+    fetchMyVotes()
+      .then((list) => { if (active) dispatch({ type: 'setMyVotes', list }) })
+      .catch(() => {})
     return () => { active = false }
   }, [session])
 
@@ -738,6 +764,8 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   movementsRef.current = state.movements
   const aportesRef = useRef(state.aportes)
   aportesRef.current = state.aportes
+  const ballotsRef = useRef(state.ballots)
+  ballotsRef.current = state.ballots
   const porcentajeRef = useRef(state.porcentajeCuota)
   porcentajeRef.current = state.porcentajeCuota
 
@@ -773,10 +801,6 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       .catch(() => notify('No se pudo registrar el afiliado. Verifica tu sesión y permisos.', 'warning'))
   }, [notify])
 
-  const castAffiliateVote = useCallback((id: string, choice: VoteChoice, affiliateId: string) => {
-    dispatch({ type: 'castAffiliateVote', id, choice, affiliateId })
-    notify('Tu voto quedó registrado.', 'success')
-  }, [notify])
 
   // Al activar un afiliado, si ya hay corte del mes, se le crea su aporte
   // pendiente en Supabase.
@@ -966,37 +990,58 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   }, [notify])
 
   const addSession = useCallback((input: NewSessionInput) => {
-    const session: GovSession = { ...input, id: `ses-${Date.now()}`, status: 'Programada' }
-    dispatch({ type: 'addSession', session })
-    notify(`Sesión "${input.title}" agendada.`, 'info')
+    const draft: GovSession = { ...input, id: '', status: 'Programada' }
+    insertSession(draft)
+      .then((saved) => { dispatch({ type: 'addSession', session: saved }); notify(`Sesión "${input.title}" agendada.`, 'info') })
+      .catch(() => notify('No se pudo agendar la sesión en el servidor.', 'warning'))
   }, [notify])
 
   const publishMinutes = useCallback((id: string, minutes: string, asistentes?: number, quorum?: boolean) => {
     dispatch({ type: 'publishMinutes', id, minutes, asistentes, quorum })
+    patchSession(id, { status: 'Realizada', minutes, asistentes, quorum }).catch(() => notify('No se pudo publicar el acta en el servidor.', 'warning'))
     notify('Acta registrada y publicada.', 'success')
   }, [notify])
 
   const deleteSession = useCallback((id: string, title: string) => {
     dispatch({ type: 'deleteSession', id })
+    deleteSessionRow(id).catch(() => notify('No se pudo eliminar en el servidor.', 'warning'))
     notify(`Sesión eliminada: ${title}.`, 'warning')
   }, [notify])
 
   const addBallot = useCallback((input: NewBallotInput) => {
-    const ballot: Ballot = { id: `vot-${Date.now()}`, title: input.title, closesAt: input.closesAt, favor: 0, contra: 0, abstencion: 0, status: 'En curso', votedBy: [], secreta: input.secreta }
-    dispatch({ type: 'addBallot', ballot })
-    notify(`Votación abierta: "${input.title}".`, 'info')
+    insertBallot({ title: input.title, closesAt: input.closesAt, secreta: input.secreta })
+      .then((saved) => { dispatch({ type: 'addBallot', ballot: saved }); notify(`Votación abierta: "${input.title}".`, 'info') })
+      .catch(() => notify('No se pudo abrir la votación en el servidor.', 'warning'))
   }, [notify])
 
-  const castVote = useCallback((id: string, choice: VoteChoice) => {
-    dispatch({ type: 'castVote', id, choice })
-  }, [])
+  // Voto atómico en Supabase (una vez por usuario). Optimista solo si se contó.
+  const votar = useCallback((id: string, choice: VoteChoice) => {
+    emitirVoto(id, choice)
+      .then((contado) => {
+        if (contado) {
+          dispatch({ type: 'castVote', id, choice })
+          dispatch({ type: 'addMyVote', id })
+          notify('Tu voto quedó registrado.', 'success')
+        } else {
+          notify('Ya habías votado en esta consulta (o está cerrada).', 'info')
+        }
+      })
+      .catch(() => notify('No se pudo registrar tu voto.', 'warning'))
+  }, [notify])
+
+  const castVote = useCallback((id: string, choice: VoteChoice) => { votar(id, choice) }, [votar])
+  const castAffiliateVote = useCallback((id: string, choice: VoteChoice, _affiliateId?: string) => { votar(id, choice) }, [votar])
 
   const closeBallot = useCallback((id: string) => {
+    const b = ballotsRef.current.find((x) => x.id === id)
+    const outcome = (b?.favor ?? 0) > (b?.contra ?? 0) ? 'Aprobada' : 'Rechazada'
     dispatch({ type: 'closeBallot', id })
-  }, [])
+    patchBallot(id, { status: 'Cerrada', outcome }).catch(() => notify('No se pudo cerrar la votación en el servidor.', 'warning'))
+  }, [notify])
 
   const deleteBallot = useCallback((id: string, title: string) => {
     dispatch({ type: 'deleteBallot', id })
+    deleteBallotRow(id).catch(() => notify('No se pudo eliminar en el servidor.', 'warning'))
     notify(`Votación eliminada: ${title}.`, 'warning')
   }, [notify])
 
@@ -1258,6 +1303,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       addCaseEvent,
       sessions: state.sessions,
       ballots: state.ballots,
+      myVotes: state.myVotes,
       addSession,
       publishMinutes,
       deleteSession,
@@ -1308,7 +1354,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       resetDemo,
       notify,
     }),
-    [state.affiliates, stats, state.movements, financeStats, state.cases, disciplineStats, state.sessions, state.ballots, state.docs, state.comunicados, state.committees, state.cargos, state.dependencias, state.vinculaciones, addAffiliate, setAffiliateStatus, conceptAffiliate, approveAffiliate, updateAffiliate, addMovement, setMovementStatus, updateMovement, deleteMovement, signMovement, state.smmlv, setSmmlv, addCase, advanceCase, ruleCase, interponerRecurso, resolverRecurso, deleteCase, state.caseEvents, addCaseEvent, addSession, publishMinutes, deleteSession, addBallot, castVote, castAffiliateVote, closeBallot, deleteBallot, addDoc, updateDoc, deleteDoc, sendComunicado, deleteComunicado, addCommittee, updateCommittee, deleteCommittee, setCargos, setDependencias, setVinculaciones, state.escalas, setEscalas, state.aportes, state.porcentajeCuota, generateAportes, payAporte, decretarExtraordinaria, anticiparAporte, setPorcentajeCuota, state.presupuestos, setPresupuesto, state.cuentas, setCuentas, state.cajaFondo, state.cajaGastos, aperturaCaja, addCajaGasto, reembolsoCaja, state.caucionVence, setCaucion, state.juntaDesde, setJuntaDesde, resetDemo, notify],
+    [state.affiliates, stats, state.movements, financeStats, state.cases, disciplineStats, state.sessions, state.ballots, state.docs, state.comunicados, state.committees, state.cargos, state.dependencias, state.vinculaciones, addAffiliate, setAffiliateStatus, conceptAffiliate, approveAffiliate, updateAffiliate, addMovement, setMovementStatus, updateMovement, deleteMovement, signMovement, state.smmlv, setSmmlv, addCase, advanceCase, ruleCase, interponerRecurso, resolverRecurso, deleteCase, state.caseEvents, addCaseEvent, state.myVotes, addSession, publishMinutes, deleteSession, addBallot, castVote, castAffiliateVote, closeBallot, deleteBallot, addDoc, updateDoc, deleteDoc, sendComunicado, deleteComunicado, addCommittee, updateCommittee, deleteCommittee, setCargos, setDependencias, setVinculaciones, state.escalas, setEscalas, state.aportes, state.porcentajeCuota, generateAportes, payAporte, decretarExtraordinaria, anticiparAporte, setPorcentajeCuota, state.presupuestos, setPresupuesto, state.cuentas, setCuentas, state.cajaFondo, state.cajaGastos, aperturaCaja, addCajaGasto, reembolsoCaja, state.caucionVence, setCaucion, state.juntaDesde, setJuntaDesde, resetDemo, notify],
   )
 
   return (
