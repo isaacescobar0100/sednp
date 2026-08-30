@@ -5,6 +5,9 @@ import { StatusBadge } from '../components/StatusBadge'
 import { useDemo } from '../store/DemoStore'
 import { useSession } from '../store/session'
 import { AudienceKey, audienceLabel } from '../store/comms'
+import { Pagination, paginate } from '../components/Pagination'
+
+const COM_PAGE = 10
 
 export function ComunicacionesPage() {
   const { comunicados, stats, sendComunicado, deleteComunicado } = useDemo()
@@ -16,9 +19,11 @@ export function ComunicacionesPage() {
   const [audience, setAudience] = useState<AudienceKey>('todos')
   const [justSent, setJustSent] = useState(false)
   const [query, setQuery] = useState('')
+  const [page, setPage] = useState(1)
 
   const q = query.trim().toLowerCase()
   const filteredComunicados = q === '' ? comunicados : comunicados.filter((c) => `${c.subject} ${c.audience}`.toLowerCase().includes(q))
+  const pageComunicados = paginate(filteredComunicados, page, COM_PAGE)
 
   const recipientsFor: Record<AudienceKey, number> = {
     todos: stats.total,
@@ -95,11 +100,11 @@ export function ComunicacionesPage() {
             </div>
             <label className="relative mt-3 block">
               <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40" />
-              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por asunto o destinatarios" className="w-full rounded-xl border border-ink/10 bg-canvas/45 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
+              <input value={query} onChange={(e) => { setQuery(e.target.value); setPage(1) }} placeholder="Buscar por asunto o destinatarios" className="w-full rounded-xl border border-ink/10 bg-canvas/45 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
             </label>
           </div>
           <div className="divide-y divide-ink/[0.07]">
-            {filteredComunicados.map((message) => (
+            {pageComunicados.map((message) => (
               <article key={message.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center">
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-night/7"><MailIcon className="h-4 w-4 text-night" /></div>
                 <div className="min-w-0 flex-1">
@@ -124,6 +129,7 @@ export function ComunicacionesPage() {
             ))}
             {filteredComunicados.length === 0 ? <p className="px-5 py-10 text-center text-sm text-ink/45">{comunicados.length === 0 ? 'Aún no hay comunicados.' : 'No hay comunicados que coincidan.'}</p> : null}
           </div>
+          <Pagination page={page} size={COM_PAGE} total={filteredComunicados.length} onPage={setPage} />
         </section>
       </div>
     </div>
