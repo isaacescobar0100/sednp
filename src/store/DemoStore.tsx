@@ -11,6 +11,7 @@ import { cerrarVencidas, deleteBallotRow, deleteSessionRow, emitirVoto, fetchBal
 import { deleteComunicadoRow, fetchComunicados, insertComunicado } from './commsApi'
 import { deleteCommitteeRow, fetchCommittees, insertCommittee, patchCommittee } from './committeesApi'
 import { deleteDocRow, fetchDocs, insertDoc, patchDoc } from './docsApi'
+import { fetchCargos, fetchDependencias, fetchEscalas, fetchVinculaciones, replaceCargos, replaceDependencias, replaceEscalas, replaceVinculaciones } from './catalogsApi'
 import {
   Affiliate,
   AffiliateStatus,
@@ -768,6 +769,18 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     fetchDocs()
       .then((list) => { if (active) dispatch({ type: 'setDocs', list }) })
       .catch(() => {})
+    fetchCargos()
+      .then((list) => { if (active && list.length) dispatch({ type: 'setCargos', list }) })
+      .catch(() => {})
+    fetchDependencias()
+      .then((list) => { if (active && list.length) dispatch({ type: 'setDependencias', list }) })
+      .catch(() => {})
+    fetchVinculaciones()
+      .then((list) => { if (active && list.length) dispatch({ type: 'setVinculaciones', list }) })
+      .catch(() => {})
+    fetchEscalas()
+      .then((list) => { if (active) dispatch({ type: 'setEscalas', list }) })
+      .catch(() => {})
     return () => { active = false }
   }, [session])
 
@@ -1144,10 +1157,22 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     notify(`Comité "${name}" eliminado.`, 'warning')
   }, [notify])
 
-  const setCargos = useCallback((list: string[]) => dispatch({ type: 'setCargos', list }), [])
-  const setDependencias = useCallback((list: string[]) => dispatch({ type: 'setDependencias', list }), [])
-  const setVinculaciones = useCallback((list: VinculacionType[]) => dispatch({ type: 'setVinculaciones', list }), [])
-  const setEscalas = useCallback((list: Escala[]) => dispatch({ type: 'setEscalas', list }), [])
+  const setCargos = useCallback((list: string[]) => {
+    dispatch({ type: 'setCargos', list })
+    replaceCargos(list).catch(() => notify('No se pudo guardar los cargos en el servidor.', 'warning'))
+  }, [notify])
+  const setDependencias = useCallback((list: string[]) => {
+    dispatch({ type: 'setDependencias', list })
+    replaceDependencias(list).catch(() => notify('No se pudo guardar las dependencias en el servidor.', 'warning'))
+  }, [notify])
+  const setVinculaciones = useCallback((list: VinculacionType[]) => {
+    dispatch({ type: 'setVinculaciones', list })
+    replaceVinculaciones(list).catch(() => notify('No se pudo guardar los tipos de vinculación en el servidor.', 'warning'))
+  }, [notify])
+  const setEscalas = useCallback((list: Escala[]) => {
+    dispatch({ type: 'setEscalas', list })
+    replaceEscalas(list).catch(() => notify('No se pudo guardar las escalas en el servidor.', 'warning'))
+  }, [notify])
 
   const generateAportes = useCallback((period: string) => {
     // Un aporte pendiente por afiliado activo que aún no lo tenga en el periodo.
