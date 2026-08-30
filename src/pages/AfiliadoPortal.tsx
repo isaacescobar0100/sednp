@@ -298,6 +298,7 @@ function Comunicados({ items }: { items: ReturnType<typeof useDemo>['comunicados
           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-night text-white"><MailIcon className="h-5 w-5 text-gold" /></div>
           <div className="min-w-0 flex-1">
             <h3 className="font-display text-sm font-semibold text-ink">{c.subject}</h3>
+            {c.body ? <p className="mt-1 whitespace-pre-line text-sm text-ink/70">{c.body}</p> : null}
             <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-ink/50"><span className="inline-flex items-center gap-1 rounded-full bg-canvas px-2 py-0.5 font-medium text-ink/60">{c.audience}</span><span>{c.date}</span></p>
           </div>
           <StatusBadge tone={c.status === 'Entregado' ? 'positive' : 'warning'}>{c.status}</StatusBadge>

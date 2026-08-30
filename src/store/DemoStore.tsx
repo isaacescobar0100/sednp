@@ -600,6 +600,7 @@ type NewDocInput = {
 
 type NewComunicadoInput = {
   subject: string
+  body: string
   audience: string
   recipients: number
 }
@@ -1088,6 +1089,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   const sendComunicado = useCallback((input: NewComunicadoInput) => {
     const draft: Omit<Comunicado, 'id'> = {
       subject: input.subject,
+      body: input.body,
       audience: input.audience,
       recipients: input.recipients,
       date: commNowLabel(),
