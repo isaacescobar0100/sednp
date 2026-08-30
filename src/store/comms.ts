@@ -5,6 +5,7 @@ export type CommStatus = 'Entregado' | 'Programado'
 export type Comunicado = {
   id: string
   subject: string
+  body: string
   audience: string
   recipients: number
   date: string
@@ -35,9 +36,6 @@ export function seedComunicados(): Comunicado[] {
 // Comunicados de ejemplo (sin uso mientras se prueba con datos reales).
 export function sampleComunicados(): Comunicado[] {
   return [
-    { id: 'com-seed-0', subject: 'Convocatoria Asamblea Extraordinaria', audience: 'Todos los afiliados', recipients: 312, date: '29 abr 2026 · 9:12 a. m.', status: 'Entregado' },
-    { id: 'com-seed-1', subject: 'Boletín sindical — abril 2026', audience: 'Todos los afiliados', recipients: 312, date: '25 abr 2026 · 3:30 p. m.', status: 'Entregado' },
-    { id: 'com-seed-2', subject: 'Recordatorio: actualización de datos', audience: 'Afiliados pendientes', recipients: 28, date: '18 abr 2026 · 10:05 a. m.', status: 'Entregado' },
-    { id: 'com-seed-3', subject: 'Invitación taller de bienestar', audience: 'Comité de Bienestar', recipients: 46, date: '12 abr 2026 · 2:00 p. m.', status: 'Programado' },
+    { id: 'com-seed-0', subject: 'Convocatoria Asamblea Extraordinaria', body: '', audience: 'Todos los afiliados', recipients: 312, date: '29 abr 2026 · 9:12 a. m.', status: 'Entregado' },
   ]
 }

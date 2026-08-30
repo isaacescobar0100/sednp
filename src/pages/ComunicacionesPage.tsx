@@ -30,7 +30,7 @@ export function ComunicacionesPage() {
 
   function send() {
     if (!valid) return
-    sendComunicado({ subject: subject.trim(), audience: audienceLabel[audience], recipients })
+    sendComunicado({ subject: subject.trim(), body: body.trim(), audience: audienceLabel[audience], recipients })
     setSubject('')
     setBody('')
     setJustSent(true)
@@ -104,6 +104,7 @@ export function ComunicacionesPage() {
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-night/7"><MailIcon className="h-4 w-4 text-night" /></div>
                 <div className="min-w-0 flex-1">
                   <h3 className="text-sm font-semibold text-ink">{message.subject}</h3>
+                  {message.body ? <p className="mt-0.5 line-clamp-2 text-xs text-ink/60">{message.body}</p> : null}
                   <p className="mt-1 text-xs text-ink/50">{message.audience} · {message.date}</p>
                 </div>
                 <div className="flex items-center justify-between gap-3 sm:block sm:text-right">
