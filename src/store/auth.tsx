@@ -15,7 +15,7 @@ type AuthContextValue = {
   loading: boolean
   session: Session | null
   profile: Profile | null
-  signIn: (email: string, password: string) => Promise<Result>
+  signIn: (email: string, password: string, captchaToken?: string) => Promise<Result>
   signUp: (email: string, password: string, fullName: string) => Promise<Result & { needsConfirmation?: boolean }>
   signOut: () => Promise<void>
 }
@@ -64,8 +64,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => { active = false; sub.subscription.unsubscribe() }
   }, [loadProfile])
 
-  const signIn = useCallback(async (email: string, password: string): Promise<Result> => {
-    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password })
+  const signIn = useCallback(async (email: string, password: string, captchaToken?: string): Promise<Result> => {
+    const { error } = await supabase.auth.signInWithPassword({
+      email: email.trim(),
+      password,
+      options: captchaToken ? { captchaToken } : undefined,
+    })
     return error ? { error: translate(error.message) } : {}
   }, [])
 
@@ -107,5 +111,6 @@ function translate(msg: string): string {
   if (m.includes('user already registered')) return 'Ya existe una cuenta con ese correo.'
   if (m.includes('password should be at least')) return 'La contraseña debe tener al menos 6 caracteres.'
   if (m.includes('unable to validate email')) return 'Correo no válido.'
+  if (m.includes('captcha')) return 'No se pudo validar el CAPTCHA. Vuelve a intentarlo.'
   return msg
 }
