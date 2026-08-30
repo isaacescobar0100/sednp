@@ -10,6 +10,7 @@ import { CaseEvent, fetchCaseEvents, insertCaseEvent } from './caseEventsApi'
 import { cerrarVencidas, deleteBallotRow, deleteSessionRow, emitirVoto, fetchBallots, fetchMyVotes, fetchSessions, insertBallot, insertSession, patchBallot, patchSession } from './governanceApi'
 import { deleteComunicadoRow, fetchComunicados, insertComunicado } from './commsApi'
 import { deleteCommitteeRow, fetchCommittees, insertCommittee, patchCommittee } from './committeesApi'
+import { deleteDocRow, fetchDocs, insertDoc, patchDoc } from './docsApi'
 import {
   Affiliate,
   AffiliateStatus,
@@ -184,6 +185,7 @@ type Action =
   | { type: 'castAffiliateVote'; id: string; choice: VoteChoice; affiliateId: string }
   | { type: 'closeBallot'; id: string }
   | { type: 'deleteBallot'; id: string }
+  | { type: 'setDocs'; list: Doc[] }
   | { type: 'addDoc'; doc: Doc }
   | { type: 'updateDoc'; id: string; changes: Partial<Doc> }
   | { type: 'deleteDoc'; id: string }
@@ -373,6 +375,8 @@ function reducer(state: DemoState, action: Action): DemoState {
       }
     case 'deleteBallot':
       return { ...state, ballots: state.ballots.filter((b) => b.id !== action.id) }
+    case 'setDocs':
+      return { ...state, docs: action.list }
     case 'addDoc':
       return { ...state, docs: [action.doc, ...state.docs] }
     case 'updateDoc':
@@ -496,7 +500,7 @@ function loadInitial(): DemoState {
         sessions: seeded.sessions, // se cargan desde Supabase
         ballots: seeded.ballots,   // se cargan desde Supabase
         myVotes: seeded.myVotes,
-        docs: Array.isArray(parsed.docs) ? parsed.docs : seeded.docs,
+        docs: seeded.docs, // se cargan desde Supabase
         comunicados: seeded.comunicados, // se cargan desde Supabase
         committees: seeded.committees,   // se cargan desde Supabase
         cargos: Array.isArray(parsed.cargos) ? parsed.cargos : seeded.cargos,
@@ -595,7 +599,7 @@ type NewDocInput = {
   type: DocType
   fileName: string
   fileSize: number
-  dataUrl?: string
+  storagePath?: string
 }
 
 type NewComunicadoInput = {
@@ -760,6 +764,9 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       .catch(() => {})
     fetchComunicados()
       .then((list) => { if (active) dispatch({ type: 'setComunicados', list }) })
+      .catch(() => {})
+    fetchDocs()
+      .then((list) => { if (active) dispatch({ type: 'setDocs', list }) })
       .catch(() => {})
     return () => { active = false }
   }, [session])
@@ -1062,27 +1069,30 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   }, [notify])
 
   const addDoc = useCallback((input: NewDocInput) => {
-    const doc: Doc = {
-      id: `doc-${Date.now()}`,
+    const draft: Doc = {
+      id: '',
       title: input.title,
       type: input.type,
       code: nextDocCode(docsRef.current, input.type),
       date: docTodayLabel(),
       fileName: input.fileName,
       fileSize: input.fileSize,
-      dataUrl: input.dataUrl,
+      storagePath: input.storagePath,
     }
-    dispatch({ type: 'addDoc', doc })
-    notify(`Documento cargado: ${doc.code}.`, 'success')
+    insertDoc(draft)
+      .then((saved) => { dispatch({ type: 'addDoc', doc: saved }); notify(`Documento cargado: ${saved.code}.`, 'success') })
+      .catch(() => notify('No se pudo registrar el documento en el servidor.', 'warning'))
   }, [notify])
 
   const updateDoc = useCallback((id: string, changes: Partial<Doc>) => {
     dispatch({ type: 'updateDoc', id, changes })
+    patchDoc(id, changes).catch(() => notify('No se pudo guardar el documento en el servidor.', 'warning'))
     notify('Documento actualizado.', 'success')
   }, [notify])
 
   const deleteDoc = useCallback((id: string, code: string) => {
     dispatch({ type: 'deleteDoc', id })
+    deleteDocRow(id).catch(() => notify('No se pudo eliminar en el servidor.', 'warning'))
     notify(`Documento eliminado: ${code}.`, 'warning')
   }, [notify])
 

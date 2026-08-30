@@ -12,12 +12,11 @@ export type Doc = {
   date: string
   fileName: string
   fileSize: number // bytes
-  dataUrl?: string // contenido del archivo (solo archivos pequeños) para descarga real
+  storagePath?: string // ruta del archivo real en Supabase Storage
 }
 
-// Tamaño máximo cuyo contenido se guarda para descarga real (1 MB). Por encima,
-// solo se registra nombre y tamaño (para no llenar el almacenamiento del navegador).
-export const MAX_STORED_FILE = 1_000_000
+// Tamaño máximo de archivo a subir (25 MB).
+export const MAX_STORED_FILE = 25_000_000
 
 export function formatFileSize(bytes: number): string {
   if (!bytes || bytes <= 0) return '—'

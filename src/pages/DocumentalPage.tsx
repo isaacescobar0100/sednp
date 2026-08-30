@@ -5,6 +5,7 @@ import { StatusBadge } from '../components/StatusBadge'
 import { useDemo } from '../store/DemoStore'
 import { useSession } from '../store/session'
 import { Doc, DocType, MAX_STORED_FILE, docTypes, formatFileSize } from '../store/documents'
+import { abrirSoporte, subirSoporte } from '../store/storageApi'
 
 export function DocumentalPage() {
   const { docs } = useDemo()
@@ -76,34 +77,12 @@ function DocCard({ doc, canManage, onEdit }: { doc: Doc; canManage: boolean; onE
   }
 
   function download() {
-    if (doc.dataUrl) {
-      // Archivo real adjuntado: se descarga tal cual.
-      const a = document.createElement('a')
-      a.href = doc.dataUrl
-      a.download = doc.fileName
-      a.click()
-      notify(`Descargando ${doc.fileName}…`, 'info')
-      return
+    if (doc.storagePath) {
+      abrirSoporte(doc.storagePath)
+      notify(`Abriendo ${doc.fileName}…`, 'info')
+    } else {
+      notify('Este documento no tiene archivo almacenado.', 'warning')
     }
-    // Sin contenido guardado (archivo grande o de ejemplo): ficha de referencia.
-    const body = [
-      'SIG-SERDNP · Repositorio documental',
-      '--------------------------------------',
-      `Título: ${doc.title}`,
-      `Tipo: ${doc.type}`,
-      `Código: ${doc.code}`,
-      `Fecha: ${doc.date}`,
-      `Archivo: ${doc.fileName} (${formatFileSize(doc.fileSize)})`,
-      '',
-      'Ficha de referencia (el archivo original no está almacenado en el sistema).',
-    ].join('\n')
-    const url = URL.createObjectURL(new Blob([body], { type: 'text/plain;charset=utf-8' }))
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${doc.code}.txt`
-    a.click()
-    URL.revokeObjectURL(url)
-    notify(`Descargando ficha de ${doc.code}…`, 'info')
   }
 
   return (
@@ -180,29 +159,31 @@ function UploadModal({ onClose }: { onClose: () => void }) {
   const { addDoc, notify } = useDemo()
   const [title, setTitle] = useState('')
   const [type, setType] = useState<DocType>('Acta')
-  const [file, setFile] = useState<{ name: string; size: number; dataUrl?: string } | null>(null)
+  const [file, setFile] = useState<File | null>(null)
+  const [subiendo, setSubiendo] = useState(false)
 
   const valid = title.trim() !== '' && file !== null
 
   function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0]
     if (!f) return
-    // Autocompletar el título con el nombre del archivo (sin extensión) si está vacío.
+    if (f.size > MAX_STORED_FILE) { notify(`El archivo supera el máximo (${formatFileSize(MAX_STORED_FILE)}).`, 'warning'); return }
     if (title.trim() === '') setTitle(f.name.replace(/\.[^.]+$/, ''))
-    if (f.size <= MAX_STORED_FILE) {
-      const reader = new FileReader()
-      reader.onload = () => setFile({ name: f.name, size: f.size, dataUrl: typeof reader.result === 'string' ? reader.result : undefined })
-      reader.readAsDataURL(f)
-    } else {
-      setFile({ name: f.name, size: f.size })
-      notify('Archivo grande: se registra nombre y tamaño (no se guarda el contenido).', 'info')
-    }
+    setFile(f)
   }
 
-  function submit() {
+  async function submit() {
     if (!valid || !file) return
-    addDoc({ title: title.trim(), type, fileName: file.name, fileSize: file.size, dataUrl: file.dataUrl })
-    onClose()
+    setSubiendo(true)
+    try {
+      const path = await subirSoporte('documental', file)
+      addDoc({ title: title.trim(), type, fileName: file.name, fileSize: file.size, storagePath: path })
+      onClose()
+    } catch {
+      notify('No se pudo subir el archivo. Revisa el bucket de Storage.', 'warning')
+    } finally {
+      setSubiendo(false)
+    }
   }
 
   const inputClass = 'w-full rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10'
@@ -246,7 +227,7 @@ function UploadModal({ onClose }: { onClose: () => void }) {
 
         <div className="mt-6 flex justify-end gap-2">
           <button onClick={onClose} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-ink/60 hover:bg-canvas">Cancelar</button>
-          <button onClick={submit} disabled={!valid} className="rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">Cargar documento</button>
+          <button onClick={submit} disabled={!valid || subiendo} className="rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">{subiendo ? 'Subiendo…' : 'Cargar documento'}</button>
         </div>
       </section>
     </div>

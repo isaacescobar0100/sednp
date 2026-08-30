@@ -4,6 +4,7 @@ import { useDemo } from '../store/DemoStore'
 import { StatusBadge } from '../components/StatusBadge'
 import { Ballot, totalVotes, votePct } from '../store/governance'
 import { Doc, formatFileSize } from '../store/documents'
+import { abrirSoporte } from '../store/storageApi'
 import { periodLabel } from '../store/contributions'
 import { formatCop } from '../store/finance'
 
@@ -313,22 +314,12 @@ function Documentos({ docs }: { docs: Doc[] }) {
   if (docs.length === 0) return <EmptyState icon={FileTextIcon} text="No hay documentos publicados." />
 
   function download(doc: Doc) {
-    if (doc.dataUrl) {
-      const a = document.createElement('a')
-      a.href = doc.dataUrl
-      a.download = doc.fileName
-      a.click()
-      notify(`Descargando ${doc.fileName}…`, 'info')
-      return
+    if (doc.storagePath) {
+      abrirSoporte(doc.storagePath)
+      notify(`Abriendo ${doc.fileName}…`, 'info')
+    } else {
+      notify('Este documento no tiene archivo almacenado.', 'warning')
     }
-    const body = `SIG-SERDNP\nDocumento: ${doc.title}\nCódigo: ${doc.code}\nArchivo: ${doc.fileName}\n\nFicha de referencia (archivo no almacenado en el sistema).`
-    const url = URL.createObjectURL(new Blob([body], { type: 'text/plain;charset=utf-8' }))
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${doc.code}.txt`
-    a.click()
-    URL.revokeObjectURL(url)
-    notify(`Descargando ficha de ${doc.code}…`, 'info')
   }
 
   return (
