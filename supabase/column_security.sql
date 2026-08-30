@@ -90,3 +90,50 @@ drop trigger if exists trg_movement_columns on public.movements;
 create trigger trg_movement_columns
   before update on public.movements
   for each row execute function public.enforce_movement_columns();
+
+-- =============================================================================
+-- DISCIPLINARIO: instrucción (etapas, interponer recurso) = Fiscal ·
+--                fallo (sanción, estado) y resolución de recurso = Presidencia
+-- =============================================================================
+create or replace function public.enforce_case_columns()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare r app_role := public.app_role();
+begin
+  -- Avanzar etapas (instrucción) es del Fiscal.
+  if (new.stage_index is distinct from old.stage_index
+      or new.days_left is distinct from old.days_left)
+     and r <> 'fiscal' then
+    raise exception 'Solo el Fiscal instruye (avanza etapas).';
+  end if;
+
+  -- El fallo (estado, sanción, multa) lo profiere la Presidencia.
+  if (new.status is distinct from old.status
+      or new.sancion is distinct from old.sancion
+      or new.multa_monto is distinct from old.multa_monto)
+     and r <> 'presidencia' then
+    raise exception 'Solo la Presidencia profiere el fallo.';
+  end if;
+
+  -- Interponer recurso (fijar el tipo) es del Fiscal (instrucción/defensa).
+  if new.recurso_tipo is distinct from old.recurso_tipo and r <> 'fiscal' then
+    raise exception 'El recurso lo interpone el Fiscal.';
+  end if;
+
+  -- Resolver el recurso (Confirma/Revoca) es de la Presidencia/Asamblea.
+  if new.recurso_resultado is distinct from old.recurso_resultado
+     and new.recurso_resultado is not null
+     and r <> 'presidencia' then
+    raise exception 'Solo la Presidencia/Asamblea resuelve el recurso.';
+  end if;
+
+  return new;
+end $$;
+
+drop trigger if exists trg_case_columns on public.cases;
+create trigger trg_case_columns
+  before update on public.cases
+  for each row execute function public.enforce_case_columns();

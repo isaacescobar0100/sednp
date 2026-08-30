@@ -15,6 +15,7 @@ import {
   XIcon,
 } from 'lucide-react'
 import { ModuleKey } from '../types/navigation'
+import { Logo } from './Logo'
 import { roleLabel, useSession } from '../store/session'
 
 type AppSidebarProps = {
@@ -58,9 +59,7 @@ export function AppSidebar({ activeModule, onNavigate, mobileOpen, onMobileOpenC
             <XIcon className="h-5 w-5" />
           </button>
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gold">
-              <span className="font-display text-lg font-bold text-night">S</span>
-            </div>
+            <Logo size={36} />
             <span className="font-display text-lg font-semibold tracking-[0.16em]">SERDNP</span>
           </div>
           <div className="mt-4 flex h-0.5 w-28 overflow-hidden rounded-full">
