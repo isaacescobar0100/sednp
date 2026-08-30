@@ -10,6 +10,10 @@ import { RowMenu, RowAction } from '../components/RowMenu'
 import { FirmaKey, Movement, MovementKind, MovementStatus, TOPE_CAJA_SMMLV, ejecucionPorRubro, ejecutadoRubro, expenseCategories, firmaLabel, firmasCount, formatCop, formatCopShort, incomeCategories, isoToLabel, monthlyFlow, movementsToCsv, nivelGasto, nivelLabel, requiereActaAsamblea, todayISO } from '../store/finance'
 import { TOPE_EXTRAORDINARIA, mesesVencidos, periodLabel, recentPeriods } from '../store/contributions'
 import { abrirSoporte, nombreSoporte, subirSoporte } from '../store/storageApi'
+import { Pagination, paginate } from '../components/Pagination'
+
+const MOV_PAGE = 12
+const APORTE_PAGE = 12
 
 const statusTone: Record<MovementStatus, 'positive' | 'warning' | 'negative' | 'neutral' | 'night'> = {
   Confirmado: 'positive',
@@ -25,9 +29,11 @@ export function FinancieroPage() {
   const [modalKind, setModalKind] = useState<MovementKind | null>(null)
   const [editing, setEditing] = useState<Movement | null>(null)
   const [query, setQuery] = useState('')
+  const [movPage, setMovPage] = useState(1)
   const flow = monthlyFlow(movements)
   const q = query.trim().toLowerCase()
   const filteredMovements = q === '' ? movements : movements.filter((m) => `${m.concept} ${m.category} ${m.kind} ${m.status}`.toLowerCase().includes(q))
+  const movPageRows = paginate(filteredMovements, movPage, MOV_PAGE)
 
   return (
     <div className="mx-auto max-w-[1440px]">
@@ -116,7 +122,7 @@ export function FinancieroPage() {
           </div>
           <label className="relative mt-3 block max-w-md">
             <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40" />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por concepto, categoría o estado" className="w-full rounded-xl border border-ink/10 bg-canvas/45 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
+            <input value={query} onChange={(e) => { setQuery(e.target.value); setMovPage(1) }} placeholder="Buscar por concepto, categoría o estado" className="w-full rounded-xl border border-ink/10 bg-canvas/45 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
           </label>
         </div>
         <div className="overflow-x-auto">
@@ -132,7 +138,7 @@ export function FinancieroPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-ink/[0.07]">
-              {filteredMovements.map((movement) => (
+              {movPageRows.map((movement) => (
                 <MovementRow key={movement.id} movement={movement} onEdit={setEditing} />
               ))}
               {filteredMovements.length === 0 ? (
@@ -141,6 +147,7 @@ export function FinancieroPage() {
             </tbody>
           </table>
         </div>
+        <Pagination page={movPage} size={MOV_PAGE} total={filteredMovements.length} onPage={setMovPage} />
       </section>
 
       {can('finance.create') || can('finance.approve') ? <AportesSection /> : null}
@@ -311,10 +318,12 @@ function AportesSection() {
   const periods = recentPeriods(6)
   const [period, setPeriod] = useState(periods[0])
   const [extraOpen, setExtraOpen] = useState(false)
+  const [aportePage, setAportePage] = useState(1)
   const pctLabel = (porcentajeCuota * 100).toLocaleString('es-CO', { maximumFractionDigits: 2 })
 
   const nameOf = (id: string) => affiliates.find((a) => a.id === id)?.name ?? 'Afiliado'
   const rows = aportes.filter((a) => a.period === period)
+  const pageRows = paginate(rows, aportePage, APORTE_PAGE)
   const recaudado = rows.filter((a) => a.status === 'Pagado').reduce((s, a) => s + a.amount, 0)
   const pendiente = rows.filter((a) => a.status === 'Pendiente').reduce((s, a) => s + a.amount, 0)
   const enMora = rows.filter((a) => moraDe(a).meses >= 1).length
@@ -328,7 +337,7 @@ function AportesSection() {
           <p className="mt-0.5 text-[11px] text-ink/40">Distribución del recaudo: 80% Junta Directiva Nacional / 20% subdirectivas seccionales (Art. 32) — sin seccionales, 100% JDN.</p>
         </div>
         <div className="flex items-center gap-2">
-          <select value={period} onChange={(e) => setPeriod(e.target.value)} className="rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night">
+          <select value={period} onChange={(e) => { setPeriod(e.target.value); setAportePage(1) }} className="rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night">
             {periods.map((p) => <option key={p} value={p}>{periodLabel(p)}</option>)}
           </select>
           {canApprove ? <button onClick={() => setExtraOpen(true)} className="inline-flex items-center gap-2 rounded-xl border border-night/25 px-4 py-2.5 text-sm font-semibold text-night transition hover:bg-night/5">Decretar extraordinaria</button> : null}
@@ -347,7 +356,7 @@ function AportesSection() {
             </tr>
           </thead>
           <tbody className="divide-y divide-ink/[0.07]">
-            {rows.map((a) => {
+            {pageRows.map((a) => {
               const mora = moraDe(a)
               const enMora = a.status === 'Pendiente' && mora.meses >= 1
               return (
@@ -376,6 +385,7 @@ function AportesSection() {
           </tbody>
         </table>
       </div>
+      <Pagination page={aportePage} size={APORTE_PAGE} total={rows.length} onPage={setAportePage} />
       {extraOpen ? <ExtraordinariaModal period={period} onClose={() => setExtraOpen(false)} /> : null}
     </section>
   )

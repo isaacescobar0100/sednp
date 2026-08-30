@@ -6,12 +6,16 @@ import { useDemo } from '../store/DemoStore'
 import { useSession } from '../store/session'
 import { Doc, DocType, MAX_STORED_FILE, docTypes, formatFileSize } from '../store/documents'
 import { abrirSoporte, subirSoporte } from '../store/storageApi'
+import { Pagination, paginate } from '../components/Pagination'
+
+const DOC_PAGE = 9
 
 export function DocumentalPage() {
   const { docs } = useDemo()
   const { can } = useSession()
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState<'Todos' | DocType>('Todos')
+  const [page, setPage] = useState(1)
   const [showUpload, setShowUpload] = useState(false)
   const [editing, setEditing] = useState<Doc | null>(null)
   const canManage = can('documents.manage')
@@ -20,6 +24,7 @@ export function DocumentalPage() {
     const q = query.trim().toLowerCase()
     return docs.filter((doc) => (filter === 'Todos' || doc.type === filter) && `${doc.title} ${doc.code}`.toLowerCase().includes(q))
   }, [docs, filter, query])
+  const pageDocs = paginate(filtered, page, DOC_PAGE)
 
   return (
     <div className="mx-auto max-w-[1440px]">
@@ -41,11 +46,11 @@ export function DocumentalPage() {
         <div className="flex flex-col gap-3 border-b border-ink/[0.07] p-4 sm:flex-row sm:items-center sm:justify-between">
           <label className="relative max-w-md flex-1">
             <SearchIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink/40" />
-            <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Buscar por título o código" className="w-full rounded-xl border border-ink/10 bg-canvas/45 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
+            <input value={query} onChange={(e) => { setQuery(e.target.value); setPage(1) }} placeholder="Buscar por título o código" className="w-full rounded-xl border border-ink/10 bg-canvas/45 py-2.5 pl-9 pr-3 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
           </label>
           <div className="flex gap-2 overflow-x-auto">
             {(['Todos', ...docTypes] as const).map((item) => (
-              <button onClick={() => setFilter(item)} key={item} className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold transition ${filter === item ? 'bg-night text-white' : 'bg-canvas text-ink/60 hover:bg-ink/5'}`}>
+              <button onClick={() => { setFilter(item); setPage(1) }} key={item} className={`whitespace-nowrap rounded-lg px-3 py-2 text-xs font-semibold transition ${filter === item ? 'bg-night text-white' : 'bg-canvas text-ink/60 hover:bg-ink/5'}`}>
                 {item}
               </button>
             ))}
@@ -58,9 +63,10 @@ export function DocumentalPage() {
         </div>
 
         <div className="grid gap-4 p-5 sm:grid-cols-2 xl:grid-cols-3">
-          {filtered.map((document) => <DocCard key={document.id} doc={document} canManage={canManage} onEdit={setEditing} />)}
+          {pageDocs.map((document) => <DocCard key={document.id} doc={document} canManage={canManage} onEdit={setEditing} />)}
           {filtered.length === 0 ? <div className="col-span-full py-12 text-center text-sm text-ink/50">No hay documentos que coincidan con la búsqueda.</div> : null}
         </div>
+        <Pagination page={page} size={DOC_PAGE} total={filtered.length} onPage={setPage} />
       </section>
 
       {showUpload ? <UploadModal onClose={() => setShowUpload(false)} /> : null}
