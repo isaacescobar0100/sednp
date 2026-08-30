@@ -8,6 +8,8 @@ import { Params, clearCajaGastos, fetchCajaGastos, fetchCuentas, fetchParams, fe
 import { deleteCaseRow, fetchCases, insertCase, patchCase } from './casesApi'
 import { CaseEvent, fetchCaseEvents, insertCaseEvent } from './caseEventsApi'
 import { cerrarVencidas, deleteBallotRow, deleteSessionRow, emitirVoto, fetchBallots, fetchMyVotes, fetchSessions, insertBallot, insertSession, patchBallot, patchSession } from './governanceApi'
+import { deleteComunicadoRow, fetchComunicados, insertComunicado } from './commsApi'
+import { deleteCommitteeRow, fetchCommittees, insertCommittee, patchCommittee } from './committeesApi'
 import {
   Affiliate,
   AffiliateStatus,
@@ -185,8 +187,10 @@ type Action =
   | { type: 'addDoc'; doc: Doc }
   | { type: 'updateDoc'; id: string; changes: Partial<Doc> }
   | { type: 'deleteDoc'; id: string }
+  | { type: 'setComunicados'; list: Comunicado[] }
   | { type: 'addComunicado'; comunicado: Comunicado }
   | { type: 'deleteComunicado'; id: string }
+  | { type: 'setCommittees'; list: Committee[] }
   | { type: 'addCommittee'; committee: Committee }
   | { type: 'updateCommittee'; id: string; changes: Partial<Committee> }
   | { type: 'deleteCommittee'; id: string }
@@ -378,10 +382,14 @@ function reducer(state: DemoState, action: Action): DemoState {
       }
     case 'deleteDoc':
       return { ...state, docs: state.docs.filter((d) => d.id !== action.id) }
+    case 'setComunicados':
+      return { ...state, comunicados: action.list }
     case 'addComunicado':
       return { ...state, comunicados: [action.comunicado, ...state.comunicados] }
     case 'deleteComunicado':
       return { ...state, comunicados: state.comunicados.filter((c) => c.id !== action.id) }
+    case 'setCommittees':
+      return { ...state, committees: action.list }
     case 'addCommittee':
       return { ...state, committees: [...state.committees, action.committee] }
     case 'updateCommittee':
@@ -489,11 +497,8 @@ function loadInitial(): DemoState {
         ballots: seeded.ballots,   // se cargan desde Supabase
         myVotes: seeded.myVotes,
         docs: Array.isArray(parsed.docs) ? parsed.docs : seeded.docs,
-        comunicados: Array.isArray(parsed.comunicados) ? parsed.comunicados : seeded.comunicados,
-        // Normaliza comités guardados con el modelo anterior (members numérico → lista).
-        committees: Array.isArray(parsed.committees)
-          ? parsed.committees.map((c) => ({ ...c, members: Array.isArray(c.members) ? c.members : [] }))
-          : seeded.committees,
+        comunicados: seeded.comunicados, // se cargan desde Supabase
+        committees: seeded.committees,   // se cargan desde Supabase
         cargos: Array.isArray(parsed.cargos) ? parsed.cargos : seeded.cargos,
         dependencias: Array.isArray(parsed.dependencias) ? parsed.dependencias : seeded.dependencias,
         vinculaciones: Array.isArray(parsed.vinculaciones) ? parsed.vinculaciones : seeded.vinculaciones,
@@ -748,6 +753,12 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     })
     fetchMyVotes()
       .then((list) => { if (active) dispatch({ type: 'setMyVotes', list }) })
+      .catch(() => {})
+    fetchCommittees()
+      .then((list) => { if (active) dispatch({ type: 'setCommittees', list }) })
+      .catch(() => {})
+    fetchComunicados()
+      .then((list) => { if (active) dispatch({ type: 'setComunicados', list }) })
       .catch(() => {})
     return () => { active = false }
   }, [session])
@@ -1075,26 +1086,27 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   }, [notify])
 
   const sendComunicado = useCallback((input: NewComunicadoInput) => {
-    const comunicado: Comunicado = {
-      id: `com-${Date.now()}`,
+    const draft: Omit<Comunicado, 'id'> = {
       subject: input.subject,
       audience: input.audience,
       recipients: input.recipients,
       date: commNowLabel(),
       status: 'Entregado',
     }
-    dispatch({ type: 'addComunicado', comunicado })
-    notify(`Comunicado enviado a ${input.recipients} destinatario(s).`, 'success')
+    insertComunicado(draft)
+      .then((saved) => { dispatch({ type: 'addComunicado', comunicado: saved }); notify(`Comunicado enviado a ${input.recipients} destinatario(s).`, 'success') })
+      .catch(() => notify('No se pudo enviar el comunicado en el servidor.', 'warning'))
   }, [notify])
 
   const deleteComunicado = useCallback((id: string) => {
     dispatch({ type: 'deleteComunicado', id })
+    deleteComunicadoRow(id).catch(() => notify('No se pudo eliminar en el servidor.', 'warning'))
     notify('Comunicado eliminado del historial.', 'warning')
   }, [notify])
 
   const addCommittee = useCallback((input: NewCommitteeInput) => {
-    const committee: Committee = {
-      id: `cmt-${Date.now()}`,
+    const draft: Committee = {
+      id: '',
       name: input.name,
       lead: input.lead || 'Por designar',
       members: input.members,
@@ -1102,17 +1114,21 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       activity: 'Comité recién creado',
       color: committeeColor(committeesRef.current.length),
     }
-    dispatch({ type: 'addCommittee', committee })
-    notify(`Comité "${input.name}" creado.`, 'success')
+    insertCommittee(draft)
+      .then((saved) => { dispatch({ type: 'addCommittee', committee: saved }); notify(`Comité "${input.name}" creado.`, 'success') })
+      .catch(() => notify('No se pudo crear el comité en el servidor.', 'warning'))
   }, [notify])
 
   const updateCommittee = useCallback((id: string, input: NewCommitteeInput) => {
-    dispatch({ type: 'updateCommittee', id, changes: { name: input.name, lead: input.lead || 'Por designar', members: input.members, next: input.next || 'Por programar' } })
+    const changes = { name: input.name, lead: input.lead || 'Por designar', members: input.members, next: input.next || 'Por programar' }
+    dispatch({ type: 'updateCommittee', id, changes })
+    patchCommittee(id, changes).catch(() => notify('No se pudo guardar el comité en el servidor.', 'warning'))
     notify(`Comité "${input.name}" actualizado.`, 'success')
   }, [notify])
 
   const deleteCommittee = useCallback((id: string, name: string) => {
     dispatch({ type: 'deleteCommittee', id })
+    deleteCommitteeRow(id).catch(() => notify('No se pudo eliminar en el servidor.', 'warning'))
     notify(`Comité "${name}" eliminado.`, 'warning')
   }, [notify])
 
