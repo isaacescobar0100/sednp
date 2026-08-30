@@ -6,8 +6,10 @@ type AuditRow = {
   id: number
   table_name: string
   row_id: string | null
+  row_label: string | null
   action: 'INSERT' | 'UPDATE' | 'DELETE'
   actor_role: string | null
+  actor_name: string | null
   changed_at: string
 }
 
@@ -33,7 +35,7 @@ export function AuditLog({ onClose }: { onClose: () => void }) {
     setLoading(true); setError('')
     const { data, error } = await supabase
       .from('audit_log')
-      .select('id, table_name, row_id, action, actor_role, changed_at')
+      .select('id, table_name, row_id, row_label, action, actor_role, actor_name, changed_at')
       .order('changed_at', { ascending: false })
       .limit(200)
     if (error) setError('No se pudo cargar la auditoría. ¿Ejecutaste audit_log.sql en Supabase?')
@@ -77,10 +79,12 @@ export function AuditLog({ onClose }: { onClose: () => void }) {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm text-ink">
                       <span className="font-medium">{TABLE_LABEL[r.table_name] ?? r.table_name}</span>
-                      {r.row_id ? <span className="text-ink/45"> · {r.row_id}</span> : null}
+                      {r.row_label ? <span className="text-ink/45"> · {r.row_label}</span> : null}
                     </p>
-                    <p className="text-xs text-ink/50">
-                      {roleName(r.actor_role)} · {fmt(r.changed_at)}
+                    <p className="truncate text-xs text-ink/50">
+                      <span className="font-medium text-ink/70">{r.actor_name || roleName(r.actor_role)}</span>
+                      {r.actor_name ? <span> · {roleName(r.actor_role)}</span> : null}
+                      {' · '}{fmt(r.changed_at)}
                     </p>
                   </div>
                 </li>
