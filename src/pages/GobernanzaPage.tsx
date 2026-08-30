@@ -348,7 +348,9 @@ function BallotModal({ onClose }: { onClose: () => void }) {
   function submit() {
     if (!valid) return
     const closesAt = date ? [longDateLabel(date), formatTime(time)].filter(Boolean).join(' · ') : 'Sin fecha de cierre'
-    addBallot({ title: title.trim(), closesAt, secreta })
+    // Timestamp real de cierre (hora local del navegador) para el cierre automático.
+    const closesAtTs = date ? new Date(`${date}T${time || '23:59'}:00`).toISOString() : undefined
+    addBallot({ title: title.trim(), closesAt, closesAtTs, secreta })
     onClose()
   }
 
