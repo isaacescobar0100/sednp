@@ -15,6 +15,8 @@ type AuthContextValue = {
   loading: boolean
   session: Session | null
   profile: Profile | null
+  needsMfa: boolean            // hay sesión pero falta el 2do factor (código de la app)
+  refreshMfa: () => Promise<void>
   signIn: (email: string, password: string, captchaToken?: string) => Promise<Result>
   signUp: (email: string, password: string, fullName: string) => Promise<Result & { needsConfirmation?: boolean }>
   signOut: () => Promise<void>
@@ -31,6 +33,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [needsMfa, setNeedsMfa] = useState(false)
+
+  // ¿La cuenta tiene 2FA activo y aún no ha pasado el segundo factor?
+  const refreshMfa = useCallback(async () => {
+    try {
+      const { data } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+      setNeedsMfa(data?.currentLevel === 'aal1' && data?.nextLevel === 'aal2')
+    } catch {
+      setNeedsMfa(false)
+    }
+  }, [])
 
   const loadProfile = useCallback(async (s: Session | null) => {
     if (!s?.user) { setProfile(null); return }
@@ -55,14 +68,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setSession(data.session)
         setLoading(false)
         void loadProfile(data.session)
+        if (data.session) void refreshMfa()
       })
       .catch(() => { if (active) setLoading(false) })
     const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s)
       void loadProfile(s)
+      if (s) void refreshMfa(); else setNeedsMfa(false)
     })
     return () => { active = false; sub.subscription.unsubscribe() }
-  }, [loadProfile])
+  }, [loadProfile, refreshMfa])
 
   const signIn = useCallback(async (email: string, password: string, captchaToken?: string): Promise<Result> => {
     const { error } = await supabase.auth.signInWithPassword({
@@ -87,11 +102,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = useCallback(async () => {
     await supabase.auth.signOut()
     setProfile(null)
+    setNeedsMfa(false)
   }, [])
 
   const value = useMemo<AuthContextValue>(
-    () => ({ loading, session, profile, signIn, signUp, signOut }),
-    [loading, session, profile, signIn, signUp, signOut],
+    () => ({ loading, session, profile, needsMfa, refreshMfa, signIn, signUp, signOut }),
+    [loading, session, profile, needsMfa, refreshMfa, signIn, signUp, signOut],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

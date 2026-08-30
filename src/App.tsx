@@ -4,6 +4,7 @@ import { DemoProvider, useDemo } from './store/DemoStore'
 import { SessionProvider, useSession, Role } from './store/session'
 import { AuthProvider, useAuth } from './store/auth'
 import { AuthScreen } from './components/AuthScreen'
+import { MfaChallenge } from './components/MfaChallenge'
 import { Logo } from './components/Logo'
 import { ModuleKey, ModuleMeta } from './types/navigation'
 
@@ -62,10 +63,11 @@ function PageLoader() {
 }
 
 function Root() {
-  const { loading, session, profile } = useAuth()
+  const { loading, session, profile, needsMfa } = useAuth()
 
   if (loading) return <Splash />
   if (!session) return <AuthScreen />
+  if (needsMfa) return <MfaChallenge />
   if (!profile) return <Splash text="Preparando tu cuenta…" />
 
   if (profile.role === 'afiliado') return <AfiliadoGate />
