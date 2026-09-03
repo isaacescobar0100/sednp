@@ -5,6 +5,7 @@ import { SessionProvider, useSession, Role } from './store/session'
 import { AuthProvider, useAuth } from './store/auth'
 import { AuthScreen } from './components/AuthScreen'
 import { MfaChallenge } from './components/MfaChallenge'
+import { SuperAdminScreen } from './components/SuperAdminPanel'
 import { ModuleKey, ModuleMeta } from './types/navigation'
 
 // Carga diferida por módulo (code-splitting): cada página se descarga solo
@@ -84,6 +85,9 @@ function Root() {
   if (!session) return <AuthScreen />
   if (needsMfa) return <MfaChallenge />
   if (!profile) return <Splash text="Preparando tu cuenta…" />
+
+  // Administrador de la plataforma (Sindika): pantalla propia, sin rol de sindicato.
+  if (profile.platformAdmin) return <SuperAdminScreen />
 
   if (profile.role === 'afiliado') return <AfiliadoGate />
 
