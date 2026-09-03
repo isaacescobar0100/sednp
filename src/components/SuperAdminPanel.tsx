@@ -17,6 +17,7 @@ function SuperAdminContent() {
   const [nombre, setNombre] = useState('')
   const [slug, setSlug] = useState('')
   const [presiEmail, setPresiEmail] = useState('')
+  const [presiPassword, setPresiPassword] = useState('')
   const [presiNombre, setPresiNombre] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -36,15 +37,14 @@ function SuperAdminContent() {
       p_nombre: nombre.trim(),
       p_slug: slug.trim().toLowerCase().replace(/\s+/g, '-'),
       p_presi_email: presiEmail.trim().toLowerCase(),
+      p_presi_password: presiPassword,
       p_presi_nombre: presiNombre.trim(),
     })
     if (error) {
-      setError(error.message.includes('Primero crea la cuenta')
-        ? `Falta crear la cuenta ${presiEmail} en Supabase → Authentication → Add user (Auto Confirm), y luego reintenta.`
-        : error.message)
+      setError(error.message)
     } else {
-      setOk(`Sindicato "${nombre}" creado. La presidencia ya puede entrar con ${presiEmail}.`)
-      setNombre(''); setSlug(''); setPresiEmail(''); setPresiNombre('')
+      setOk(`Sindicato "${nombre}" creado. La presidencia entra con ${presiEmail} y la contraseña que pusiste.`)
+      setNombre(''); setSlug(''); setPresiEmail(''); setPresiPassword(''); setPresiNombre('')
       void load()
     }
     setBusy(false)
@@ -64,7 +64,7 @@ function SuperAdminContent() {
       <form onSubmit={crear} className="rounded-xl border border-ink/10 bg-canvas/40 p-4">
         <h4 className="font-display text-sm font-semibold text-ink">Nuevo sindicato</h4>
         <p className="mt-1 text-xs text-ink/50">Primero crea la cuenta de presidencia en Supabase (Add user); luego llénalo aquí.</p>
-        <div className="mt-3 grid gap-2.5 sm:grid-cols-2">
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           <Field label="Nombre del sindicato"><input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Sindicato de la Gobernación…" className={inputC} /></Field>
           <Field label="Identificador (slug)"><input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="gob-atlantico" className={inputC} /></Field>
           <Field label="Correo de presidencia"><input value={presiEmail} onChange={(e) => setPresiEmail(e.target.value)} placeholder="presidencia@…" className={inputC} /></Field>
@@ -78,9 +78,9 @@ function SuperAdminContent() {
       <div>
         <h4 className="mb-2 font-display text-sm font-semibold text-ink">Sindicatos ({orgs.length})</h4>
         {loading ? <p className="py-6 text-center text-sm text-ink/50">Cargando…</p> : (
-          <ul className="space-y-2">
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             {orgs.map((o) => <OrgItem key={o.id} org={o} onSaveLogo={(logo) => guardarLogo(o.id, logo)} />)}
-          </ul>
+          </div>
         )}
       </div>
     </div>
@@ -96,7 +96,7 @@ export function SuperAdminScreen() {
   return (
     <div className="min-h-screen bg-canvas">
       <header className="border-b border-ink/[0.08] bg-night text-white">
-        <div className="mx-auto flex max-w-3xl items-center justify-between gap-3 px-6 py-4">
+        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-6 py-4">
           <div className="flex items-center gap-2.5">
             <img src="/sindika-dark.png" alt="Sindika" className="h-9 w-9 object-contain" />
             <div>
@@ -109,7 +109,7 @@ export function SuperAdminScreen() {
           </button>
         </div>
       </header>
-      <main className="mx-auto max-w-3xl px-6 py-8">
+      <main className="mx-auto max-w-6xl px-6 py-8">
         <div className="mb-6 flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-night/5 text-night"><Building2Icon className="h-5 w-5" /></div>
           <div>
@@ -150,19 +150,19 @@ function OrgItem({ org, onSaveLogo }: { org: OrgRow; onSaveLogo: (logo: string) 
   const [logo, setLogo] = useState(org.logo_url ?? '')
   const dirty = (logo || null) !== (org.logo_url ?? null)
   return (
-    <li className="rounded-xl border border-ink/[0.08] bg-white p-3 shadow-sm">
+    <div className="rounded-xl border border-ink/[0.08] bg-white p-3 shadow-sm">
       <div className="flex items-center gap-3">
-        <img src={logo || '/sindika.png'} alt={org.nombre} className="h-9 w-9 shrink-0 rounded-lg border border-ink/10 object-contain" />
+        <img src={logo || '/sindika.png'} alt={org.nombre} className="h-10 w-10 shrink-0 rounded-lg border border-ink/10 object-contain" />
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-ink">{org.nombre}</p>
           <p className="text-xs text-ink/45">{org.slug}</p>
         </div>
       </div>
-      <div className="mt-2 flex gap-2">
-        <input value={logo} onChange={(e) => setLogo(e.target.value)} placeholder="URL del logo (vacío = usa Sindika)" className="w-full rounded-lg border border-ink/12 bg-canvas/45 px-3 py-2 text-xs outline-none focus:border-night" />
+      <div className="mt-2.5 flex gap-2">
+        <input value={logo} onChange={(e) => setLogo(e.target.value)} placeholder="URL del logo (vacío = Sindika)" className="w-full rounded-lg border border-ink/12 bg-canvas/45 px-3 py-2 text-xs outline-none focus:border-night" />
         <button onClick={() => onSaveLogo(logo)} disabled={!dirty} className="shrink-0 rounded-lg bg-night px-3 text-xs font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">Guardar</button>
       </div>
-    </li>
+    </div>
   )
 }
 
