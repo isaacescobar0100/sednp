@@ -4,7 +4,7 @@ import { hasSupabase, supabase } from '../lib/supabase'
 import { fetchAffiliates, insertAffiliate, patchAffiliate } from './affiliatesApi'
 import { fetchAportes, insertAportes, patchAporte } from './aportesApi'
 import { fetchMovements, insertMovement, patchMovement, deleteMovementRow } from './movementsApi'
-import { Params, clearCajaGastos, fetchCajaGastos, fetchCuentas, fetchParams, fetchPresupuestos, insertCajaGasto, replaceCuentas, upsertParams, upsertPresupuesto } from './configApi'
+import { Params, clearCajaGastos, deletePresupuesto as deletePresupuestoRow, fetchCajaGastos, fetchCuentas, fetchParams, fetchPresupuestos, insertCajaGasto, replaceCuentas, upsertParams, upsertPresupuesto } from './configApi'
 import { deleteCaseRow, fetchCases, insertCase, patchCase } from './casesApi'
 import { CaseEvent, fetchCaseEvents, insertCaseEvent } from './caseEventsApi'
 import { cerrarVencidas, deleteBallotRow, deleteSessionRow, emitirVoto, fetchBallots, fetchMyVotes, fetchSessions, insertBallot, insertSession, patchBallot, patchSession } from './governanceApi'
@@ -207,6 +207,7 @@ type Action =
   | { type: 'anticiparAporte'; id: string }
   | { type: 'setPorcentajeCuota'; value: number }
   | { type: 'setPresupuesto'; category: string; anual: number }
+  | { type: 'deletePresupuesto'; category: string }
   | { type: 'setCuentas'; list: Cuenta[] }
   | { type: 'setParams'; value: Params }
   | { type: 'setPresupuestos'; list: Presupuesto[] }
@@ -458,6 +459,8 @@ function reducer(state: DemoState, action: Action): DemoState {
         : [...state.presupuestos, { category: action.category, anual }]
       return { ...state, presupuestos }
     }
+    case 'deletePresupuesto':
+      return { ...state, presupuestos: state.presupuestos.filter((p) => p.category !== action.category) }
     case 'setCuentas':
       return { ...state, cuentas: action.list }
     case 'setParams':
@@ -685,6 +688,7 @@ type DemoContextValue = {
   setPorcentajeCuota: (value: number) => void
   presupuestos: Presupuesto[]
   setPresupuesto: (category: string, anual: number) => void
+  deletePresupuesto: (category: string) => void
   cuentas: Cuenta[]
   setCuentas: (list: Cuenta[]) => void
   cajaFondo: number
@@ -1266,6 +1270,12 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     notify('Presupuesto del rubro actualizado.', 'success')
   }, [notify])
 
+  const deletePresupuesto = useCallback((category: string) => {
+    dispatch({ type: 'deletePresupuesto', category })
+    deletePresupuestoRow(category).catch(() => notify('No se pudo eliminar el rubro en el servidor.', 'warning'))
+    notify('Rubro de presupuesto eliminado.', 'info')
+  }, [notify])
+
   const setCuentas = useCallback((list: Cuenta[]) => {
     dispatch({ type: 'setCuentas', list })
     replaceCuentas(list).catch(() => notify('No se pudo guardar el catálogo en el servidor.', 'warning'))
@@ -1428,6 +1438,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       setPorcentajeCuota,
       presupuestos: state.presupuestos,
       setPresupuesto,
+      deletePresupuesto,
       cuentas: state.cuentas,
       setCuentas,
       cajaFondo: state.cajaFondo,

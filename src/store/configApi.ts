@@ -55,6 +55,11 @@ export async function upsertPresupuesto(category: string, anual: number): Promis
   }
 }
 
+export async function deletePresupuesto(category: string): Promise<void> {
+  const { error } = await supabase.from('presupuestos').delete().eq('category', category)
+  if (error) throw error
+}
+
 // ---- Catálogo de cuentas (PUC) ----------------------------------------------
 type CuentaRow = { codigo: string; nombre: string; tipo: CuentaTipo; naturaleza: CuentaNaturaleza; activa: boolean }
 

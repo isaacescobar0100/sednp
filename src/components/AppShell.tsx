@@ -1,10 +1,12 @@
 import React, { useState } from 'react'
-import { BellIcon, HistoryIcon, LogOutIcon, SearchIcon, ShieldCheckIcon } from 'lucide-react'
+import { BellIcon, Building2Icon, HistoryIcon, LogOutIcon, SearchIcon, ShieldCheckIcon } from 'lucide-react'
 import { AppSidebar, MobileMenuButton } from './AppSidebar'
 import { MfaSettings } from './MfaSettings'
 import { AuditLog } from './AuditLog'
+import { SuperAdminPanel } from './SuperAdminPanel'
 import { useDemo } from '../store/DemoStore'
 import { roleLabel, useSession } from '../store/session'
+import { useAuth } from '../store/auth'
 import { ModuleKey, ModuleMeta } from '../types/navigation'
 
 type AppShellProps = {
@@ -19,8 +21,11 @@ export function AppShell({ activeModule, module, onNavigate, onLogout, children 
   const [mobileOpen, setMobileOpen] = useState(false)
   const [securityOpen, setSecurityOpen] = useState(false)
   const [auditOpen, setAuditOpen] = useState(false)
+  const [adminOpen, setAdminOpen] = useState(false)
   const { role } = useSession()
+  const { profile } = useAuth()
   const canAudit = role === 'presidencia' || role === 'fiscal'
+  const isPlatformAdmin = profile?.platformAdmin ?? false
 
   return (
     <div className="min-h-screen w-full bg-canvas">
@@ -38,6 +43,7 @@ export function AppShell({ activeModule, module, onNavigate, onLogout, children 
             <GlobalSearch onNavigate={onNavigate} />
             <UserChip />
             <NotificationsBell onNavigate={onNavigate} />
+            {isPlatformAdmin ? <AdminButton onClick={() => setAdminOpen(true)} /> : null}
             {canAudit ? <AuditButton onClick={() => setAuditOpen(true)} /> : null}
             <SecurityButton onClick={() => setSecurityOpen(true)} />
             <LogoutButton onLogout={onLogout} />
@@ -47,7 +53,16 @@ export function AppShell({ activeModule, module, onNavigate, onLogout, children 
       </div>
       {securityOpen ? <MfaSettings onClose={() => setSecurityOpen(false)} /> : null}
       {auditOpen ? <AuditLog onClose={() => setAuditOpen(false)} /> : null}
+      {adminOpen ? <SuperAdminPanel onClose={() => setAdminOpen(false)} /> : null}
     </div>
+  )
+}
+
+function AdminButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button onClick={onClick} title="Administración de Sindika" aria-label="Administración de Sindika" className="rounded-xl p-2 text-ink/60 transition hover:bg-white hover:text-night">
+      <Building2Icon className="h-5 w-5" strokeWidth={1.8} />
+    </button>
   )
 }
 
