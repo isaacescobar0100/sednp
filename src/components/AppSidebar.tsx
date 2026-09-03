@@ -51,8 +51,8 @@ export function AppSidebar({ activeModule, onNavigate, mobileOpen, onMobileOpenC
   const { user, role, canSeeModule } = useSession()
   const { org } = useAuth()
   const brandName = org?.nombre ?? 'SERDNP'
-  // Logo del sindicato si lo tiene; si no, el de Sindika. (org null = contexto SERDNP.)
-  const brandLogo = org ? (org.logoUrl || '/sindika.png') : '/logo.png'
+  // Logo del sindicato si lo tiene; si no, el de Sindika (versión clara para fondo oscuro).
+  const brandLogo = org ? (org.logoUrl || '/sindika-dark.png') : '/logo.png'
   const visibleItems = items.filter((item) => canSeeModule(item.key))
   return (
     <>
@@ -63,9 +63,7 @@ export function AppSidebar({ activeModule, onNavigate, mobileOpen, onMobileOpenC
             <XIcon className="h-5 w-5" />
           </button>
           <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white p-1 shadow-sm">
-              <img src={brandLogo} alt={brandName} className="h-full w-full object-contain" />
-            </div>
+            <img src={brandLogo} alt={brandName} className="h-10 w-10 shrink-0 object-contain" />
             <span className="min-w-0 font-display text-sm font-semibold leading-tight tracking-[0.03em] line-clamp-2">{brandName}</span>
           </div>
           <div className="mt-4 flex h-0.5 w-28 overflow-hidden rounded-full">
