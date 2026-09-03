@@ -63,14 +63,15 @@ function SuperAdminContent() {
 
       <form onSubmit={crear} className="rounded-xl border border-ink/10 bg-canvas/40 p-4">
         <h4 className="font-display text-sm font-semibold text-ink">Nuevo sindicato</h4>
-        <p className="mt-1 text-xs text-ink/50">Primero crea la cuenta de presidencia en Supabase (Add user); luego llénalo aquí.</p>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <p className="mt-1 text-xs text-ink/50">Se crea todo automáticamente, incluida la cuenta de presidencia con su contraseña.</p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
           <Field label="Nombre del sindicato"><input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Sindicato de la Gobernación…" className={inputC} /></Field>
           <Field label="Identificador (slug)"><input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="gob-atlantico" className={inputC} /></Field>
-          <Field label="Correo de presidencia"><input value={presiEmail} onChange={(e) => setPresiEmail(e.target.value)} placeholder="presidencia@…" className={inputC} /></Field>
           <Field label="Nombre del presidente"><input value={presiNombre} onChange={(e) => setPresiNombre(e.target.value)} placeholder="Nombre y apellido" className={inputC} /></Field>
+          <Field label="Correo de presidencia"><input value={presiEmail} onChange={(e) => setPresiEmail(e.target.value)} placeholder="presidencia@…" className={inputC} /></Field>
+          <Field label="Contraseña inicial"><input value={presiPassword} onChange={(e) => setPresiPassword(e.target.value)} placeholder="Clave para la presidencia" className={inputC} /></Field>
         </div>
-        <button type="submit" disabled={busy || !nombre.trim() || !slug.trim() || !presiEmail.trim() || !presiNombre.trim()} className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">
+        <button type="submit" disabled={busy || !nombre.trim() || !slug.trim() || !presiEmail.trim() || !presiPassword.trim() || !presiNombre.trim()} className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">
           <PlusIcon className="h-4 w-4" />{busy ? 'Creando…' : 'Crear sindicato'}
         </button>
       </form>
