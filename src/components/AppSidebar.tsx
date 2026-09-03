@@ -63,8 +63,10 @@ export function AppSidebar({ activeModule, onNavigate, mobileOpen, onMobileOpenC
             <XIcon className="h-5 w-5" />
           </button>
           <div className="flex items-center gap-2.5">
-            <img src={brandLogo} alt={brandName} className="h-9 w-9 shrink-0 rounded-lg object-contain" />
-            <span className="min-w-0 truncate font-display text-base font-semibold tracking-[0.10em]">{brandName}</span>
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white p-1 shadow-sm">
+              <img src={brandLogo} alt={brandName} className="h-full w-full object-contain" />
+            </div>
+            <span className="min-w-0 font-display text-sm font-semibold leading-tight tracking-[0.03em] line-clamp-2">{brandName}</span>
           </div>
           <div className="mt-4 flex h-0.5 w-28 overflow-hidden rounded-full">
             <span className="flex-1 bg-gold" /><span className="flex-1 bg-[#3D5AAE]" /><span className="flex-1 bg-brick" />

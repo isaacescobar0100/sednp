@@ -1,7 +1,7 @@
 {
-  "name": "SIG-SERDNP",
-  "short_name": "SERDNP",
-  "description": "Sistema de gestión de la Organización Sindical de Servidores Públicos del DNP",
+  "name": "Sindika",
+  "short_name": "Sindika",
+  "description": "Plataforma de gestión para sindicatos: afiliados, finanzas, gobernanza y disciplina.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
