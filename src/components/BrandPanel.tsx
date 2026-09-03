@@ -24,11 +24,9 @@ export function BrandPanel() {
 
       <div className="relative z-10 flex w-full flex-col justify-between px-10 py-12 xl:px-14">
         <div>
-          <div className="inline-flex items-center rounded-2xl bg-white p-3 shadow-lg shadow-black/30">
-            <img src="/sindika.png" alt="Sindika" className="h-16 w-auto" />
-          </div>
+          <img src="/sindika-dark.png" alt="Sindika" className="h-24 w-auto drop-shadow-xl" />
 
-          <div className="mt-5 flex h-1 w-36 overflow-hidden rounded-full">
+          <div className="mt-4 flex h-1 w-36 overflow-hidden rounded-full">
             <span className="h-full flex-1 bg-gold" />
             <span className="h-full flex-1 bg-[#3D5AAE]" />
             <span className="h-full flex-1 bg-brick" />
