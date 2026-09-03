@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { UsersIcon } from 'lucide-react'
 import { AndesRange } from './AndesRange'
-import { Logo } from './Logo'
 import { supabase } from '../lib/supabase'
 
 export function BrandPanel() {
@@ -25,14 +24,11 @@ export function BrandPanel() {
 
       <div className="relative z-10 flex w-full flex-col justify-between px-10 py-12 xl:px-14">
         <div>
-          <div className="flex items-center gap-3">
-            <Logo size={44} rounded="rounded-xl" className="shadow-lg shadow-black/30" />
-            <span className="font-display text-2xl font-600 tracking-[0.18em] text-white">
-              SERDNP
-            </span>
+          <div className="inline-flex items-center rounded-2xl bg-white p-3 shadow-lg shadow-black/30">
+            <img src="/sindika.png" alt="Sindika" className="h-16 w-auto" />
           </div>
 
-          <div className="mt-4 flex h-1 w-36 overflow-hidden rounded-full">
+          <div className="mt-5 flex h-1 w-36 overflow-hidden rounded-full">
             <span className="h-full flex-1 bg-gold" />
             <span className="h-full flex-1 bg-[#3D5AAE]" />
             <span className="h-full flex-1 bg-brick" />
@@ -41,11 +37,10 @@ export function BrandPanel() {
 
         <div className="max-w-md">
           <h1 className="font-display text-3xl font-600 leading-tight text-white xl:text-4xl">
-            Sistema Integral de Gestión
+            La plataforma para tu sindicato
           </h1>
           <p className="mt-4 text-sm leading-relaxed text-white/70">
-            Organización Sindical de Servidores Públicos del Departamento Nacional de
-            Planeación
+            Afiliados, finanzas, gobernanza y disciplina — en un solo lugar, seguro y fácil de usar.
           </p>
         </div>
 
@@ -54,8 +49,8 @@ export function BrandPanel() {
             <UsersIcon className="h-4.5 w-4.5 text-gold" strokeWidth={2} />
           </div>
           <p className="text-sm text-white/85">
-            <span className="font-display font-600 text-gold">{activos.toLocaleString('es-CO')} afiliado{activos === 1 ? '' : 's'} activo{activos === 1 ? '' : 's'}</span>{' '}
-            en la organización
+            <span className="font-display font-600 text-gold">{activos.toLocaleString('es-CO')} afiliado{activos === 1 ? '' : 's'}</span>{' '}
+            gestionado{activos === 1 ? '' : 's'} en Sindika
           </p>
         </div>
       </div>
