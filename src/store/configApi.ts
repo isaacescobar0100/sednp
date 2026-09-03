@@ -26,13 +26,15 @@ export async function fetchParams(): Promise<Params | null> {
 }
 
 export async function upsertParams(changes: Partial<Params>): Promise<void> {
-  const row: Record<string, unknown> = { id: 1 }
+  const row: Record<string, unknown> = {}
   if (changes.porcentajeCuota !== undefined) row.porcentaje_cuota = changes.porcentajeCuota
   if (changes.smmlv !== undefined) row.smmlv = changes.smmlv
   if (changes.caucionVence !== undefined) row.caucion_vence = changes.caucionVence
   if (changes.juntaDesde !== undefined) row.junta_desde = changes.juntaDesde
   if (changes.cajaFondo !== undefined) row.caja_fondo = changes.cajaFondo
-  const { error } = await supabase.from('params').upsert(row, { onConflict: 'id' })
+  if (Object.keys(row).length === 0) return
+  // La fila de parámetros es única por sindicato (RLS la limita a la del usuario).
+  const { error } = await supabase.from('params').update(row).eq('id', 1)
   if (error) throw error
 }
 
@@ -44,8 +46,13 @@ export async function fetchPresupuestos(): Promise<Presupuesto[]> {
 }
 
 export async function upsertPresupuesto(category: string, anual: number): Promise<void> {
-  const { error } = await supabase.from('presupuestos').upsert({ category, anual }, { onConflict: 'category' })
-  if (error) throw error
+  // Actualiza el rubro del sindicato actual; si no existe todavía, lo crea.
+  const upd = await supabase.from('presupuestos').update({ anual }).eq('category', category).select('category')
+  if (upd.error) throw upd.error
+  if ((upd.data?.length ?? 0) === 0) {
+    const ins = await supabase.from('presupuestos').insert({ category, anual })
+    if (ins.error) throw ins.error
+  }
 }
 
 // ---- Catálogo de cuentas (PUC) ----------------------------------------------
