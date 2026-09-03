@@ -23,22 +23,22 @@ export function ParametrosPage() {
       {!canManage ? (
         <div className="rounded-2xl border border-ink/[0.08] bg-white px-6 py-8 text-sm text-ink/55">Solo la Secretaría General y la Presidencia pueden administrar los catálogos.</div>
       ) : (
-        <div className="grid gap-6 xl:grid-cols-2">
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           <CuotaCard />
           <SmmlvCard />
 
           <CaucionCard />
           <JuntaPeriodoCard />
 
-          <div className="xl:col-span-2">
+          <div className="min-w-0 xl:col-span-2">
             <PresupuestoCard />
           </div>
 
-          <div className="xl:col-span-2">
+          <div className="min-w-0 xl:col-span-2">
             <EscalasCard />
           </div>
 
-          <div className="xl:col-span-2">
+          <div className="min-w-0 xl:col-span-2">
             <PucCatalogCard />
           </div>
 
@@ -66,7 +66,7 @@ export function ParametrosPage() {
             placeholder="Ej. Oficina de Planeación"
           />
 
-          <div className="xl:col-span-2">
+          <div className="min-w-0 xl:col-span-2">
             <VinculacionCatalog
               items={vinculaciones}
               setItems={setVinculaciones}
@@ -232,7 +232,7 @@ function EscalasCard() {
         <button onClick={ajustar} disabled={escalas.length === 0} className="rounded-xl border border-night/25 px-3 py-2 text-xs font-semibold text-night transition hover:bg-night/5 disabled:opacity-40">Ajuste anual +{AJUSTE_ANUAL * 100}%</button>
       </div>
 
-      <div className="mt-4 grid gap-2 sm:grid-cols-[150px_110px_1fr_auto]">
+      <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-[150px_110px_1fr_auto]">
         <select value={nivel} onChange={(e) => setNivel(e.target.value)} className={inputClass}>
           {NIVELES.map((n) => <option key={n} value={n}>{n}</option>)}
         </select>
@@ -299,7 +299,7 @@ function PucCatalogCard() {
         </div>
       </div>
 
-      <div className="mt-4 grid gap-2 sm:grid-cols-[130px_1fr_130px_auto]">
+      <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-[130px_1fr_130px_auto]">
         <input value={codigo} onChange={(e) => setCodigo(e.target.value)} placeholder="Código" inputMode="numeric" className={inputClass} />
         <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre de la cuenta" className={inputClass} />
         <select value={tipo} onChange={(e) => setTipo(e.target.value as CuentaTipo)} className={inputClass}>
@@ -355,7 +355,7 @@ function PresupuestoCard() {
           <p className="text-xs text-ink/50">Monto aprobado por rubro de gasto; su ejecución se controla en Financiero.</p>
         </div>
       </div>
-      <div className="mt-4 grid gap-3 sm:grid-cols-2">
+      <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
         {presupuestos.map((p) => <PresupuestoRubro key={p.category} category={p.category} anual={p.anual} onSave={(v) => setPresupuesto(p.category, v)} />)}
       </div>
     </section>
