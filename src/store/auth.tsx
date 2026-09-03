@@ -7,7 +7,9 @@ import { Role } from './session'
 // `profiles` (creada por un trigger al registrarse). 'afiliado' usa el portal;
 // los demás roles son de la Junta Directiva.
 export type AppRole = Role | 'afiliado'
-export type Profile = { id: string; full_name: string; role: AppRole; initials: string }
+export type Profile = { id: string; full_name: string; role: AppRole; initials: string; platformAdmin: boolean }
+// Marca del sindicato al que pertenece la persona (multi-sindicato / SaaS).
+export type Org = { nombre: string; logoUrl: string | null }
 
 type Result = { error?: string }
 
@@ -15,6 +17,7 @@ type AuthContextValue = {
   loading: boolean
   session: Session | null
   profile: Profile | null
+  org: Org | null              // sindicato actual (nombre + logo) para la marca
   needsMfa: boolean            // hay sesión pero falta el 2do factor (código de la app)
   refreshMfa: () => Promise<void>
   signIn: (email: string, password: string, captchaToken?: string) => Promise<Result>
@@ -33,6 +36,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true)
   const [session, setSession] = useState<Session | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [org, setOrg] = useState<Org | null>(null)
   const [needsMfa, setNeedsMfa] = useState(false)
 
   // ¿La cuenta tiene 2FA activo y aún no ha pasado el segundo factor?
@@ -46,16 +50,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const loadProfile = useCallback(async (s: Session | null) => {
-    if (!s?.user) { setProfile(null); return }
+    if (!s?.user) { setProfile(null); setOrg(null); return }
     const meta = (s.user.user_metadata?.full_name as string) || ''
     try {
-      const { data } = await supabase.from('profiles').select('id, full_name, role').eq('id', s.user.id).maybeSingle()
+      const { data } = await supabase.from('profiles').select('id, full_name, role, platform_admin').eq('id', s.user.id).maybeSingle()
       const fullName = data?.full_name || meta
       const role = (data?.role as AppRole) || 'afiliado'
-      setProfile({ id: s.user.id, full_name: fullName, role, initials: initialsOf(fullName, s.user.email ?? '') })
+      setProfile({ id: s.user.id, full_name: fullName, role, initials: initialsOf(fullName, s.user.email ?? ''), platformAdmin: Boolean(data?.platform_admin) })
+      // Marca del sindicato (RLS devuelve solo la organización del usuario).
+      try {
+        const { data: o } = await supabase.from('organizations').select('nombre, logo_url').maybeSingle()
+        setOrg(o ? { nombre: o.nombre as string, logoUrl: (o.logo_url as string | null) ?? null } : null)
+      } catch { setOrg(null) }
     } catch {
       // Si la consulta falla (red/RLS), no dejamos la app colgada: perfil mínimo.
-      setProfile({ id: s.user.id, full_name: meta, role: 'afiliado', initials: initialsOf(meta, s.user.email ?? '') })
+      setProfile({ id: s.user.id, full_name: meta, role: 'afiliado', initials: initialsOf(meta, s.user.email ?? ''), platformAdmin: false })
+      setOrg(null)
     }
   }, [])
 
@@ -102,12 +112,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signOut = useCallback(async () => {
     await supabase.auth.signOut()
     setProfile(null)
+    setOrg(null)
     setNeedsMfa(false)
   }, [])
 
   const value = useMemo<AuthContextValue>(
-    () => ({ loading, session, profile, needsMfa, refreshMfa, signIn, signUp, signOut }),
-    [loading, session, profile, needsMfa, refreshMfa, signIn, signUp, signOut],
+    () => ({ loading, session, profile, org, needsMfa, refreshMfa, signIn, signUp, signOut }),
+    [loading, session, profile, org, needsMfa, refreshMfa, signIn, signUp, signOut],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -344,7 +344,16 @@ function PucCatalogCard() {
 // Presupuesto anual por rubro de gasto (Art. 11f/26). La Junta lo aprueba y el
 // módulo Financiero controla su ejecución.
 function PresupuestoCard() {
-  const { presupuestos, setPresupuesto } = useDemo()
+  const { presupuestos, setPresupuesto, deletePresupuesto, notify } = useDemo()
+  const [nuevo, setNuevo] = useState('')
+
+  function addRubro() {
+    const name = nuevo.trim()
+    if (!name) return
+    if (presupuestos.some((p) => p.category.toLowerCase() === name.toLowerCase())) { notify(`El rubro "${name}" ya existe.`, 'warning'); return }
+    setPresupuesto(name, 0)
+    setNuevo('')
+  }
 
   return (
     <section className="rounded-2xl border border-ink/[0.08] bg-white p-5">
@@ -352,26 +361,42 @@ function PresupuestoCard() {
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-canvas text-night"><CircleDollarSignIcon className="h-5 w-5" strokeWidth={1.8} /></div>
         <div>
           <h2 className="font-display text-base font-semibold">Presupuesto anual por rubro</h2>
-          <p className="text-xs text-ink/50">Monto aprobado por rubro de gasto; su ejecución se controla en Financiero.</p>
+          <p className="text-xs text-ink/50">Rubros de gasto de la organización; su ejecución se controla en Financiero · {presupuestos.length} rubros</p>
         </div>
       </div>
+
+      <div className="mt-4 flex gap-2">
+        <input
+          value={nuevo}
+          onChange={(e) => setNuevo(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') addRubro() }}
+          placeholder="Nuevo rubro (ej. Jurídico, Deportes…)"
+          className="w-full rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10"
+        />
+        <button onClick={addRubro} disabled={!nuevo.trim()} className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40"><PlusIcon className="h-4 w-4" />Agregar</button>
+      </div>
+
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-        {presupuestos.map((p) => <PresupuestoRubro key={p.category} category={p.category} anual={p.anual} onSave={(v) => setPresupuesto(p.category, v)} />)}
+        {presupuestos.map((p) => <PresupuestoRubro key={p.category} category={p.category} anual={p.anual} onSave={(v) => setPresupuesto(p.category, v)} onDelete={() => deletePresupuesto(p.category)} />)}
+        {presupuestos.length === 0 ? <p className="py-4 text-center text-xs text-ink/45 sm:col-span-2">Sin rubros. Agrega el primero arriba.</p> : null}
       </div>
     </section>
   )
 }
 
-function PresupuestoRubro({ category, anual, onSave }: { category: string; anual: number; onSave: (v: number) => void }) {
+function PresupuestoRubro({ category, anual, onSave, onDelete }: { category: string; anual: number; onSave: (v: number) => void; onDelete: () => void }) {
   const [text, setText] = useState(String(anual))
   const value = Number(text.replace(/\D/g, ''))
   const dirty = value !== anual
 
   return (
     <div className="rounded-xl border border-ink/10 bg-canvas/40 p-3">
-      <div className="flex items-center justify-between">
-        <span className="text-sm font-semibold text-ink">{category}</span>
-        <span className="text-[11px] text-ink/45">actual: {formatCop(anual)}</span>
+      <div className="flex items-center justify-between gap-2">
+        <span className="min-w-0 truncate text-sm font-semibold text-ink">{category}</span>
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="text-[11px] text-ink/45">actual: {formatCop(anual)}</span>
+          <button onClick={onDelete} className="rounded-lg p-1 text-ink/40 transition hover:bg-brick/10 hover:text-brick" aria-label={`Eliminar rubro ${category}`}><Trash2Icon className="h-3.5 w-3.5" /></button>
+        </div>
       </div>
       <div className="mt-2 flex gap-2">
         <input value={text} onChange={(e) => setText(e.target.value)} inputMode="numeric" className="w-full rounded-lg border border-ink/12 bg-white px-3 py-2 text-sm outline-none focus:border-night" placeholder="Monto anual" />

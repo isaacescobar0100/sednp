@@ -15,8 +15,8 @@ import {
   XIcon,
 } from 'lucide-react'
 import { ModuleKey } from '../types/navigation'
-import { Logo } from './Logo'
 import { roleLabel, useSession } from '../store/session'
+import { useAuth } from '../store/auth'
 
 type AppSidebarProps = {
   activeModule: ModuleKey
@@ -49,6 +49,10 @@ export function MobileMenuButton({ onClick }: { onClick: () => void }) {
 
 export function AppSidebar({ activeModule, onNavigate, mobileOpen, onMobileOpenChange, onLogout }: AppSidebarProps) {
   const { user, role, canSeeModule } = useSession()
+  const { org } = useAuth()
+  const brandName = org?.nombre ?? 'SERDNP'
+  // Logo del sindicato si lo tiene; si no, el de Sindika. (org null = contexto SERDNP.)
+  const brandLogo = org ? (org.logoUrl || '/sindika.png') : '/logo.png'
   const visibleItems = items.filter((item) => canSeeModule(item.key))
   return (
     <>
@@ -59,8 +63,8 @@ export function AppSidebar({ activeModule, onNavigate, mobileOpen, onMobileOpenC
             <XIcon className="h-5 w-5" />
           </button>
           <div className="flex items-center gap-2.5">
-            <Logo size={36} />
-            <span className="font-display text-lg font-semibold tracking-[0.16em]">SERDNP</span>
+            <img src={brandLogo} alt={brandName} className="h-9 w-9 shrink-0 rounded-lg object-contain" />
+            <span className="min-w-0 truncate font-display text-base font-semibold tracking-[0.10em]">{brandName}</span>
           </div>
           <div className="mt-4 flex h-0.5 w-28 overflow-hidden rounded-full">
             <span className="flex-1 bg-gold" /><span className="flex-1 bg-[#3D5AAE]" /><span className="flex-1 bg-brick" />
@@ -94,6 +98,7 @@ export function AppSidebar({ activeModule, onNavigate, mobileOpen, onMobileOpenC
           <button onClick={onLogout} className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-sm text-white/58 transition hover:bg-white/7 hover:text-white">
             <LogOutIcon className="h-4 w-4" /> Cerrar sesión
           </button>
+          <p className="mt-2 px-2 text-center text-[10px] text-white/30">con tecnología de <span className="font-semibold text-white/50">Sindika</span></p>
         </div>
       </aside>
     </>
