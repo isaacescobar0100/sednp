@@ -97,12 +97,12 @@ function CuotaCard() {
             <p className="text-xs text-ink/50">Porcentaje sobre la asignación básica mensual (Art. 32) · actual: {actual}%</p>
           </div>
         </div>
-        <div className="flex items-end gap-2">
-          <label className="block">
+        <div className="flex w-full items-end gap-2 sm:w-auto">
+          <label className="block flex-1 sm:flex-none">
             <span className="mb-1.5 block text-xs font-semibold text-ink/70">Nuevo % (ej. 0,3)</span>
-            <input value={text} onChange={(e) => setText(e.target.value)} inputMode="decimal" className="w-32 rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
+            <input value={text} onChange={(e) => setText(e.target.value)} inputMode="decimal" className="w-full rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10 sm:w-32" />
           </label>
-          <button onClick={() => setPorcentajeCuota(nuevoPct)} disabled={!dirty} className="rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">Guardar</button>
+          <button onClick={() => setPorcentajeCuota(nuevoPct)} disabled={!dirty} className="shrink-0 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">Guardar</button>
         </div>
       </div>
     </section>
@@ -125,12 +125,12 @@ function SmmlvCard() {
             <p className="text-xs text-ink/50">Base de los rangos de aprobación de gastos (Art. 34) · actual: {formatCop(smmlv)}</p>
           </div>
         </div>
-        <div className="flex items-end gap-2">
-          <label className="block">
+        <div className="flex w-full items-end gap-2 sm:w-auto">
+          <label className="block flex-1 sm:flex-none">
             <span className="mb-1.5 block text-xs font-semibold text-ink/70">Nuevo valor</span>
-            <input value={text} onChange={(e) => setText(e.target.value)} inputMode="numeric" className="w-40 rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
+            <input value={text} onChange={(e) => setText(e.target.value)} inputMode="numeric" className="w-full rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10 sm:w-40" />
           </label>
-          <button onClick={() => setSmmlv(value)} disabled={!dirty} className="rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">Guardar</button>
+          <button onClick={() => setSmmlv(value)} disabled={!dirty} className="shrink-0 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">Guardar</button>
         </div>
       </div>
     </section>
@@ -151,12 +151,12 @@ function CaucionCard() {
           <p className="text-xs text-ink/50">Garantía del manejo de fondos (Art. 26){caucionVence ? ` · vence ${caucionVence}` : ' · sin registrar'}</p>
         </div>
       </div>
-      <div className="mt-4 flex items-end gap-2">
-        <label className="block">
+      <div className="mt-4 flex w-full items-end gap-2">
+        <label className="block flex-1 sm:flex-none">
           <span className="mb-1.5 block text-xs font-semibold text-ink/70">Fecha de vencimiento</span>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night" />
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night sm:w-auto" />
         </label>
-        <button onClick={() => setCaucion(date)} disabled={!dirty} className="rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">Guardar</button>
+        <button onClick={() => setCaucion(date)} disabled={!dirty} className="shrink-0 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">Guardar</button>
       </div>
     </section>
   )
@@ -177,12 +177,12 @@ function JuntaPeriodoCard() {
           <p className="text-xs text-ink/50">Elección por la Asamblea cada 2 años (Art. 13){proxima ? ` · próxima elección ${proxima}` : ''}</p>
         </div>
       </div>
-      <div className="mt-4 flex items-end gap-2">
-        <label className="block">
+      <div className="mt-4 flex w-full items-end gap-2">
+        <label className="block flex-1 sm:flex-none">
           <span className="mb-1.5 block text-xs font-semibold text-ink/70">Inicio del periodo actual</span>
-          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night" />
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="w-full rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night sm:w-auto" />
         </label>
-        <button onClick={() => setJuntaDesde(date)} disabled={!dirty} className="rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">Guardar</button>
+        <button onClick={() => setJuntaDesde(date)} disabled={!dirty} className="shrink-0 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">Guardar</button>
       </div>
     </section>
   )
@@ -238,7 +238,7 @@ function EscalasCard() {
         </select>
         <input value={grado} onChange={(e) => setGrado(e.target.value)} placeholder="Grado" className={inputClass} />
         <input value={monto} onChange={(e) => setMonto(e.target.value)} inputMode="numeric" placeholder="Asignación básica" className={inputClass} />
-        <button onClick={add} disabled={!grado.trim() || asignacion <= 0} className="inline-flex items-center gap-1.5 rounded-xl bg-night px-4 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40"><PlusIcon className="h-4 w-4" />Agregar</button>
+        <button onClick={add} disabled={!grado.trim() || asignacion <= 0} className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40"><PlusIcon className="h-4 w-4" />Agregar</button>
       </div>
 
       <div className="mt-4 overflow-x-auto">
@@ -305,7 +305,7 @@ function PucCatalogCard() {
         <select value={tipo} onChange={(e) => setTipo(e.target.value as CuentaTipo)} className={inputClass}>
           {(['Activo', 'Ingreso', 'Gasto'] as CuentaTipo[]).map((t) => <option key={t} value={t}>{t}</option>)}
         </select>
-        <button onClick={add} disabled={!codigo.trim() || !nombre.trim()} className="inline-flex items-center gap-1.5 rounded-xl bg-night px-4 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40"><PlusIcon className="h-4 w-4" />Agregar</button>
+        <button onClick={add} disabled={!codigo.trim() || !nombre.trim()} className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40"><PlusIcon className="h-4 w-4" />Agregar</button>
       </div>
 
       <div className="mt-4 overflow-x-auto">
