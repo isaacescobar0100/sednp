@@ -2,7 +2,6 @@ import React, { useRef, useState } from 'react'
 import HCaptcha from '@hcaptcha/react-hcaptcha'
 import { AlertCircleIcon, ArrowRightIcon, EyeIcon, EyeOffIcon, LockIcon, MailIcon } from 'lucide-react'
 import { BrandPanel } from './BrandPanel'
-import { Logo } from './Logo'
 import { useAuth } from '../store/auth'
 
 // Sitekey pública de hCaptcha (protección contra bots/fuerza bruta). Es pública
@@ -44,8 +43,8 @@ export function AuthScreen() {
       <section className="flex flex-1 items-center justify-center overflow-y-auto px-6 py-12 sm:px-10">
         <form onSubmit={handleSubmit} className="w-full max-w-sm" noValidate>
           <div className="mb-8 flex items-center gap-2.5 lg:hidden">
-            <Logo size={36} />
-            <span className="font-display text-lg font-semibold tracking-[0.16em] text-ink">SERDNP</span>
+            <img src="/sindika.png" alt="Sindika" className="h-9 w-9 object-contain" />
+            <span className="font-display text-lg font-semibold tracking-[0.14em] text-ink">Sindika</span>
           </div>
 
           <div className="mb-6">
