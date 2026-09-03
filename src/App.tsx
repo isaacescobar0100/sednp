@@ -1,11 +1,10 @@
-import React, { Suspense, lazy, useState } from 'react'
+import React, { Suspense, lazy, useEffect, useState } from 'react'
 import { AppShell } from './components/AppShell'
 import { DemoProvider, useDemo } from './store/DemoStore'
 import { SessionProvider, useSession, Role } from './store/session'
 import { AuthProvider, useAuth } from './store/auth'
 import { AuthScreen } from './components/AuthScreen'
 import { MfaChallenge } from './components/MfaChallenge'
-import { Logo } from './components/Logo'
 import { ModuleKey, ModuleMeta } from './types/navigation'
 
 // Carga diferida por módulo (code-splitting): cada página se descarga solo
@@ -45,10 +44,17 @@ export function App() {
   )
 }
 
+// Marca en pantallas de carga: logo del sindicato si ya se conoce; si no, Sindika.
+function BrandMark({ size = 56 }: { size?: number }) {
+  const { org } = useAuth()
+  const src = org?.logoUrl || '/sindika.png'
+  return <img src={src} alt={org?.nombre ?? 'Sindika'} style={{ height: size }} className="w-auto object-contain" />
+}
+
 function Splash({ text }: { text?: string }) {
   return (
     <div className="flex h-screen w-full flex-col items-center justify-center gap-4 bg-canvas">
-      <Logo size={48} rounded="rounded-xl" />
+      <BrandMark size={56} />
       <p className="text-sm text-ink/50">{text ?? 'Cargando…'}</p>
     </div>
   )
@@ -63,7 +69,16 @@ function PageLoader() {
 }
 
 function Root() {
-  const { loading, session, profile, needsMfa } = useAuth()
+  const { loading, session, profile, org, needsMfa } = useAuth()
+
+  // Pestaña del navegador (título + favicon) según el sindicato; si no, Sindika.
+  useEffect(() => {
+    document.title = org?.nombre ? `${org.nombre} · Sindika` : 'Sindika'
+    const href = org?.logoUrl || '/sindika.png'
+    let link = document.querySelector<HTMLLinkElement>("link[rel='icon']")
+    if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link) }
+    link.href = href
+  }, [org])
 
   if (loading) return <Splash />
   if (!session) return <AuthScreen />
@@ -90,7 +105,7 @@ function AfiliadoGate() {
   if (!me || me.status !== 'Activo') {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-canvas p-6 text-center">
-        <Logo size={48} rounded="rounded-xl" />
+        <BrandMark size={56} />
         <p className="max-w-md text-sm text-ink/60">
           {!me
             ? 'Tu cuenta aún no está vinculada a una afiliación. La Secretaría debe registrarte con este correo y la Presidencia aprobar tu afiliación.'
