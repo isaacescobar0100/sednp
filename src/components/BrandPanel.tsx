@@ -3,6 +3,10 @@ import { UsersIcon } from 'lucide-react'
 import { AndesRange } from './AndesRange'
 import { supabase } from '../lib/supabase'
 
+// Logo del sindicato a mostrar en el login (co-marca con Sindika).
+// Para la demo de hoy: SERDNP. Pon null para mostrar SOLO Sindika.
+const DEMO_TENANT: { logo: string; nombre: string } | null = { logo: '/logo.png', nombre: 'SERDNP' }
+
 export function BrandPanel() {
   // Conteo público de afiliados activos (RPC), visible sin iniciar sesión.
   const [activos, setActivos] = useState(0)
@@ -24,9 +28,17 @@ export function BrandPanel() {
 
       <div className="relative z-10 flex w-full flex-col justify-between px-10 py-12 xl:px-14">
         <div>
-          <img src="/sindika-dark.png" alt="Sindika" className="h-24 w-auto drop-shadow-xl" />
+          <div className="flex items-center gap-5">
+            {DEMO_TENANT ? (
+              <>
+                <img src={DEMO_TENANT.logo} alt={DEMO_TENANT.nombre} className="h-16 w-auto drop-shadow-xl" />
+                <span className="h-12 w-px bg-white/20" />
+              </>
+            ) : null}
+            <img src="/sindika-dark.png" alt="Sindika" className="h-16 w-auto drop-shadow-xl" />
+          </div>
 
-          <div className="mt-4 flex h-1 w-36 overflow-hidden rounded-full">
+          <div className="mt-5 flex h-1 w-36 overflow-hidden rounded-full">
             <span className="h-full flex-1 bg-gold" />
             <span className="h-full flex-1 bg-[#3D5AAE]" />
             <span className="h-full flex-1 bg-brick" />
