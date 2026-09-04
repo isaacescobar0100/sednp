@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react'
-import { AlertCircleIcon, Building2Icon, CheckCircle2Icon, LogOutIcon, PlusIcon, XIcon } from 'lucide-react'
+import React, { useEffect, useRef, useState } from 'react'
+import { AlertCircleIcon, Building2Icon, CheckCircle2Icon, ImageIcon, LogOutIcon, PencilIcon, PlusIcon, XIcon } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { subirFoto } from '../store/storageApi'
 import { useAuth } from '../store/auth'
 
 type OrgRow = { id: string; nombre: string; slug: string; logo_url: string | null; activo: boolean }
@@ -142,19 +143,8 @@ export function SuperAdminPanel({ onClose }: { onClose: () => void }) {
 }
 
 function OrgItem({ org, onReload }: { org: OrgRow; onReload: () => void }) {
-  const [logo, setLogo] = useState(org.logo_url ?? '')
-  const [nombre, setNombre] = useState(org.nombre)
-  const logoDirty = (logo || null) !== (org.logo_url ?? null)
-  const nombreDirty = nombre.trim() !== org.nombre && nombre.trim() !== ''
+  const [editing, setEditing] = useState(false)
 
-  async function guardar() {
-    const changes: Record<string, unknown> = {}
-    if (logoDirty) changes.logo_url = logo || null
-    if (nombreDirty) changes.nombre = nombre.trim()
-    if (Object.keys(changes).length === 0) return
-    await supabase.from('organizations').update(changes).eq('id', org.id)
-    onReload()
-  }
   async function toggleActivo() {
     await supabase.from('organizations').update({ activo: !org.activo }).eq('id', org.id)
     onReload()
@@ -163,18 +153,87 @@ function OrgItem({ org, onReload }: { org: OrgRow; onReload: () => void }) {
   return (
     <div className={`rounded-xl border bg-white p-3 shadow-sm ${org.activo ? 'border-ink/[0.08]' : 'border-brick/25'}`}>
       <div className="flex items-center gap-3">
-        <img src={logo || '/sindika.png'} alt={org.nombre} className="h-10 w-10 shrink-0 rounded-lg border border-ink/10 object-contain" />
+        <img src={org.logo_url || '/sindika.png'} alt={org.nombre} className="h-10 w-10 shrink-0 rounded-lg border border-ink/10 object-contain" />
         <div className="min-w-0 flex-1">
-          <input value={nombre} onChange={(e) => setNombre(e.target.value)} className="w-full truncate rounded-md border border-transparent bg-transparent text-sm font-semibold text-ink outline-none hover:border-ink/12 focus:border-night" />
-          <p className="px-1 text-xs text-ink/45">{org.slug}</p>
+          <p className="truncate text-sm font-semibold text-ink">{org.nombre}</p>
+          <p className="text-xs text-ink/45">{org.slug}</p>
         </div>
         <button onClick={toggleActivo} title={org.activo ? 'Suspender (por falta de pago)' : 'Reactivar'} className={`shrink-0 rounded-md px-2 py-1 text-[11px] font-semibold ${org.activo ? 'bg-emerald-100 text-emerald-700' : 'bg-brick/10 text-brick'}`}>
           {org.activo ? 'Activo' : 'Suspendido'}
         </button>
       </div>
-      <div className="mt-2.5 flex gap-2">
-        <input value={logo} onChange={(e) => setLogo(e.target.value)} placeholder="URL del logo (vacío = Sindika)" className="w-full rounded-lg border border-ink/12 bg-canvas/45 px-3 py-2 text-xs outline-none focus:border-night" />
-        <button onClick={guardar} disabled={!logoDirty && !nombreDirty} className="shrink-0 rounded-lg bg-night px-3 text-xs font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">Guardar</button>
+      <button onClick={() => setEditing(true)} className="mt-2.5 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-ink/12 py-2 text-xs font-semibold text-ink/70 transition hover:border-night hover:text-night">
+        <PencilIcon className="h-3.5 w-3.5" /> Editar
+      </button>
+      {editing ? <EditOrgModal org={org} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); onReload() }} /> : null}
+    </div>
+  )
+}
+
+function EditOrgModal({ org, onClose, onSaved }: { org: OrgRow; onClose: () => void; onSaved: () => void }) {
+  const [nombre, setNombre] = useState(org.nombre)
+  const [logoUrl, setLogoUrl] = useState(org.logo_url ?? '')
+  const [busy, setBusy] = useState(false)
+  const [subiendo, setSubiendo] = useState(false)
+  const [error, setError] = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  async function handleFoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setSubiendo(true); setError('')
+    try { setLogoUrl(await subirFoto(file)) }
+    catch { setError('No se pudo subir el logo.') }
+    finally { setSubiendo(false) }
+  }
+
+  async function guardar() {
+    setBusy(true); setError('')
+    const { error } = await supabase.from('organizations')
+      .update({ nombre: nombre.trim() || org.nombre, logo_url: logoUrl || null })
+      .eq('id', org.id)
+    setBusy(false)
+    if (error) setError(error.message)
+    else onSaved()
+  }
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-night/45 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-2xl border border-ink/10 bg-white p-6 shadow-2xl shadow-night/25" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <h3 className="font-display text-base font-semibold text-ink">Editar sindicato</h3>
+            <p className="text-xs text-ink/50">{org.slug}</p>
+          </div>
+          <button onClick={onClose} aria-label="Cerrar" className="rounded-lg p-1.5 text-ink/40 transition hover:bg-canvas hover:text-ink"><XIcon className="h-4 w-4" /></button>
+        </div>
+
+        <div className="space-y-4">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-ink/70">Nombre del sindicato</span>
+            <input value={nombre} onChange={(e) => setNombre(e.target.value)} className={inputC} />
+          </label>
+
+          <div>
+            <span className="mb-1.5 block text-xs font-medium text-ink/70">Logo</span>
+            <div className="flex items-center gap-3">
+              <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-ink/10 bg-canvas">
+                <img src={logoUrl || '/sindika.png'} alt="Logo" className="h-full w-full object-contain" />
+              </div>
+              <input ref={fileRef} type="file" accept="image/*" onChange={handleFoto} className="hidden" />
+              <button onClick={() => fileRef.current?.click()} disabled={subiendo} className="inline-flex items-center gap-1.5 rounded-xl border border-ink/12 px-3 py-2 text-sm font-semibold text-ink/70 transition hover:border-night hover:text-night disabled:opacity-50">
+                <ImageIcon className="h-4 w-4" />{subiendo ? 'Subiendo…' : 'Elegir archivo'}
+              </button>
+            </div>
+          </div>
+
+          {error ? <p className="text-xs text-brick">{error}</p> : null}
+
+          <div className="flex gap-2 pt-1">
+            <button onClick={onClose} className="flex-1 rounded-xl border border-ink/12 py-2.5 text-sm font-semibold text-ink/60 transition hover:bg-canvas">Cancelar</button>
+            <button onClick={guardar} disabled={busy || subiendo} className="flex-1 rounded-xl bg-night py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-50">{busy ? 'Guardando…' : 'Guardar'}</button>
+          </div>
+        </div>
       </div>
     </div>
   )
