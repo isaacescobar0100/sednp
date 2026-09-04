@@ -1,5 +1,6 @@
-import React, { useMemo, useState } from 'react'
-import { ChevronLeftIcon, ChevronRightIcon, LockIcon, PlusIcon, SearchIcon, XIcon } from 'lucide-react'
+import React, { useMemo, useRef, useState } from 'react'
+import { CameraIcon, ChevronLeftIcon, ChevronRightIcon, LockIcon, PlusIcon, SearchIcon, XIcon } from 'lucide-react'
+import { subirFoto } from '../store/storageApi'
 import { useDemo } from '../store/DemoStore'
 import { useSession } from '../store/session'
 import { Affiliate, AffiliateStatus, AffiliateType, BENEFICIOS, MEDIOS } from '../store/affiliates'
@@ -310,6 +311,7 @@ const emptyForm = {
   phone: '',
   address: '',
   password: '',
+  fotoUrl: '',
   beneficios: [] as string[],
   role: '',
   cargoTitular: '',
@@ -330,10 +332,26 @@ function EnrollmentModal({ onClose }: { onClose: () => void }) {
   const { addAffiliate, affiliates, cargos, dependencias, vinculaciones, escalas, porcentajeCuota } = useDemo()
   const [step, setStep] = useState(1)
   const [form, setForm] = useState(() => ({ ...emptyForm, type: vinculaciones[0]?.name ?? '' }))
+  const [subiendoFoto, setSubiendoFoto] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
   const steps = ['Datos personales', 'Información laboral', 'Revisión']
 
   function set<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))
+  }
+
+  async function handleFoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setSubiendoFoto(true)
+    try {
+      const url = await subirFoto(file)
+      set('fotoUrl', url)
+    } catch {
+      // silencioso: si falla, se puede reintentar
+    } finally {
+      setSubiendoFoto(false)
+    }
   }
 
   function toggleBeneficio(b: string) {
@@ -362,6 +380,7 @@ function EnrollmentModal({ onClose }: { onClose: () => void }) {
       phone: form.phone,
       address: form.address.trim(),
       password: form.password,
+      fotoUrl: form.fotoUrl,
       beneficios: form.beneficios,
       medio: form.medio,
       motivo: form.motivo.trim(),
@@ -399,6 +418,18 @@ function EnrollmentModal({ onClose }: { onClose: () => void }) {
               <div>
                 <h3 className="font-display text-lg font-semibold">Datos personales</h3>
                 <p className="mt-1 text-sm text-ink/50">Información de identificación y contacto.</p>
+                <div className="mt-5 flex items-center gap-4">
+                  <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-ink/12 bg-canvas">
+                    {form.fotoUrl ? <img src={form.fotoUrl} alt="Foto del afiliado" className="h-full w-full object-cover" /> : <CameraIcon className="h-6 w-6 text-ink/30" />}
+                  </div>
+                  <div>
+                    <input ref={fileRef} type="file" accept="image/*" onChange={handleFoto} className="hidden" />
+                    <button type="button" onClick={() => fileRef.current?.click()} disabled={subiendoFoto} className="rounded-xl border border-ink/12 px-3 py-2 text-sm font-semibold text-ink/70 transition hover:border-night hover:text-night disabled:opacity-50">
+                      {subiendoFoto ? 'Subiendo…' : form.fotoUrl ? 'Cambiar foto' : 'Subir foto'}
+                    </button>
+                    <p className="mt-1 text-xs text-ink/45">Foto del afiliado (opcional).</p>
+                  </div>
+                </div>
                 <div className="mt-5 grid gap-4 sm:grid-cols-2">
                   <Field label="Nombres" placeholder="Nombres del afiliado" value={form.nombres} onChange={(v) => set('nombres', v)} required />
                   <Field label="Apellidos" placeholder="Apellidos del afiliado" value={form.apellidos} onChange={(v) => set('apellidos', v)} required />

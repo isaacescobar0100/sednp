@@ -92,7 +92,9 @@ function Perfil({ me }: { me: ReturnType<typeof useDemo>['affiliates'][number] }
       {/* Hero */}
       <section className="overflow-hidden rounded-3xl border border-ink/[0.08] bg-gradient-to-br from-night to-night-deep text-white shadow-[0_16px_40px_rgba(15,27,61,0.18)]">
         <div className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:p-8">
-          <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-gold font-display text-3xl font-bold text-night shadow-lg">{initials}</div>
+          {me.fotoUrl
+            ? <img src={me.fotoUrl} alt={me.name} className="h-20 w-20 shrink-0 rounded-2xl object-cover shadow-lg" />
+            : <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-gold font-display text-3xl font-bold text-night shadow-lg">{initials}</div>}
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">Mi afiliación</p>
             <h1 className="mt-1 truncate font-display text-2xl font-semibold sm:text-3xl">{me.name}</h1>

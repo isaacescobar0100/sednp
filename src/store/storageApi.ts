@@ -24,3 +24,14 @@ export function nombreSoporte(path: string): string {
   const base = path.split('/').pop() ?? path
   return base.replace(/^\d+-/, '')
 }
+
+// --- Fotos de afiliados (bucket público 'fotos') -----------------------------
+// Sube una foto y devuelve su URL pública (para guardar en affiliates.foto_url).
+export async function subirFoto(file: File): Promise<string> {
+  const ext = (file.name.split('.').pop() ?? 'jpg').replace(/[^\w]+/g, '').toLowerCase()
+  const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+  const { error } = await supabase.storage.from('fotos').upload(path, file, { upsert: false, contentType: file.type })
+  if (error) throw error
+  const { data } = supabase.storage.from('fotos').getPublicUrl(path)
+  return data.publicUrl
+}
