@@ -15,6 +15,7 @@ declare
   tipos text[] := array['LNR','Carrera administrativa','Provisional','Contratista'];
   medios text[] := array['La Rebeca','Un compañero','Correo','Otros'];
   meses text[] := array['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+  mesesab text[] := array['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
   v_base date := date '2025-09-01';  -- primer mes de los 12
   i int; m int;
   v_name text; v_asig numeric; v_status text; v_type text; v_aff uuid;
@@ -69,21 +70,21 @@ begin
     v_period := to_char(v_mdate,'YYYY-MM');
     select coalesce(sum(amount),0) into v_sum from public.aportes where org_id = v_org and period = v_period;
     insert into public.movements (org_id, date, concept, category, kind, amount, status, nivel, firma_tesorero, firma_presidente)
-    values (v_org, to_char(v_mdate + 4,'YYYY-MM-DD'), 'Recaudo de cuotas ordinarias — ' || meses[extract(month from v_mdate)::int], 'Cuotas ordinarias', 'Ingreso', v_sum, 'Confirmado', 'tesoreria', true, true);
+    values (v_org, to_char(v_mdate + 4,'DD') || ' ' || mesesab[extract(month from v_mdate + 4)::int] || ' ' || to_char(v_mdate + 4,'YYYY'), 'Recaudo de cuotas ordinarias — ' || meses[extract(month from v_mdate)::int], 'Cuotas ordinarias', 'Ingreso', v_sum, 'Confirmado', 'tesoreria', true, true);
   end loop;
 
   -- Egresos y otros ingresos del año
   insert into public.movements (org_id, date, concept, category, kind, amount, status, nivel, firma_tesorero, firma_presidente, firma_fiscal, orden_pago) values
-    (v_org,'2025-10-15','Asesoría jurídica — retención sindical','Defensa','Egreso',2200000,'Pagado','junta',true,true,true,'OP-2025-014'),
-    (v_org,'2025-11-20','Papelería y gastos de oficina','Operación','Egreso',680000,'Pagado','tesoreria',true,false,false,'OP-2025-021'),
-    (v_org,'2025-12-05','Actividad de bienestar de fin de año','Bienestar','Egreso',3500000,'Pagado','junta',true,true,true,'OP-2025-030'),
-    (v_org,'2026-02-18','Capacitación en negociación colectiva','Formación','Egreso',1900000,'Pagado','junta',true,true,true,'OP-2026-006'),
-    (v_org,'2026-04-10','Gravamen a los movimientos financieros (GMF)','Operación','Egreso',145000,'Pagado','tesoreria',true,false,false,'OP-2026-012'),
-    (v_org,'2026-06-22','Apoyo jurídico caso disciplinario','Defensa','Egreso',1200000,'Aprobado','junta',false,true,true,null),
-    (v_org,'2026-08-08','Jornada deportiva y de integración','Bienestar','Egreso',900000,'Por aprobar','tesoreria',false,false,false,null);
+    (v_org,'15 oct 2025','Asesoría jurídica — retención sindical','Defensa','Egreso',2200000,'Pagado','junta',true,true,true,'OP-2025-014'),
+    (v_org,'20 nov 2025','Papelería y gastos de oficina','Operación','Egreso',680000,'Pagado','tesoreria',true,false,false,'OP-2025-021'),
+    (v_org,'05 dic 2025','Actividad de bienestar de fin de año','Bienestar','Egreso',3500000,'Pagado','junta',true,true,true,'OP-2025-030'),
+    (v_org,'18 feb 2026','Capacitación en negociación colectiva','Formación','Egreso',1900000,'Pagado','junta',true,true,true,'OP-2026-006'),
+    (v_org,'10 abr 2026','Gravamen a los movimientos financieros (GMF)','Operación','Egreso',145000,'Pagado','tesoreria',true,false,false,'OP-2026-012'),
+    (v_org,'22 jun 2026','Apoyo jurídico caso disciplinario','Defensa','Egreso',1200000,'Aprobado','junta',false,true,true,null),
+    (v_org,'08 ago 2026','Jornada deportiva y de integración','Bienestar','Egreso',900000,'Por aprobar','tesoreria',false,false,false,null);
   insert into public.movements (org_id, date, concept, category, kind, amount, status, nivel, firma_tesorero, firma_presidente) values
-    (v_org,'2026-03-14','Multa disciplinaria — Resolución 003','Multas y sanciones','Ingreso',426000,'Confirmado','junta',true,true),
-    (v_org,'2026-05-30','Rendimientos financieros cuenta de ahorros','Rendimientos financieros','Ingreso',312000,'Confirmado','tesoreria',true,false);
+    (v_org,'14 mar 2026','Multa disciplinaria — Resolución 003','Multas y sanciones','Ingreso',426000,'Confirmado','junta',true,true),
+    (v_org,'30 may 2026','Rendimientos financieros cuenta de ahorros','Rendimientos financieros','Ingreso',312000,'Confirmado','tesoreria',true,false);
 
   -- 4) GOBERNANZA: sesiones y votaciones
   insert into public.sessions (org_id, day, month, title, detail, organ, status, minutes, asistentes, quorum) values
