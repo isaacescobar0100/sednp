@@ -340,10 +340,19 @@ const ROL_SINDICATO: Array<{ value: string; label: string }> = [
   { value: 'fiscal', label: 'Fiscalía' },
 ]
 
+// Jerarquía: la Presidencia solo crea la Secretaría; la Secretaría crea el resto.
+function rolesPermitidos(role: string): Array<{ value: string; label: string }> {
+  if (role === 'presidencia') return ROL_SINDICATO.filter((r) => r.value === 'secretaria')
+  if (role === 'secretaria') return ROL_SINDICATO.filter((r) => ['afiliado', 'vicepresidencia', 'tesoreria', 'fiscal'].includes(r.value))
+  return ROL_SINDICATO.filter((r) => r.value === 'afiliado')
+}
+
 function EnrollmentModal({ onClose }: { onClose: () => void }) {
   const { addAffiliate, affiliates, cargos, dependencias, vinculaciones, escalas, porcentajeCuota } = useDemo()
+  const { role } = useSession()
+  const opcionesRol = rolesPermitidos(role)
   const [step, setStep] = useState(1)
-  const [form, setForm] = useState(() => ({ ...emptyForm, type: vinculaciones[0]?.name ?? '' }))
+  const [form, setForm] = useState(() => ({ ...emptyForm, type: vinculaciones[0]?.name ?? '', rolSindicato: opcionesRol[0]?.value ?? 'afiliado' }))
   const [subiendoFoto, setSubiendoFoto] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
   const steps = ['Datos personales', 'Información laboral', 'Revisión']
@@ -454,7 +463,7 @@ function EnrollmentModal({ onClose }: { onClose: () => void }) {
                   <label className="block">
                     <span className="mb-1.5 block text-sm font-medium text-ink/70">Rol en el sindicato</span>
                     <select value={form.rolSindicato} onChange={(e) => set('rolSindicato', e.target.value)} className="w-full rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10">
-                      {ROL_SINDICATO.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                      {opcionesRol.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
                     </select>
                   </label>
                 </div>
