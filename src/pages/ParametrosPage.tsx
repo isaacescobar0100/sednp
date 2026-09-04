@@ -1,8 +1,11 @@
-import React, { useState } from 'react'
-import { BriefcaseBusinessIcon, CircleDollarSignIcon, LandmarkIcon, PlusIcon, ScaleIcon, TagsIcon, Trash2Icon } from 'lucide-react'
+import React, { useRef, useState } from 'react'
+import { BriefcaseBusinessIcon, CircleDollarSignIcon, ImageIcon, LandmarkIcon, PlusIcon, ScaleIcon, TagsIcon, Trash2Icon } from 'lucide-react'
 import { SectionTitle } from '../components/SectionTitle'
+import { supabase } from '../lib/supabase'
+import { subirFoto } from '../store/storageApi'
 import { useDemo } from '../store/DemoStore'
 import { useSession } from '../store/session'
+import { useAuth } from '../store/auth'
 import { VinculacionType, nextVinculacionColor } from '../store/catalogs'
 import { CuentaNaturaleza, CuentaTipo, formatCop } from '../store/finance'
 import { AJUSTE_ANUAL, NIVELES, sortEscalas } from '../store/payscale'
@@ -24,6 +27,10 @@ export function ParametrosPage() {
         <div className="rounded-2xl border border-ink/[0.08] bg-white px-6 py-8 text-sm text-ink/55">Solo la Secretaría General y la Presidencia pueden administrar los catálogos.</div>
       ) : (
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+          <div className="min-w-0 xl:col-span-2">
+            <LogoSindicatoCard />
+          </div>
+
           <CuotaCard />
           <SmmlvCard />
 
@@ -76,6 +83,48 @@ export function ParametrosPage() {
         </div>
       )}
     </div>
+  )
+}
+
+function LogoSindicatoCard() {
+  const { org, refreshProfile } = useAuth()
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  async function handle(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setBusy(true); setError('')
+    try {
+      const url = await subirFoto(file)
+      const { error } = await supabase.rpc('set_logo_sindicato', { p_url: url })
+      if (error) throw error
+      await refreshProfile()
+    } catch {
+      setError('No se pudo guardar el logo. Inténtalo de nuevo.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <section className="rounded-2xl border border-ink/[0.08] bg-white p-5">
+      <div className="flex flex-wrap items-center gap-4">
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-ink/10 bg-canvas">
+          <img src={org?.logoUrl || '/sindika.png'} alt="Logo del sindicato" className="h-full w-full object-contain" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <h2 className="font-display text-base font-semibold">Logo del sindicato</h2>
+          <p className="text-xs text-ink/50">Aparece en el acceso y dentro de la app de tu sindicato. Ideal: PNG con fondo transparente.</p>
+          {error ? <p className="mt-1 text-xs text-brick">{error}</p> : null}
+        </div>
+        <input ref={fileRef} type="file" accept="image/*" onChange={handle} className="hidden" />
+        <button onClick={() => fileRef.current?.click()} disabled={busy} className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-50">
+          <ImageIcon className="h-4 w-4" />{busy ? 'Subiendo…' : 'Subir logo'}
+        </button>
+      </div>
+    </section>
   )
 }
 

@@ -9,7 +9,7 @@ import { Role } from './session'
 export type AppRole = Role | 'afiliado'
 export type Profile = { id: string; full_name: string; role: AppRole; initials: string; platformAdmin: boolean; fotoUrl: string }
 // Marca del sindicato al que pertenece la persona (multi-sindicato / SaaS).
-export type Org = { nombre: string; logoUrl: string | null }
+export type Org = { nombre: string; logoUrl: string | null; activo: boolean }
 
 type Result = { error?: string }
 
@@ -60,8 +60,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setProfile({ id: s.user.id, full_name: fullName, role, initials: initialsOf(fullName, s.user.email ?? ''), platformAdmin: Boolean(data?.platform_admin), fotoUrl: (data?.foto_url as string | null) ?? '' })
       // Marca del sindicato (RLS devuelve solo la organización del usuario).
       try {
-        const { data: o } = await supabase.from('organizations').select('nombre, logo_url').maybeSingle()
-        setOrg(o ? { nombre: o.nombre as string, logoUrl: (o.logo_url as string | null) ?? null } : null)
+        const { data: o } = await supabase.from('organizations').select('nombre, logo_url, activo').maybeSingle()
+        setOrg(o ? { nombre: o.nombre as string, logoUrl: (o.logo_url as string | null) ?? null, activo: (o.activo as boolean | null) ?? true } : null)
       } catch { setOrg(null) }
     } catch {
       // Si la consulta falla (red/RLS), no dejamos la app colgada: perfil mínimo.

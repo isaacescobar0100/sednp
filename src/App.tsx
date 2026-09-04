@@ -70,7 +70,7 @@ function PageLoader() {
 }
 
 function Root() {
-  const { loading, session, profile, org, needsMfa } = useAuth()
+  const { loading, session, profile, org, needsMfa, signOut } = useAuth()
 
   // Pestaña del navegador (título + favicon) según el sindicato; si no, Sindika.
   useEffect(() => {
@@ -88,6 +88,9 @@ function Root() {
 
   // Administrador de la plataforma (Sindika): pantalla propia, sin rol de sindicato.
   if (profile.platformAdmin) return <SuperAdminScreen />
+
+  // Sindicato suspendido (p. ej. por falta de pago): se bloquea el acceso.
+  if (org && !org.activo) return <SindicatoSuspendido onLogout={signOut} />
 
   if (profile.role === 'afiliado') return <AfiliadoGate />
 
@@ -127,6 +130,22 @@ function AfiliadoGate() {
     <Suspense fallback={<Splash />}>
       <AfiliadoPortal affiliateId={me.id} onLogout={signOut} />
     </Suspense>
+  )
+}
+
+// Pantalla cuando el sindicato está suspendido (control de pago del SaaS).
+function SindicatoSuspendido({ onLogout }: { onLogout: () => void }) {
+  const { org } = useAuth()
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-canvas p-6 text-center">
+      <BrandMark size={56} />
+      <h1 className="font-display text-xl font-semibold text-ink">Acceso suspendido</h1>
+      <p className="max-w-md text-sm text-ink/60">
+        El acceso de <b>{org?.nombre ?? 'tu sindicato'}</b> está temporalmente suspendido.
+        Para reactivarlo, comunícate con la administración de Sindika.
+      </p>
+      <button onClick={onLogout} className="rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep">Cerrar sesión</button>
+    </div>
   )
 }
 
