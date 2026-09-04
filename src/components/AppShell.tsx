@@ -1,9 +1,8 @@
 import React, { useState } from 'react'
-import { BellIcon, HistoryIcon, LogOutIcon, SearchIcon, ShieldCheckIcon, UsersRoundIcon } from 'lucide-react'
+import { BellIcon, HistoryIcon, LogOutIcon, SearchIcon, ShieldCheckIcon } from 'lucide-react'
 import { AppSidebar, MobileMenuButton } from './AppSidebar'
 import { MfaSettings } from './MfaSettings'
 import { AuditLog } from './AuditLog'
-import { DirectivaManager } from './DirectivaManager'
 import { useDemo } from '../store/DemoStore'
 import { roleLabel, useSession } from '../store/session'
 import { ModuleKey, ModuleMeta } from '../types/navigation'
@@ -20,10 +19,8 @@ export function AppShell({ activeModule, module, onNavigate, onLogout, children 
   const [mobileOpen, setMobileOpen] = useState(false)
   const [securityOpen, setSecurityOpen] = useState(false)
   const [auditOpen, setAuditOpen] = useState(false)
-  const [directivaOpen, setDirectivaOpen] = useState(false)
   const { role } = useSession()
   const canAudit = role === 'presidencia' || role === 'fiscal'
-  const canManageDirectiva = role === 'presidencia' || role === 'secretaria'
 
   return (
     <div className="min-h-screen w-full bg-canvas">
@@ -41,7 +38,6 @@ export function AppShell({ activeModule, module, onNavigate, onLogout, children 
             <GlobalSearch onNavigate={onNavigate} />
             <UserChip />
             <NotificationsBell onNavigate={onNavigate} />
-            {canManageDirectiva ? <DirectivaButton onClick={() => setDirectivaOpen(true)} /> : null}
             {canAudit ? <AuditButton onClick={() => setAuditOpen(true)} /> : null}
             <SecurityButton onClick={() => setSecurityOpen(true)} />
             <LogoutButton onLogout={onLogout} />
@@ -51,16 +47,7 @@ export function AppShell({ activeModule, module, onNavigate, onLogout, children 
       </div>
       {securityOpen ? <MfaSettings onClose={() => setSecurityOpen(false)} /> : null}
       {auditOpen ? <AuditLog onClose={() => setAuditOpen(false)} /> : null}
-      {directivaOpen ? <DirectivaManager onClose={() => setDirectivaOpen(false)} /> : null}
     </div>
-  )
-}
-
-function DirectivaButton({ onClick }: { onClick: () => void }) {
-  return (
-    <button onClick={onClick} title="Junta Directiva · crear cuentas" aria-label="Junta Directiva" className="rounded-xl p-2 text-ink/60 transition hover:bg-white hover:text-night">
-      <UsersRoundIcon className="h-5 w-5" strokeWidth={1.8} />
-    </button>
   )
 }
 

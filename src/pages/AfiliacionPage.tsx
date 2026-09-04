@@ -311,6 +311,7 @@ const emptyForm = {
   phone: '',
   address: '',
   password: '',
+  rolSindicato: 'afiliado',
   fotoUrl: '',
   beneficios: [] as string[],
   role: '',
@@ -327,6 +328,17 @@ const emptyForm = {
 function parseMoney(text: string): number {
   return Number(text.replace(/\D/g, ''))
 }
+
+// Rol de la persona dentro del sindicato (define su acceso). 'afiliado' = miembro
+// normal (portal); los demás son cargos de la directiva (operan el sistema).
+const ROL_SINDICATO: Array<{ value: string; label: string }> = [
+  { value: 'afiliado', label: 'Afiliado (miembro)' },
+  { value: 'presidencia', label: 'Presidencia' },
+  { value: 'vicepresidencia', label: 'Vicepresidencia' },
+  { value: 'secretaria', label: 'Secretaría' },
+  { value: 'tesoreria', label: 'Tesorería' },
+  { value: 'fiscal', label: 'Fiscalía' },
+]
 
 function EnrollmentModal({ onClose }: { onClose: () => void }) {
   const { addAffiliate, affiliates, cargos, dependencias, vinculaciones, escalas, porcentajeCuota } = useDemo()
@@ -380,6 +392,7 @@ function EnrollmentModal({ onClose }: { onClose: () => void }) {
       phone: form.phone,
       address: form.address.trim(),
       password: form.password,
+      rolSindicato: form.rolSindicato,
       fotoUrl: form.fotoUrl,
       beneficios: form.beneficios,
       medio: form.medio,
@@ -438,6 +451,12 @@ function EnrollmentModal({ onClose }: { onClose: () => void }) {
                   <Field label="Dirección de domicilio" placeholder="Dirección" value={form.address} onChange={(v) => set('address', v)} />
                   <Field label="Teléfono de contacto" placeholder="300 000 0000" value={form.phone} onChange={(v) => set('phone', v)} />
                   <Field label="Contraseña de acceso" placeholder="Contraseña del afiliado" value={form.password} onChange={(v) => set('password', v)} required />
+                  <label className="block">
+                    <span className="mb-1.5 block text-sm font-medium text-ink/70">Rol en el sindicato</span>
+                    <select value={form.rolSindicato} onChange={(e) => set('rolSindicato', e.target.value)} className="w-full rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10">
+                      {ROL_SINDICATO.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
+                    </select>
+                  </label>
                 </div>
                 <div className="mt-4">
                   <span className="mb-1.5 block text-xs font-semibold text-ink/70">Programas de bienestar e incentivos</span>
