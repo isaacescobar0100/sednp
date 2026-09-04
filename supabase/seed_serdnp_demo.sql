@@ -75,11 +75,11 @@ begin
 
   -- Egresos y otros ingresos del año
   insert into public.movements (org_id, date, concept, category, kind, amount, status, nivel, firma_tesorero, firma_presidente, firma_fiscal, orden_pago) values
-    (v_org,'15 oct 2025','Asesoría jurídica — retención sindical','Defensa','Egreso',2200000,'Pagado','junta',true,true,true,'OP-2025-014'),
-    (v_org,'20 nov 2025','Papelería y gastos de oficina','Operación','Egreso',680000,'Pagado','tesoreria',true,false,false,'OP-2025-021'),
-    (v_org,'05 dic 2025','Actividad de bienestar de fin de año','Bienestar','Egreso',3500000,'Pagado','junta',true,true,true,'OP-2025-030'),
-    (v_org,'18 feb 2026','Capacitación en negociación colectiva','Formación','Egreso',1900000,'Pagado','junta',true,true,true,'OP-2026-006'),
-    (v_org,'10 abr 2026','Gravamen a los movimientos financieros (GMF)','Operación','Egreso',145000,'Pagado','tesoreria',true,false,false,'OP-2026-012'),
+    (v_org,'15 oct 2025','Asesoría jurídica — retención sindical','Defensa','Egreso',1200000,'Pagado','junta',true,true,true,'OP-2025-014'),
+    (v_org,'20 nov 2025','Papelería y gastos de oficina','Operación','Egreso',420000,'Pagado','tesoreria',true,false,false,'OP-2025-021'),
+    (v_org,'05 dic 2025','Actividad de bienestar de fin de año','Bienestar','Egreso',1300000,'Pagado','junta',true,true,true,'OP-2025-030'),
+    (v_org,'18 feb 2026','Capacitación en negociación colectiva','Formación','Egreso',900000,'Pagado','junta',true,true,true,'OP-2026-006'),
+    (v_org,'10 abr 2026','Gravamen a los movimientos financieros (GMF)','Operación','Egreso',95000,'Pagado','tesoreria',true,false,false,'OP-2026-012'),
     (v_org,'22 jun 2026','Apoyo jurídico caso disciplinario','Defensa','Egreso',1200000,'Aprobado','junta',false,true,true,null),
     (v_org,'08 ago 2026','Jornada deportiva y de integración','Bienestar','Egreso',900000,'Por aprobar','tesoreria',false,false,false,null);
   insert into public.movements (org_id, date, concept, category, kind, amount, status, nivel, firma_tesorero, firma_presidente) values
