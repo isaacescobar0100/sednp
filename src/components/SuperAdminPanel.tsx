@@ -141,21 +141,40 @@ export function SuperAdminPanel({ onClose }: { onClose: () => void }) {
   )
 }
 
-function OrgItem({ org, onSaveLogo }: { org: OrgRow; onSaveLogo: (logo: string) => void }) {
+function OrgItem({ org, onReload }: { org: OrgRow; onReload: () => void }) {
   const [logo, setLogo] = useState(org.logo_url ?? '')
-  const dirty = (logo || null) !== (org.logo_url ?? null)
+  const [nombre, setNombre] = useState(org.nombre)
+  const logoDirty = (logo || null) !== (org.logo_url ?? null)
+  const nombreDirty = nombre.trim() !== org.nombre && nombre.trim() !== ''
+
+  async function guardar() {
+    const changes: Record<string, unknown> = {}
+    if (logoDirty) changes.logo_url = logo || null
+    if (nombreDirty) changes.nombre = nombre.trim()
+    if (Object.keys(changes).length === 0) return
+    await supabase.from('organizations').update(changes).eq('id', org.id)
+    onReload()
+  }
+  async function toggleActivo() {
+    await supabase.from('organizations').update({ activo: !org.activo }).eq('id', org.id)
+    onReload()
+  }
+
   return (
-    <div className="rounded-xl border border-ink/[0.08] bg-white p-3 shadow-sm">
+    <div className={`rounded-xl border bg-white p-3 shadow-sm ${org.activo ? 'border-ink/[0.08]' : 'border-brick/25'}`}>
       <div className="flex items-center gap-3">
         <img src={logo || '/sindika.png'} alt={org.nombre} className="h-10 w-10 shrink-0 rounded-lg border border-ink/10 object-contain" />
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm font-semibold text-ink">{org.nombre}</p>
-          <p className="text-xs text-ink/45">{org.slug}</p>
+          <input value={nombre} onChange={(e) => setNombre(e.target.value)} className="w-full truncate rounded-md border border-transparent bg-transparent text-sm font-semibold text-ink outline-none hover:border-ink/12 focus:border-night" />
+          <p className="px-1 text-xs text-ink/45">{org.slug}</p>
         </div>
+        <button onClick={toggleActivo} title={org.activo ? 'Suspender (por falta de pago)' : 'Reactivar'} className={`shrink-0 rounded-md px-2 py-1 text-[11px] font-semibold ${org.activo ? 'bg-emerald-100 text-emerald-700' : 'bg-brick/10 text-brick'}`}>
+          {org.activo ? 'Activo' : 'Suspendido'}
+        </button>
       </div>
       <div className="mt-2.5 flex gap-2">
         <input value={logo} onChange={(e) => setLogo(e.target.value)} placeholder="URL del logo (vacío = Sindika)" className="w-full rounded-lg border border-ink/12 bg-canvas/45 px-3 py-2 text-xs outline-none focus:border-night" />
-        <button onClick={() => onSaveLogo(logo)} disabled={!dirty} className="shrink-0 rounded-lg bg-night px-3 text-xs font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">Guardar</button>
+        <button onClick={guardar} disabled={!logoDirty && !nombreDirty} className="shrink-0 rounded-lg bg-night px-3 text-xs font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">Guardar</button>
       </div>
     </div>
   )
