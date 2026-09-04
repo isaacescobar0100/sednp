@@ -15,6 +15,7 @@ type Row = {
   email: string | null
   phone: string | null
   address: string | null
+  foto_url: string | null
   beneficios: string[] | null
   medio: string | null
   motivo: string | null
@@ -40,6 +41,7 @@ export function rowToAffiliate(r: Row): Affiliate {
     email: r.email ?? '',
     phone: r.phone ?? '',
     address: r.address ?? '',
+    fotoUrl: r.foto_url ?? '',
     password: '', // la contraseña la maneja Supabase Auth, no la tabla
     beneficios: Array.isArray(r.beneficios) ? r.beneficios : [],
     medio: r.medio ?? '',
@@ -68,6 +70,7 @@ export function affiliateToRow(a: Partial<Affiliate>): Record<string, unknown> {
   set('email', a.email)
   set('phone', a.phone)
   set('address', a.address)
+  set('foto_url', a.fotoUrl)
   set('beneficios', a.beneficios)
   set('medio', a.medio)
   set('motivo', a.motivo)

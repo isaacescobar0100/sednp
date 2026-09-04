@@ -549,6 +549,7 @@ type NewAffiliateInput = {
   phone: string
   address: string
   password: string
+  fotoUrl: string
   beneficios: string[]
   medio: string
   motivo: string

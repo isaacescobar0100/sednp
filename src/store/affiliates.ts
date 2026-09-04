@@ -18,6 +18,7 @@ export type Affiliate = {
   email: string
   phone: string
   address: string // dirección de domicilio
+  fotoUrl?: string // foto del afiliado (URL pública en Storage)
   password: string // credencial del portal del afiliado (demo: texto plano, sin backend)
   beneficios: string[] // programas de bienestar e incentivos a los que está vinculado
   medio: string // por qué medio se enteró del sindicato
