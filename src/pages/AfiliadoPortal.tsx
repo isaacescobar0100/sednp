@@ -1,6 +1,8 @@
 import React, { useState } from 'react'
-import { BadgeCheckIcon, Building2Icon, BriefcaseIcon, CalendarDaysIcon, CheckCircle2Icon, CircleDollarSignIcon, DownloadIcon, FileTextIcon, HashIcon, IdCardIcon, LogOutIcon, MailIcon, MapPinIcon, PhoneIcon, TagIcon, UserRoundIcon, VoteIcon, WalletIcon } from 'lucide-react'
+import { BadgeCheckIcon, Building2Icon, BriefcaseIcon, CalendarDaysIcon, CameraIcon, CheckCircle2Icon, CircleDollarSignIcon, DownloadIcon, FileTextIcon, HashIcon, IdCardIcon, LogOutIcon, MailIcon, MapPinIcon, PhoneIcon, TagIcon, UserRoundIcon, VoteIcon, WalletIcon } from 'lucide-react'
 import { useDemo } from '../store/DemoStore'
+import { useAuth } from '../store/auth'
+import { MiFoto } from '../components/MiFoto'
 import { StatusBadge } from '../components/StatusBadge'
 import { Ballot, totalVotes, votePct } from '../store/governance'
 import { Doc, formatFileSize } from '../store/documents'
@@ -83,18 +85,25 @@ export function AfiliadoPortal({ affiliateId, onLogout }: { affiliateId: string;
 
 function Perfil({ me }: { me: ReturnType<typeof useDemo>['affiliates'][number] }) {
   const { porcentajeCuota, aportes } = useDemo()
+  const { profile } = useAuth()
+  const [fotoOpen, setFotoOpen] = useState(false)
   const initials = me.name.split(' ').filter(Boolean).slice(0, 2).map((w) => w[0]).join('').toUpperCase()
+  const foto = profile?.fotoUrl || me.fotoUrl
   const cuota = Math.round((me.asignacionBasica || 0) * porcentajeCuota)
   const misPendientes = aportes.filter((a) => a.affiliateId === me.id && a.status === 'Pendiente').length
 
   return (
     <div className="space-y-6">
+      {fotoOpen ? <MiFoto onClose={() => setFotoOpen(false)} /> : null}
       {/* Hero */}
       <section className="overflow-hidden rounded-3xl border border-ink/[0.08] bg-gradient-to-br from-night to-night-deep text-white shadow-[0_16px_40px_rgba(15,27,61,0.18)]">
         <div className="flex flex-col gap-5 p-6 sm:flex-row sm:items-center sm:p-8">
-          {me.fotoUrl
-            ? <img src={me.fotoUrl} alt={me.name} className="h-20 w-20 shrink-0 rounded-2xl object-cover shadow-lg" />
-            : <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-gold font-display text-3xl font-bold text-night shadow-lg">{initials}</div>}
+          <button onClick={() => setFotoOpen(true)} title="Cambiar mi foto" className="group relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl shadow-lg">
+            {foto
+              ? <img src={foto} alt={me.name} className="h-full w-full object-cover" />
+              : <span className="flex h-full w-full items-center justify-center bg-gold font-display text-3xl font-bold text-night">{initials}</span>}
+            <span className="absolute inset-0 flex items-center justify-center bg-night/50 opacity-0 transition group-hover:opacity-100"><CameraIcon className="h-5 w-5 text-white" /></span>
+          </button>
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-gold">Mi afiliación</p>
             <h1 className="mt-1 truncate font-display text-2xl font-semibold sm:text-3xl">{me.name}</h1>

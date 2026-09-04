@@ -3,8 +3,10 @@ import { BellIcon, HistoryIcon, LogOutIcon, SearchIcon, ShieldCheckIcon } from '
 import { AppSidebar, MobileMenuButton } from './AppSidebar'
 import { MfaSettings } from './MfaSettings'
 import { AuditLog } from './AuditLog'
+import { MiFoto } from './MiFoto'
 import { useDemo } from '../store/DemoStore'
 import { roleLabel, useSession } from '../store/session'
+import { useAuth } from '../store/auth'
 import { ModuleKey, ModuleMeta } from '../types/navigation'
 
 type AppShellProps = {
@@ -19,6 +21,7 @@ export function AppShell({ activeModule, module, onNavigate, onLogout, children 
   const [mobileOpen, setMobileOpen] = useState(false)
   const [securityOpen, setSecurityOpen] = useState(false)
   const [auditOpen, setAuditOpen] = useState(false)
+  const [miFotoOpen, setMiFotoOpen] = useState(false)
   const { role } = useSession()
   const canAudit = role === 'presidencia' || role === 'fiscal'
 
@@ -36,7 +39,7 @@ export function AppShell({ activeModule, module, onNavigate, onLogout, children 
           </div>
           <div className="flex items-center gap-2 sm:gap-4">
             <GlobalSearch onNavigate={onNavigate} />
-            <UserChip />
+            <UserChip onClick={() => setMiFotoOpen(true)} />
             <NotificationsBell onNavigate={onNavigate} />
             {canAudit ? <AuditButton onClick={() => setAuditOpen(true)} /> : null}
             <SecurityButton onClick={() => setSecurityOpen(true)} />
@@ -47,6 +50,7 @@ export function AppShell({ activeModule, module, onNavigate, onLogout, children 
       </div>
       {securityOpen ? <MfaSettings onClose={() => setSecurityOpen(false)} /> : null}
       {auditOpen ? <AuditLog onClose={() => setAuditOpen(false)} /> : null}
+      {miFotoOpen ? <MiFoto onClose={() => setMiFotoOpen(false)} /> : null}
     </div>
   )
 }
@@ -186,15 +190,18 @@ function LogoutButton({ onLogout }: { onLogout: () => void }) {
 
 // Ficha del usuario autenticado (nombre + rol). Ya no hay cambiador de rol:
 // cada persona opera con el rol de su cuenta.
-function UserChip() {
+function UserChip({ onClick }: { onClick: () => void }) {
   const { role, user } = useSession()
+  const { profile } = useAuth()
   return (
-    <div className="inline-flex items-center gap-2 rounded-xl border border-ink/10 bg-white px-2 py-1.5">
-      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-night font-display text-[11px] font-semibold text-gold">{user.initials}</div>
+    <button onClick={onClick} title="Mi foto" className="inline-flex items-center gap-2 rounded-xl border border-ink/10 bg-white px-2 py-1.5 transition hover:border-night/25">
+      <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-night font-display text-[11px] font-semibold text-gold">
+        {profile?.fotoUrl ? <img src={profile.fotoUrl} alt={user.name} className="h-full w-full object-cover" /> : user.initials}
+      </div>
       <div className="hidden min-w-0 leading-tight sm:block">
         <p className="max-w-[140px] truncate text-xs font-semibold text-ink">{user.name}</p>
         <p className="text-[10px] text-ink/50">{roleLabel[role]}</p>
       </div>
-    </div>
+    </button>
   )
 }
