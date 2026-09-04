@@ -3,7 +3,7 @@ import { AlertCircleIcon, Building2Icon, CheckCircle2Icon, LogOutIcon, PlusIcon,
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../store/auth'
 
-type OrgRow = { id: string; nombre: string; slug: string; logo_url: string | null }
+type OrgRow = { id: string; nombre: string; slug: string; logo_url: string | null; activo: boolean }
 
 // ---------------------------------------------------------------------------
 // Contenido reutilizable: dar de alta sindicatos y gestionar su marca.
@@ -23,7 +23,7 @@ function SuperAdminContent() {
 
   async function load() {
     setLoading(true)
-    const { data, error } = await supabase.from('organizations').select('id, nombre, slug, logo_url').order('created_at')
+    const { data, error } = await supabase.from('organizations').select('id, nombre, slug, logo_url, activo').order('created_at')
     if (error) setError('No se pudieron cargar los sindicatos.')
     else setOrgs((data as OrgRow[]) ?? [])
     setLoading(false)
@@ -50,12 +50,6 @@ function SuperAdminContent() {
     setBusy(false)
   }
 
-  async function guardarLogo(id: string, logo: string) {
-    const { error } = await supabase.from('organizations').update({ logo_url: logo || null }).eq('id', id)
-    if (error) setError('No se pudo guardar el logo.')
-    else { setOk('Logo actualizado.'); void load() }
-  }
-
   return (
     <div className="space-y-6">
       {error ? <div className="flex items-start gap-2 rounded-xl border border-brick/25 bg-red-50 px-3 py-2.5 text-sm text-brick"><AlertCircleIcon className="mt-0.5 h-4 w-4 shrink-0" /><span>{error}</span></div> : null}
@@ -80,7 +74,7 @@ function SuperAdminContent() {
         <h4 className="mb-2 font-display text-sm font-semibold text-ink">Sindicatos ({orgs.length})</h4>
         {loading ? <p className="py-6 text-center text-sm text-ink/50">Cargando…</p> : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {orgs.map((o) => <OrgItem key={o.id} org={o} onSaveLogo={(logo) => guardarLogo(o.id, logo)} />)}
+            {orgs.map((o) => <OrgItem key={o.id} org={o} onReload={() => void load()} />)}
           </div>
         )}
       </div>
