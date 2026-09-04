@@ -549,6 +549,7 @@ type NewAffiliateInput = {
   phone: string
   address: string
   password: string
+  rolSindicato: string
   fotoUrl: string
   beneficios: string[]
   medio: string
@@ -868,6 +869,17 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     insertAffiliate(draft)
       .then((saved) => {
         dispatch({ type: 'add', affiliate: saved })
+        // Crea la cuenta de acceso con el rol elegido (afiliado o cargo de directiva).
+        if (input.email.trim() && input.password.trim()) {
+          supabase.rpc('crear_cuenta_persona', {
+            p_email: input.email.trim().toLowerCase(),
+            p_password: input.password,
+            p_nombre: saved.name,
+            p_rol: input.rolSindicato,
+          }).then(({ error }) => {
+            if (error) notify(`Afiliado guardado, pero no se pudo crear su acceso: ${error.message}`, 'warning')
+          })
+        }
         notify(`${saved.name || 'Nuevo afiliado'} (${saved.solicitudNo}) quedó en revisión.`, 'info')
       })
       .catch(() => notify('No se pudo registrar el afiliado. Verifica tu sesión y permisos.', 'warning'))
