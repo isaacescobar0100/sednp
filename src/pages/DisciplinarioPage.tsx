@@ -4,7 +4,7 @@ import { SectionTitle } from '../components/SectionTitle'
 import { StatusBadge } from '../components/StatusBadge'
 import { useDemo } from '../store/DemoStore'
 import { Role, roleLabel, useSession } from '../store/session'
-import { CaseStatus, DisciplineCase, MULTA_DIAS_MAX, MULTA_DIAS_MIN, PRESCRIPCION_ANIOS, Sancion, stageTerms, stages, termTone, valorMulta } from '../store/discipline'
+import { CaseStatus, DisciplineCase, MULTA_DIAS_MAX, MULTA_DIAS_MIN, PRESCRIPCION_ANIOS, Sancion, stageTerms, stages, termOf, termTone, valorMulta } from '../store/discipline'
 import { formatCop } from '../store/finance'
 import { abrirSoporte, nombreSoporte, subirSoporte } from '../store/storageApi'
 
@@ -390,14 +390,14 @@ function OpenCaseModal({ onClose }: { onClose: () => void }) {
   const { addCase, affiliates } = useDemo()
   const [subject, setSubject] = useState('')
   const [person, setPerson] = useState('')
-  const [daysText, setDaysText] = useState('30')
 
-  const days = Number(daysText.replace(/\D/g, ''))
-  const valid = subject.trim() !== '' && days > 0
+  const valid = subject.trim() !== ''
 
   function submit() {
     if (!valid) return
-    addCase({ subject: subject.trim(), person: person.trim(), daysLeft: days })
+    // El término lo fija el reglamento para cada etapa; la apertura arranca con
+    // el término de la primera etapa ("Auto de apertura").
+    addCase({ subject: subject.trim(), person: person.trim(), daysLeft: termOf(0) })
     onClose()
   }
 
@@ -429,10 +429,9 @@ function OpenCaseModal({ onClose }: { onClose: () => void }) {
               <p className="rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-xs text-ink/50">No hay afiliados registrados. Créalos en el módulo <strong>Afiliación</strong> para poder elegir al involucrado.</p>
             )}
           </label>
-          <label className="block">
-            <span className="mb-1.5 block text-xs font-semibold text-ink/70">Término procesal (días) <span className="text-brick">*</span></span>
-            <input value={daysText} onChange={(e) => setDaysText(e.target.value)} inputMode="numeric" placeholder="30" className="w-full rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
-          </label>
+          <div className="rounded-xl border border-ink/10 bg-canvas/50 px-3 py-2.5 text-xs text-ink/60">
+            El término de cada etapa lo fija el reglamento. La apertura (<strong>Auto de apertura</strong>) arranca con <strong>{termOf(0)} días</strong>; al avanzar, cada etapa toma su propio término.
+          </div>
         </div>
 
         <div className="mt-6 flex justify-end gap-2">

@@ -7,7 +7,7 @@ import { StatusBadge } from '../components/StatusBadge'
 import { useDemo } from '../store/DemoStore'
 import { useSession } from '../store/session'
 import { RowMenu, RowAction } from '../components/RowMenu'
-import { FirmaKey, Movement, MovementKind, MovementStatus, TOPE_CAJA_SMMLV, ejecucionPorRubro, ejecutadoRubro, expenseCategories, firmaLabel, firmasCount, formatCop, formatCopShort, incomeCategories, isoToLabel, monthlyFlow, movementsToCsv, nivelGasto, nivelLabel, requiereActaAsamblea, todayISO } from '../store/finance'
+import { FirmaKey, Movement, MovementKind, MovementStatus, TOPE_CAJA_SMMLV, ejecucionPorRubro, ejecutadoRubro, pendienteRubro, expenseCategories, firmaLabel, firmasCount, formatCop, formatCopShort, incomeCategories, isoToLabel, monthlyFlow, movementsToCsv, nivelGasto, nivelLabel, requiereActaAsamblea, todayISO } from '../store/finance'
 import { TOPE_EXTRAORDINARIA, mesesVencidos, periodLabel, recentPeriods } from '../store/contributions'
 import { abrirSoporte, nombreSoporte, subirSoporte } from '../store/storageApi'
 import { Pagination, paginate } from '../components/Pagination'
@@ -654,9 +654,13 @@ function MovementModal({ kind, onClose }: { kind: MovementKind; onClose: () => v
   const esEgreso = kind === 'Egreso'
   const anual = esEgreso ? (presupuestos.find((p) => p.category === category)?.anual ?? 0) : 0
   const ejecutado = esEgreso ? ejecutadoRubro(movements, category) : 0
+  const pendiente = esEgreso ? pendienteRubro(movements, category) : 0
   const saldo = anual - ejecutado
   const sinPresupuesto = esEgreso && anual === 0
   const excedeSaldo = esEgreso && anual > 0 && amount > saldo
+  // Aviso (no bloqueo): con este gasto, lo comprometido + lo pendiente por
+  // aprobar supera el presupuesto anual del rubro.
+  const superaConPendientes = esEgreso && anual > 0 && !excedeSaldo && amount + ejecutado + pendiente > anual
 
   const valid = concept.trim() !== '' && amount > 0 && dateISO !== '' && !excedeSaldo
 
@@ -715,9 +719,13 @@ function MovementModal({ kind, onClose }: { kind: MovementKind; onClose: () => v
               <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs text-amber-700">
                 El rubro <strong>{category}</strong> no tiene presupuesto asignado. Defínelo en Parámetros para controlar su ejecución.
               </div>
+            ) : superaConPendientes ? (
+              <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs text-amber-700">
+                Con este gasto, lo comprometido más lo pendiente por aprobar del rubro <strong>{category}</strong> ({formatCop(ejecutado + pendiente + amount)}) supera el presupuesto anual ({formatCop(anual)}). Puedes registrarlo, pero revísalo antes de aprobar.
+              </div>
             ) : (
               <div className="rounded-xl border border-ink/10 bg-canvas/50 px-3 py-2.5 text-xs text-ink/60">
-                Saldo del rubro <strong>{category}</strong>: {formatCop(Math.max(0, saldo))} disponible de {formatCop(anual)}.
+                Saldo del rubro <strong>{category}</strong>: {formatCop(Math.max(0, saldo))} disponible de {formatCop(anual)}.{pendiente > 0 ? ` Pendiente por aprobar: ${formatCop(pendiente)}.` : ''}
               </div>
             )
           ) : null}

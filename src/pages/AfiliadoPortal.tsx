@@ -281,12 +281,16 @@ function BallotVote({ ballot, affiliateId }: { ballot: Ballot; affiliateId: stri
 
       <div className="p-5">
         {voted ? (
-          <div className="space-y-3">
-            <Bar label="A favor" pct={votePct(ballot.favor, total)} count={ballot.favor} color="bg-night" />
-            <Bar label="En contra" pct={votePct(ballot.contra, total)} count={ballot.contra} color="bg-brick" />
-            <Bar label="Abstención" pct={votePct(ballot.abstencion, total)} count={ballot.abstencion} color="bg-gold" />
-            <p className="flex items-center gap-1.5 pt-1 text-xs text-emerald-700"><CheckCircle2Icon className="h-3.5 w-3.5" />Gracias por participar.{ballot.secreta ? ' Tu voto es secreto.' : ''}</p>
-          </div>
+          ballot.secreta ? (
+            <p className="flex items-center gap-1.5 text-sm text-emerald-700"><CheckCircle2Icon className="h-4 w-4" />Gracias por participar. Tu voto es secreto; los resultados se revelan al cerrar la votación.</p>
+          ) : (
+            <div className="space-y-3">
+              <Bar label="A favor" pct={votePct(ballot.favor, total)} count={ballot.favor} color="bg-night" />
+              <Bar label="En contra" pct={votePct(ballot.contra, total)} count={ballot.contra} color="bg-brick" />
+              <Bar label="Abstención" pct={votePct(ballot.abstencion, total)} count={ballot.abstencion} color="bg-gold" />
+              <p className="flex items-center gap-1.5 pt-1 text-xs text-emerald-700"><CheckCircle2Icon className="h-3.5 w-3.5" />Gracias por participar.</p>
+            </div>
+          )
         ) : (
           <>
             <p className="mb-3 text-xs text-ink/45">Elige tu opción{ballot.secreta ? ' (voto secreto: no se revela tu elección)' : ''}:</p>

@@ -180,11 +180,18 @@ function BallotCard({ ballot }: { ballot: Ballot }) {
         </div>
       </div>
 
-      <div className="mt-7 space-y-4">
-        <VoteBar label="A favor" value={votePct(ballot.favor, total)} count={ballot.favor} color="bg-night" />
-        <VoteBar label="En contra" value={votePct(ballot.contra, total)} count={ballot.contra} color="bg-brick" />
-        <VoteBar label="Abstención" value={votePct(ballot.abstencion, total)} count={ballot.abstencion} color="bg-gold" />
-      </div>
+      {ballot.secreta && open ? (
+        <div className="mt-7 flex items-center justify-center gap-2 rounded-xl border border-night/10 bg-night/[0.03] px-4 py-6 text-center text-sm text-ink/55">
+          <LockIcon className="h-4 w-4 text-night/60" />
+          Votación secreta: los resultados se revelan al cerrarla.
+        </div>
+      ) : (
+        <div className="mt-7 space-y-4">
+          <VoteBar label="A favor" value={votePct(ballot.favor, total)} count={ballot.favor} color="bg-night" />
+          <VoteBar label="En contra" value={votePct(ballot.contra, total)} count={ballot.contra} color="bg-brick" />
+          <VoteBar label="Abstención" value={votePct(ballot.abstencion, total)} count={ballot.abstencion} color="bg-gold" />
+        </div>
+      )}
 
       {open ? (
         <div className="mt-7 border-t border-ink/[0.07] pt-5">
