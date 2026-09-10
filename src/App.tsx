@@ -19,6 +19,7 @@ const DisciplinarioPage = lazy(() => import('./pages/DisciplinarioPage').then((m
 const DocumentalPage = lazy(() => import('./pages/DocumentalPage').then((m) => ({ default: m.DocumentalPage })))
 const FinancieroPage = lazy(() => import('./pages/FinancieroPage').then((m) => ({ default: m.FinancieroPage })))
 const GobernanzaPage = lazy(() => import('./pages/GobernanzaPage').then((m) => ({ default: m.GobernanzaPage })))
+const LibroPage = lazy(() => import('./pages/LibroPage').then((m) => ({ default: m.LibroPage })))
 const ParametrosPage = lazy(() => import('./pages/ParametrosPage').then((m) => ({ default: m.ParametrosPage })))
 const ReportesPage = lazy(() => import('./pages/ReportesPage').then((m) => ({ default: m.ReportesPage })))
 
@@ -31,6 +32,7 @@ const modules: Record<ModuleKey, ModuleMeta> = {
   comites: { key: 'comites', label: 'Comités', subtitle: 'Espacios de trabajo colaborativo' },
   comunicaciones: { key: 'comunicaciones', label: 'Comunicaciones', subtitle: 'Relación con afiliados' },
   documental: { key: 'documental', label: 'Documental', subtitle: 'Repositorio institucional' },
+  libro: { key: 'libro', label: 'Libro de Actas y Resoluciones', subtitle: 'Registro inmutable de actos institucionales' },
   reportes: { key: 'reportes', label: 'Reportes', subtitle: 'Análisis e indicadores consolidados' },
   parametros: { key: 'parametros', label: 'Parámetros', subtitle: 'Catálogos y datos maestros del sistema' },
 }
@@ -179,6 +181,7 @@ function ActivePage({ module }: { module: ModuleKey }) {
     case 'comites': return <ComitesPage />
     case 'comunicaciones': return <ComunicacionesPage />
     case 'documental': return <DocumentalPage />
+    case 'libro': return <LibroPage />
     case 'reportes': return <ReportesPage />
     case 'parametros': return <ParametrosPage />
   }

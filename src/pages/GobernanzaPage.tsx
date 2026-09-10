@@ -81,6 +81,12 @@ export function GobernanzaPage() {
               {typeof lastMinutes.asistentes === 'number' ? (
                 <p className={`mt-3 text-xs font-semibold ${lastMinutes.quorum ? 'text-emerald-300' : 'text-rose-300'}`}>{lastMinutes.asistentes} asistentes · {lastMinutes.quorum ? 'con quórum' : 'sin quórum'}</p>
               ) : null}
+              {lastMinutes.asistentesLista && lastMinutes.asistentesLista.length > 0 ? (
+                <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2.5">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-gold/90">Asistencia anexa ({lastMinutes.asistentesLista.length})</p>
+                  <p className="mt-1 text-xs leading-relaxed text-white/70">{lastMinutes.asistentesLista.join(' · ')}</p>
+                </div>
+              ) : null}
               <div className="mt-6 flex items-center justify-between">
                 <span className="text-xs text-white/50">{lastMinutes.day} {lastMinutes.month} · {lastMinutes.organ}</span>
                 <span className="rounded-lg bg-white/10 px-3 py-2 text-xs font-semibold text-white">Publicada</span>
@@ -295,6 +301,8 @@ function MinutesModal({ session, onClose }: { session: GovSession; onClose: () =
   const [minutes, setMinutes] = useState('')
   const [asistentesText, setAsistentesText] = useState('')
   const [convocadosText, setConvocadosText] = useState('')
+  const [asistentesSel, setAsistentesSel] = useState<string[]>([])
+  const [buscarAsis, setBuscarAsis] = useState('')
   const esAsamblea = session.organ === 'Asamblea'
   const acto = actoLabel(session.organ)
   const activos = affiliates.filter((a) => a.status === 'Activo').length
@@ -307,9 +315,16 @@ function MinutesModal({ session, onClose }: { session: GovSession; onClose: () =
   const hayQuorum = asistentes >= minimo && base > 0
   const valid = minutes.trim() !== '' && (!esAsamblea || (asistentesText.trim() !== '' && (!porDelegados || convocadosText.trim() !== '')))
 
+  const activosList = affiliates.filter((a) => a.status === 'Activo')
+  const q = buscarAsis.trim().toLowerCase()
+  const listaAsis = q === '' ? activosList : activosList.filter((a) => `${a.name} ${a.doc}`.toLowerCase().includes(q))
+  function toggleAsis(name: string) {
+    setAsistentesSel((prev) => prev.includes(name) ? prev.filter((n) => n !== name) : [...prev, name])
+  }
+
   function submit() {
     if (!valid) return
-    publishMinutes(session.id, minutes.trim(), esAsamblea ? asistentes : undefined, esAsamblea ? hayQuorum : undefined)
+    publishMinutes(session.id, minutes.trim(), esAsamblea ? asistentes : undefined, esAsamblea ? hayQuorum : undefined, asistentesSel.length ? asistentesSel : undefined)
     onClose()
   }
 
@@ -337,6 +352,27 @@ function MinutesModal({ session, onClose }: { session: GovSession; onClose: () =
           ) : null}
         </div>
       ) : null}
+      <div className="mb-4">
+        <div className="mb-1.5 flex items-center justify-between">
+          <span className="text-xs font-semibold text-ink/70">Asistencia (se anexa al acta)</span>
+          <span className="text-[11px] font-semibold text-night">{asistentesSel.length} seleccionado(s)</span>
+        </div>
+        {activosList.length > 0 ? (
+          <div className="rounded-xl border border-ink/12 bg-canvas/45 p-2">
+            <input value={buscarAsis} onChange={(e) => setBuscarAsis(e.target.value)} placeholder="Buscar afiliado…" className="mb-2 w-full rounded-lg border border-ink/10 bg-white px-3 py-2 text-sm outline-none focus:border-night" />
+            <div className="max-h-40 space-y-1 overflow-y-auto">
+              {listaAsis.map((a) => (
+                <label key={a.id} className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-white">
+                  <input type="checkbox" checked={asistentesSel.includes(a.name)} onChange={() => toggleAsis(a.name)} className="h-4 w-4 accent-night" />
+                  <span className="min-w-0 flex-1 truncate text-ink/80">{a.name}</span>
+                  <span className="shrink-0 text-[11px] text-ink/45">{a.doc}</span>
+                </label>
+              ))}
+              {listaAsis.length === 0 ? <p className="px-2 py-3 text-center text-xs text-ink/45">Sin coincidencias.</p> : null}
+            </div>
+          </div>
+        ) : <p className="rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-xs text-ink/50">No hay afiliados activos para registrar asistencia.</p>}
+      </div>
       <ModalField label={`Resumen del ${acto.toLowerCase()}`} required>
         <textarea value={minutes} onChange={(e) => setMinutes(e.target.value)} rows={4} placeholder="Decisiones y acuerdos de la sesión…" className={`${inputClass} resize-none`} />
       </ModalField>

@@ -7,6 +7,7 @@ import { fetchMovements, insertMovement, patchMovement, deleteMovementRow } from
 import { Params, clearCajaGastos, deletePresupuesto as deletePresupuestoRow, fetchCajaGastos, fetchCuentas, fetchParams, fetchPresupuestos, insertCajaGasto, replaceCuentas, upsertParams, upsertPresupuesto } from './configApi'
 import { deleteCaseRow, fetchCases, insertCase, patchCase } from './casesApi'
 import { CaseEvent, fetchCaseEvents, insertCaseEvent } from './caseEventsApi'
+import { Acto, fetchActos, insertActo, nextActoNumero } from './actosApi'
 import { cerrarVencidas, deleteBallotRow, deleteSessionRow, emitirVoto, fetchBallots, fetchMyVotes, fetchSessions, insertBallot, insertSession, patchBallot, patchSession } from './governanceApi'
 import { deleteComunicadoRow, fetchComunicados, insertComunicado } from './commsApi'
 import { deleteCommitteeRow, fetchCommittees, insertCommittee, patchCommittee } from './committeesApi'
@@ -179,7 +180,7 @@ type Action =
   | { type: 'setMyVotes'; list: string[] }
   | { type: 'addMyVote'; id: string }
   | { type: 'addSession'; session: GovSession }
-  | { type: 'publishMinutes'; id: string; minutes: string; asistentes?: number; quorum?: boolean }
+  | { type: 'publishMinutes'; id: string; minutes: string; asistentes?: number; quorum?: boolean; asistentesLista?: string[] }
   | { type: 'deleteSession'; id: string }
   | { type: 'addBallot'; ballot: Ballot }
   | { type: 'castVote'; id: string; choice: VoteChoice }
@@ -348,7 +349,7 @@ function reducer(state: DemoState, action: Action): DemoState {
     case 'publishMinutes': {
       const target = state.sessions.find((s) => s.id === action.id)
       if (!target) return state
-      const updated: GovSession = { ...target, status: 'Realizada', minutes: action.minutes, asistentes: action.asistentes, quorum: action.quorum }
+      const updated: GovSession = { ...target, status: 'Realizada', minutes: action.minutes, asistentes: action.asistentes, quorum: action.quorum, asistentesLista: action.asistentesLista ?? target.asistentesLista }
       // La sesión con acta recién publicada pasa al frente (última acta).
       return { ...state, sessions: [updated, ...state.sessions.filter((s) => s.id !== action.id)] }
     }
@@ -629,7 +630,7 @@ type DemoContextValue = {
   stats: AffiliateStats
   addAffiliate: (input: NewAffiliateInput) => void
   setAffiliateStatus: (id: string, status: AffiliateStatus) => void
-  conceptAffiliate: (id: string, concepto: 'Positivo' | 'Negativo') => void
+  conceptAffiliate: (id: string, concepto: 'Positivo' | 'Negativo', nota?: string, soportePath?: string) => void
   approveAffiliate: (id: string, acta: string) => void
   updateAffiliate: (id: string, changes: Partial<Affiliate>) => void
   movements: Movement[]
@@ -655,7 +656,8 @@ type DemoContextValue = {
   ballots: Ballot[]
   myVotes: string[]
   addSession: (input: NewSessionInput) => void
-  publishMinutes: (id: string, minutes: string, asistentes?: number, quorum?: boolean) => void
+  publishMinutes: (id: string, minutes: string, asistentes?: number, quorum?: boolean, asistentesLista?: string[]) => void
+  actos: Acto[]
   deleteSession: (id: string, title: string) => void
   addBallot: (input: NewBallotInput) => void
   castVote: (id: string, choice: VoteChoice) => void
@@ -712,6 +714,11 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   const [state, dispatch] = useReducer(reducer, undefined, loadInitial)
   const [toasts, setToasts] = useState<Toast[]>([])
   const [toastSeq, setToastSeq] = useState(0)
+  // Libro de Actas y Resoluciones (registros inmutables). Se maneja aparte del
+  // reducer porque su fuente de verdad es Supabase y no se persiste localmente.
+  const [actos, setActos] = useState<Acto[]>([])
+  const actosRef = useRef<Acto[]>([])
+  actosRef.current = actos
   const { session, profile } = useAuth()
   const roleRef = useRef(profile?.role ?? '')
   roleRef.current = profile?.role ?? ''
@@ -724,6 +731,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       dispatch({ type: 'setAffiliates', list: [] })
       dispatch({ type: 'setAportes', list: [] })
       dispatch({ type: 'setMovements', list: [] })
+      setActos([])
       return
     }
     let active = true
@@ -786,6 +794,9 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       .catch(() => {})
     fetchEscalas()
       .then((list) => { if (active) dispatch({ type: 'setEscalas', list }) })
+      .catch(() => {})
+    fetchActos()
+      .then((list) => { if (active) setActos(list) })
       .catch(() => {})
     return () => { active = false }
   }, [session])
@@ -925,20 +936,60 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     if (status === 'Activo') crearAporteAlActivar(id)
   }, [notify, crearAporteAlActivar])
 
-  const conceptAffiliate = useCallback((id: string, concepto: 'Positivo' | 'Negativo') => {
+  // Registra un acto en el Libro de Actas y Resoluciones (inmutable).
+  const registrarActo = useCallback((prefix: string, a: { tipo: string; titulo: string; cuerpo?: string; referencia?: string; affiliateId?: string; resultado?: string; soportePath?: string }) => {
+    const draft = {
+      tipo: a.tipo,
+      titulo: a.titulo,
+      cuerpo: a.cuerpo ?? '',
+      referencia: a.referencia ?? '',
+      affiliateId: a.affiliateId,
+      resultado: a.resultado,
+      soportePath: a.soportePath,
+      numero: nextActoNumero(actosRef.current, prefix),
+      actorRole: roleRef.current,
+      fecha: commNowLabel(),
+    }
+    insertActo(draft)
+      .then((saved) => setActos((prev) => [saved, ...prev]))
+      .catch(() => notify('El concepto/acta se registró, pero no se pudo guardar en el Libro.', 'warning'))
+  }, [notify])
+
+  // Concepto del Fiscal: queda como acta en el Libro (motivación + evidencia).
+  const conceptAffiliate = useCallback((id: string, concepto: 'Positivo' | 'Negativo', nota = '', soportePath?: string) => {
+    const target = affiliatesRef.current.find((a) => a.id === id)
     dispatch({ type: 'conceptAffiliate', id, concepto })
     patchAffiliate(id, { conceptoFiscal: concepto }).catch(() => notify('No se pudo guardar el concepto en el servidor.', 'warning'))
+    registrarActo('CF', {
+      tipo: 'Concepto del Fiscal',
+      titulo: `Concepto del Fiscal — ${target?.name ?? 'afiliado'}`,
+      cuerpo: nota,
+      referencia: target ? `${target.name} · ${target.doc}` : '',
+      affiliateId: id,
+      resultado: concepto,
+      soportePath,
+    })
     notify(`Concepto del Fiscal registrado: ${concepto}.`, concepto === 'Positivo' ? 'success' : 'warning')
-  }, [notify])
+  }, [notify, registrarActo])
 
   const approveAffiliate = useCallback((id: string, acta: string) => {
     const fecha = commNowLabel()
+    const target = affiliatesRef.current.find((a) => a.id === id)
     dispatch({ type: 'approveAffiliate', id, acta, fecha })
     patchAffiliate(id, { status: 'Activo', aprobacionActa: acta, aprobacionFecha: fecha })
       .catch(() => notify('No se pudo guardar la aprobación en el servidor.', 'warning'))
     crearAporteAlActivar(id)
+    // Acto administrativo de afiliación (Resolución), autogenerado en el Libro.
+    registrarActo('RA', {
+      tipo: 'Resolución de afiliación',
+      titulo: `Resolución de afiliación — ${target?.name ?? 'afiliado'}`,
+      cuerpo: `Por la cual la Junta Directiva aprueba la afiliación de ${target?.name ?? 'la persona'}${target ? ` (documento ${target.doc})` : ''}, mediante Acta No. ${acta}.`,
+      referencia: target ? `${target.name} · ${target.doc}` : '',
+      affiliateId: id,
+      resultado: `Acta ${acta}`,
+    })
     notify('Afiliación aprobada por la Junta Directiva.', 'success')
-  }, [notify, crearAporteAlActivar])
+  }, [notify, crearAporteAlActivar, registrarActo])
 
   const updateAffiliate = useCallback((id: string, changes: Partial<Affiliate>) => {
     dispatch({ type: 'updateAffiliate', id, changes })
@@ -1113,9 +1164,9 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       .catch(() => notify('No se pudo agendar la sesión en el servidor.', 'warning'))
   }, [notify])
 
-  const publishMinutes = useCallback((id: string, minutes: string, asistentes?: number, quorum?: boolean) => {
-    dispatch({ type: 'publishMinutes', id, minutes, asistentes, quorum })
-    patchSession(id, { status: 'Realizada', minutes, asistentes, quorum }).catch(() => notify('No se pudo publicar el acta en el servidor.', 'warning'))
+  const publishMinutes = useCallback((id: string, minutes: string, asistentes?: number, quorum?: boolean, asistentesLista?: string[]) => {
+    dispatch({ type: 'publishMinutes', id, minutes, asistentes, quorum, asistentesLista })
+    patchSession(id, { status: 'Realizada', minutes, asistentes, quorum, asistentesLista }).catch(() => notify('No se pudo publicar el acta en el servidor.', 'warning'))
     notify('Acta registrada y publicada.', 'success')
   }, [notify])
 
@@ -1450,6 +1501,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       myVotes: state.myVotes,
       addSession,
       publishMinutes,
+      actos,
       deleteSession,
       addBallot,
       castVote,
@@ -1499,7 +1551,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       resetDemo,
       notify,
     }),
-    [state.affiliates, stats, state.movements, financeStats, state.cases, disciplineStats, state.sessions, state.ballots, state.docs, state.comunicados, state.committees, state.cargos, state.dependencias, state.vinculaciones, addAffiliate, setAffiliateStatus, conceptAffiliate, approveAffiliate, updateAffiliate, addMovement, setMovementStatus, updateMovement, deleteMovement, signMovement, state.smmlv, setSmmlv, addCase, advanceCase, ruleCase, interponerRecurso, resolverRecurso, deleteCase, state.caseEvents, addCaseEvent, state.myVotes, addSession, publishMinutes, deleteSession, addBallot, castVote, castAffiliateVote, closeBallot, deleteBallot, addDoc, updateDoc, deleteDoc, sendComunicado, deleteComunicado, addCommittee, updateCommittee, deleteCommittee, setCargos, setDependencias, setVinculaciones, state.escalas, setEscalas, state.aportes, state.porcentajeCuota, generateAportes, payAporte, decretarExtraordinaria, anticiparAporte, setPorcentajeCuota, state.presupuestos, setPresupuesto, state.cuentas, setCuentas, state.cajaFondo, state.cajaGastos, aperturaCaja, addCajaGasto, reembolsoCaja, state.caucionVence, setCaucion, state.juntaDesde, setJuntaDesde, resetDemo, notify],
+    [state.affiliates, stats, state.movements, financeStats, state.cases, disciplineStats, state.sessions, state.ballots, state.docs, state.comunicados, state.committees, state.cargos, state.dependencias, state.vinculaciones, addAffiliate, setAffiliateStatus, conceptAffiliate, approveAffiliate, updateAffiliate, addMovement, setMovementStatus, updateMovement, deleteMovement, signMovement, state.smmlv, setSmmlv, addCase, advanceCase, ruleCase, interponerRecurso, resolverRecurso, deleteCase, state.caseEvents, addCaseEvent, state.myVotes, addSession, publishMinutes, actos, deleteSession, addBallot, castVote, castAffiliateVote, closeBallot, deleteBallot, addDoc, updateDoc, deleteDoc, sendComunicado, deleteComunicado, addCommittee, updateCommittee, deleteCommittee, setCargos, setDependencias, setVinculaciones, state.escalas, setEscalas, state.aportes, state.porcentajeCuota, generateAportes, payAporte, decretarExtraordinaria, anticiparAporte, setPorcentajeCuota, state.presupuestos, setPresupuesto, state.cuentas, setCuentas, state.cajaFondo, state.cajaGastos, aperturaCaja, addCajaGasto, reembolsoCaja, state.caucionVence, setCaucion, state.juntaDesde, setJuntaDesde, resetDemo, notify],
   )
 
   return (
