@@ -150,6 +150,15 @@ export function ejecutadoRubro(movements: Movement[], category: string): number 
     .reduce((s, m) => s + m.amount, 0)
 }
 
+// Total pendiente de aprobación ('Por aprobar') de un rubro. Sirve para advertir
+// cuando lo comprometido + lo pendiente supera el presupuesto anual, aunque cada
+// gasto pase el control de saldo por separado.
+export function pendienteRubro(movements: Movement[], category: string): number {
+  return movements
+    .filter((m) => m.kind === 'Egreso' && m.category === category && m.status === 'Por aprobar')
+    .reduce((s, m) => s + m.amount, 0)
+}
+
 export function firmasCount(f?: Firmas): number {
   if (!f) return 0
   return (f.presidente ? 1 : 0) + (f.tesorero ? 1 : 0) + (f.fiscal ? 1 : 0)
