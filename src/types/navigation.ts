@@ -7,6 +7,7 @@ export type ModuleKey =
   | 'comites'
   | 'comunicaciones'
   | 'documental'
+  | 'libro'
   | 'reportes'
   | 'parametros'
 

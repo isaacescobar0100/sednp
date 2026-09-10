@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState } from 'react'
 import { CameraIcon, ChevronLeftIcon, ChevronRightIcon, LockIcon, PlusIcon, SearchIcon, XIcon } from 'lucide-react'
-import { subirFoto } from '../store/storageApi'
+import { subirFoto, subirSoporte } from '../store/storageApi'
 import { useDemo } from '../store/DemoStore'
 import { useSession } from '../store/session'
 import { Affiliate, AffiliateStatus, AffiliateType, BENEFICIOS, MEDIOS } from '../store/affiliates'
@@ -30,6 +30,7 @@ export function AfiliacionPage() {
   const [showEnrollment, setShowEnrollment] = useState(false)
   const [editing, setEditing] = useState<Affiliate | null>(null)
   const [approving, setApproving] = useState<Affiliate | null>(null)
+  const [concepting, setConcepting] = useState<Affiliate | null>(null)
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -127,7 +128,7 @@ export function AfiliacionPage() {
             </thead>
             <tbody className="divide-y divide-ink/[0.07]">
               {pageRows.map((item) => (
-                <AffiliateRow key={item.id} affiliate={item} onEdit={setEditing} onApprove={setApproving} />
+                <AffiliateRow key={item.id} affiliate={item} onEdit={setEditing} onApprove={setApproving} onConcept={setConcepting} />
               ))}
               {rows.length === 0 ? (
                 <tr>
@@ -175,6 +176,7 @@ export function AfiliacionPage() {
       {showEnrollment ? <EnrollmentModal onClose={() => setShowEnrollment(false)} /> : null}
       {editing ? <EditAffiliateModal affiliate={editing} onClose={() => setEditing(null)} /> : null}
       {approving ? <ApproveModal affiliate={approving} onClose={() => setApproving(null)} /> : null}
+      {concepting ? <ConceptoModal affiliate={concepting} onClose={() => setConcepting(null)} /> : null}
     </div>
   )
 }
@@ -215,6 +217,85 @@ function ApproveModal({ affiliate, onClose }: { affiliate: Affiliate; onClose: (
   )
 }
 
+// Concepto del Fiscal (Art. 25g): se desarrolla, se registra como acta en el
+// Libro y admite evidencia. Al guardar, define el sentido (Positivo/Negativo).
+function ConceptoModal({ affiliate, onClose }: { affiliate: Affiliate; onClose: () => void }) {
+  const { conceptAffiliate } = useDemo()
+  const [resultado, setResultado] = useState<'Positivo' | 'Negativo'>('Positivo')
+  const [nota, setNota] = useState('')
+  const [soporte, setSoporte] = useState('')
+  const [archivo, setArchivo] = useState('')
+  const [subiendo, setSubiendo] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setSubiendo(true)
+    try {
+      const path = await subirSoporte('conceptos', file)
+      setSoporte(path); setArchivo(file.name)
+    } catch {
+      // silencioso: se puede reintentar
+    } finally {
+      setSubiendo(false)
+    }
+  }
+
+  const valid = nota.trim() !== ''
+
+  function save() {
+    if (!valid) return
+    conceptAffiliate(affiliate.id, resultado, nota.trim(), soporte || undefined)
+    onClose()
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-night/45 p-4">
+      <section role="dialog" aria-modal="true" className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold">Afiliación</p>
+            <h2 className="mt-1 font-display text-xl font-semibold">Concepto del Fiscal</h2>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-2 text-ink/50 hover:bg-canvas" aria-label="Cerrar"><XIcon className="h-5 w-5" /></button>
+        </div>
+        <p className="text-sm text-ink/60"><strong>{affiliate.name}</strong> · {affiliate.doc}</p>
+        <p className="mt-2 rounded-xl border border-gold/25 bg-gold/[0.07] px-3 py-2.5 text-xs text-ink/60">El concepto queda registrado como <strong>acta en el Libro de Actas y Resoluciones</strong> (no se puede modificar) y habilita o frena la aprobación por la Junta.</p>
+
+        <div className="mt-4 space-y-4">
+          <div>
+            <span className="mb-1.5 block text-xs font-semibold text-ink/70">Sentido del concepto <span className="text-brick">*</span></span>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setResultado('Positivo')} className={`flex-1 rounded-xl border px-4 py-2.5 text-sm font-semibold transition ${resultado === 'Positivo' ? 'border-emerald-500 bg-emerald-50 text-emerald-700' : 'border-ink/12 text-ink/60 hover:border-ink/25'}`}>Positivo</button>
+              <button type="button" onClick={() => setResultado('Negativo')} className={`flex-1 rounded-xl border px-4 py-2.5 text-sm font-semibold transition ${resultado === 'Negativo' ? 'border-brick bg-brick/[0.06] text-brick' : 'border-ink/12 text-ink/60 hover:border-ink/25'}`}>Negativo</button>
+            </div>
+          </div>
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-semibold text-ink/70">Desarrollo del concepto <span className="text-brick">*</span></span>
+            <textarea value={nota} onChange={(e) => setNota(e.target.value)} rows={5} placeholder="Motivación, verificación de requisitos y fundamento del concepto…" className="w-full resize-none rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
+          </label>
+          <div>
+            <span className="mb-1.5 block text-xs font-semibold text-ink/70">Evidencia (imagen o PDF)</span>
+            <input ref={fileRef} type="file" accept="image/*,application/pdf" onChange={handleFile} className="hidden" />
+            <div className="flex items-center gap-3">
+              <button type="button" onClick={() => fileRef.current?.click()} disabled={subiendo} className="rounded-xl border border-ink/12 px-3 py-2 text-sm font-semibold text-ink/70 transition hover:border-night hover:text-night disabled:opacity-50">
+                {subiendo ? 'Subiendo…' : archivo ? 'Cambiar evidencia' : 'Adjuntar evidencia'}
+              </button>
+              {archivo ? <span className="truncate text-xs text-ink/55">{archivo}</span> : <span className="text-xs text-ink/40">Opcional</span>}
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 flex justify-end gap-2">
+          <button onClick={onClose} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-ink/60 hover:bg-canvas">Cancelar</button>
+          <button onClick={save} disabled={!valid} className="rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">Registrar concepto</button>
+        </div>
+      </section>
+    </div>
+  )
+}
+
 function StatChip({ label, value, tone = 'neutral' }: { label: string; value: number; tone?: 'neutral' | 'positive' | 'warning' | 'negative' }) {
   const dot = { neutral: 'bg-ink/30', positive: 'bg-emerald-500', warning: 'bg-amber-500', negative: 'bg-brick' }[tone]
   return (
@@ -242,8 +323,8 @@ function actionsFor(status: AffiliateStatus): Array<{ label: string; next: Affil
   }
 }
 
-function AffiliateRow({ affiliate, onEdit, onApprove }: { affiliate: Affiliate; onEdit: (a: Affiliate) => void; onApprove: (a: Affiliate) => void }) {
-  const { setAffiliateStatus, conceptAffiliate, notify } = useDemo()
+function AffiliateRow({ affiliate, onEdit, onApprove, onConcept }: { affiliate: Affiliate; onEdit: (a: Affiliate) => void; onApprove: (a: Affiliate) => void; onConcept: (a: Affiliate) => void }) {
+  const { setAffiliateStatus, notify } = useDemo()
   const { can } = useSession()
   const canManage = can('affiliates.changeStatus')
   const canEdit = can('affiliates.create')
@@ -260,8 +341,7 @@ function AffiliateRow({ affiliate, onEdit, onApprove }: { affiliate: Affiliate; 
   if (pendiente) {
     // Flujo de aprobación: concepto del Fiscal (Art. 25g) → aprueba la Junta (Art. 5d).
     if (canConcept && !affiliate.conceptoFiscal) {
-      menuActions.push({ label: 'Concepto Fiscal: Positivo', onClick: () => conceptAffiliate(affiliate.id, 'Positivo') })
-      menuActions.push({ label: 'Concepto Fiscal: Negativo', danger: true, onClick: () => conceptAffiliate(affiliate.id, 'Negativo') })
+      menuActions.push({ label: 'Emitir concepto (Fiscal)', onClick: () => onConcept(affiliate) })
     }
     if (canManage) {
       if (affiliate.conceptoFiscal === 'Positivo') menuActions.push({ label: 'Aprobar afiliación (Junta)', onClick: () => onApprove(affiliate) })

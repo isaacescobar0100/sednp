@@ -13,6 +13,7 @@ export type GovSession = {
   minutes?: string // resumen del acta, cuando está Realizada
   asistentes?: number // asistentes registrados (para verificar quórum de Asamblea)
   quorum?: boolean // si se alcanzó el quórum reglamentario
+  asistentesLista?: string[] // nombres de los asistentes, se anexan al acta
 }
 
 // Tipo de acto según el órgano (Art. 12/59): la Asamblea expide Acuerdos; la

@@ -14,6 +14,7 @@ type SessionRow = {
   minutes: string | null
   asistentes: number | null
   quorum: boolean | null
+  asistentes_lista: string[] | null
 }
 
 function rowToSession(r: SessionRow): GovSession {
@@ -28,6 +29,7 @@ function rowToSession(r: SessionRow): GovSession {
     minutes: r.minutes ?? undefined,
     asistentes: r.asistentes ?? undefined,
     quorum: r.quorum ?? undefined,
+    asistentesLista: Array.isArray(r.asistentes_lista) ? r.asistentes_lista : undefined,
   }
 }
 
@@ -37,6 +39,7 @@ function sessionToRow(s: Partial<GovSession>): Record<string, unknown> {
   set('day', s.day); set('month', s.month); set('title', s.title); set('detail', s.detail)
   set('organ', s.organ); set('status', s.status); set('minutes', s.minutes)
   set('asistentes', s.asistentes); set('quorum', s.quorum)
+  set('asistentes_lista', s.asistentesLista)
   return row
 }
 
