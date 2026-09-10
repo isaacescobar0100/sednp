@@ -53,14 +53,18 @@ const rolePermissions: Record<Role, Permission[]> = {
   fiscal: ['discipline.instruct', 'finance.sign', 'affiliates.concept'],
 }
 
-// Módulos visibles en el menú por rol. Presidencia y Vicepresidencia supervisan
-// (ven todo). El Fiscal ve Financiero (control de cuentas) además de lo suyo.
+// Todos los cargos de la directiva VEN todos los módulos (vista completa de la
+// organización). Lo que cambia por rol es qué puede MODIFICAR: crear, editar,
+// borrar o aprobar está controlado por permisos (rolePermissions / can()), no
+// por la visibilidad del módulo. Así, quien no tiene el permiso ve la
+// información pero en modo solo lectura.
+const allModules: ModuleKey[] = ['dashboard', 'afiliacion', 'financiero', 'gobernanza', 'disciplinario', 'comites', 'comunicaciones', 'documental', 'reportes', 'parametros']
 const roleModules: Record<Role, ModuleKey[]> = {
-  presidencia: ['dashboard', 'afiliacion', 'financiero', 'gobernanza', 'disciplinario', 'comites', 'comunicaciones', 'documental', 'reportes', 'parametros'],
-  vicepresidencia: ['dashboard', 'afiliacion', 'financiero', 'gobernanza', 'disciplinario', 'comites', 'comunicaciones', 'documental', 'reportes', 'parametros'],
-  secretaria: ['dashboard', 'afiliacion', 'gobernanza', 'comites', 'comunicaciones', 'documental', 'reportes', 'parametros'],
-  tesoreria: ['dashboard', 'financiero', 'reportes'],
-  fiscal: ['dashboard', 'afiliacion', 'financiero', 'disciplinario', 'reportes'],
+  presidencia: allModules,
+  vicepresidencia: allModules,
+  secretaria: allModules,
+  tesoreria: allModules,
+  fiscal: allModules,
 }
 
 type DemoUser = { name: string; initials: string }
