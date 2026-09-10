@@ -102,6 +102,7 @@ export function GobernanzaPage() {
         </div>
         <div className="space-y-6">
           {ballots.map((b) => <BallotCard key={b.id} ballot={b} />)}
+          {ballots.length === 0 ? <p className="rounded-2xl border border-ink/[0.08] bg-white px-4 py-8 text-center text-sm text-ink/45">No hay votaciones registradas.</p> : null}
         </div>
       </div>
 

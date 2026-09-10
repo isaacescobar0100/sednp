@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { CheckCheckIcon, LockIcon, MailIcon, SearchIcon, SendIcon, Trash2Icon, UsersRoundIcon } from 'lucide-react'
+import { LockIcon, MailIcon, SearchIcon, SendIcon, Trash2Icon, UsersRoundIcon } from 'lucide-react'
 import { SectionTitle } from '../components/SectionTitle'
 import { StatusBadge } from '../components/StatusBadge'
 import { useDemo } from '../store/DemoStore'
@@ -17,7 +17,8 @@ export function ComunicacionesPage() {
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [audience, setAudience] = useState<AudienceKey>('todos')
-  const [justSent, setJustSent] = useState(false)
+  // La confirmación de envío la muestra el aviso global (notify) del store, para
+  // no duplicar el mensaje.
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
 
@@ -38,8 +39,6 @@ export function ComunicacionesPage() {
     sendComunicado({ subject: subject.trim(), body: body.trim(), audience: audienceLabel[audience], recipients })
     setSubject('')
     setBody('')
-    setJustSent(true)
-    window.setTimeout(() => setJustSent(false), 3000)
   }
 
   return (
@@ -74,8 +73,6 @@ export function ComunicacionesPage() {
               Mensaje
               <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Redacta el contenido de tu comunicado..." className="mt-1.5 h-36 w-full resize-none rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm font-normal outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
             </label>
-
-            {justSent ? <p className="mt-3 flex items-center gap-2 text-xs font-semibold text-emerald-700"><CheckCheckIcon className="h-4 w-4" />Comunicado enviado a {recipients} destinatario(s).</p> : null}
 
             <button onClick={send} disabled={!valid} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-night py-3 text-sm font-semibold text-white transition hover:bg-night-deep disabled:cursor-not-allowed disabled:opacity-35">
               <SendIcon className="h-4 w-4" />

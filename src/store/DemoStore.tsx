@@ -843,11 +843,33 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   porcentajeRef.current = state.porcentajeCuota
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
-    } catch {
-      // Sin persistencia disponible: la demo sigue funcionando en memoria.
-    }
+    // Solo persistimos los catálogos/parámetros que loadInitial recupera; el
+    // resto (afiliados, movimientos, aportes, etc.) se recarga de Supabase, así
+    // que serializar todo el estado era trabajo perdido y arriesgaba el cupo de
+    // localStorage con un padrón grande. Además se hace con retardo (debounce)
+    // para no serializar en cada pulsación.
+    const id = window.setTimeout(() => {
+      try {
+        const persisted = {
+          cargos: state.cargos,
+          dependencias: state.dependencias,
+          vinculaciones: state.vinculaciones,
+          porcentajeCuota: state.porcentajeCuota,
+          smmlv: state.smmlv,
+          presupuestos: state.presupuestos,
+          escalas: state.escalas,
+          cuentas: state.cuentas,
+          cajaFondo: state.cajaFondo,
+          cajaGastos: state.cajaGastos,
+          caucionVence: state.caucionVence,
+          juntaDesde: state.juntaDesde,
+        }
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(persisted))
+      } catch {
+        // Sin persistencia disponible: la app sigue funcionando en memoria.
+      }
+    }, 400)
+    return () => window.clearTimeout(id)
   }, [state])
 
   const notify = useCallback((message: string, tone: Toast['tone'] = 'success') => {
@@ -978,8 +1000,19 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   }, [notify])
 
   const updateMovement = useCallback((id: string, changes: Partial<Movement>) => {
-    dispatch({ type: 'updateMovement', id, changes })
-    patchMovement(id, changes).catch(() => notify('No se pudo guardar el movimiento en el servidor.', 'warning'))
+    const target = movementsRef.current.find((m) => m.id === id)
+    let finalChanges = changes
+    // Si se edita el MONTO de un egreso, se recalcula el nivel de aprobación y
+    // se reinicia el trámite: un gasto no puede cambiar de valor conservando una
+    // aprobación, firmas o refrendación obtenidas para otro monto (segregación de
+    // funciones, Art. 34/35).
+    if (target?.kind === 'Egreso' && typeof changes.amount === 'number' && changes.amount !== target.amount) {
+      const nivel = nivelGasto(changes.amount, smmlvRef.current)
+      const status: MovementStatus = nivel === 'tesoreria' ? 'Aprobado' : 'Por aprobar'
+      finalChanges = { ...changes, nivel, status, firmas: {}, actaAsamblea: undefined }
+    }
+    dispatch({ type: 'updateMovement', id, changes: finalChanges })
+    patchMovement(id, finalChanges).catch(() => notify('No se pudo guardar el movimiento en el servidor.', 'warning'))
     notify('Movimiento actualizado.', 'success')
   }, [notify])
 

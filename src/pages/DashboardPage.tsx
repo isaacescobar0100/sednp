@@ -15,6 +15,8 @@ export function DashboardPage() {
   const { user, canSeeModule } = useSession()
 
   const firstName = user.name.split(' ')[0]
+  const hora = new Date().getHours()
+  const saludo = hora < 12 ? 'Buenos días' : hora < 19 ? 'Buenas tardes' : 'Buenas noches'
   const openBallots = ballots.filter((b) => b.status === 'En curso').length
   const showVoteAlert = canSeeModule('gobernanza') && openBallots > 0
   const upcomingSessions = sessions.filter((s) => s.status === 'Programada').slice(0, 4)
@@ -55,7 +57,7 @@ export function DashboardPage() {
 
   return (
     <div className="mx-auto max-w-[1440px]">
-      <SectionTitle eyebrow="Resumen institucional" title={`Buen día, ${firstName}`} description="Resumen en tiempo real de la organización." />
+      <SectionTitle eyebrow="Resumen institucional" title={`${saludo}, ${firstName}`} description="Resumen en tiempo real de la organización." />
 
       {showVoteAlert ? (
         <div className="mb-6 flex items-center gap-3 rounded-2xl border border-gold/30 bg-gold/[0.08] px-5 py-4">

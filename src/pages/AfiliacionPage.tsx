@@ -200,7 +200,7 @@ function ApproveModal({ affiliate, onClose }: { affiliate: Affiliate; onClose: (
           </div>
           <button onClick={onClose} className="rounded-lg p-2 text-ink/50 hover:bg-canvas" aria-label="Cerrar"><XIcon className="h-5 w-5" /></button>
         </div>
-        <p className="text-sm text-ink/60"><strong>{affiliate.name}</strong> · Concepto del Fiscal: <span className="font-semibold text-emerald-700">Positivo</span></p>
+        <p className="text-sm text-ink/60"><strong>{affiliate.name}</strong> · Concepto del Fiscal: <span className="font-semibold text-emerald-700">{affiliate.conceptoFiscal ?? 'Positivo'}</span></p>
         <p className="mt-3 rounded-xl border border-gold/25 bg-gold/[0.07] px-3 py-2.5 text-xs text-ink/60">La Junta Directiva aprueba la afiliación mediante acta (Art. 5d). El afiliado quedará <strong>Activo</strong> y podrá acceder a su portal.</p>
         <label className="mt-4 block">
           <span className="mb-1.5 block text-xs font-semibold text-ink/70">Acta No. de la Junta Directiva <span className="text-brick">*</span></span>
@@ -382,7 +382,10 @@ function EnrollmentModal({ onClose }: { onClose: () => void }) {
   const docDup = form.doc.trim() !== '' && affiliates.some((a) => a.doc.trim() === form.doc.trim())
   const emailDup = form.email.trim() !== '' && affiliates.some((a) => a.email.trim().toLowerCase() === form.email.trim().toLowerCase())
   const emailInvalid = form.email.trim() !== '' && !EMAIL_RE.test(form.email.trim())
-  const canContinue = step === 1 ? form.nombres.trim() !== '' && form.apellidos.trim() !== '' && form.doc.trim() !== '' && form.email.trim() !== '' && form.password.trim() !== '' && !docDup && !emailDup && !emailInvalid : true
+  const step2Valid = form.type.trim() !== '' && parseMoney(form.asignacionBasica) > 0
+  const canContinue = step === 1
+    ? form.nombres.trim() !== '' && form.apellidos.trim() !== '' && form.doc.trim() !== '' && form.email.trim() !== '' && form.password.trim() !== '' && !docDup && !emailDup && !emailInvalid
+    : step === 2 ? step2Valid : true
 
   function handlePrimary() {
     if (step < 3) {
@@ -498,7 +501,7 @@ function EnrollmentModal({ onClose }: { onClose: () => void }) {
                   <label className="block">
                     <span className="mb-1.5 block text-xs font-semibold text-ink/70">Asignación básica mensual</span>
                     <input value={form.asignacionBasica} onChange={(e) => set('asignacionBasica', e.target.value)} inputMode="numeric" placeholder="$ 3.500.000" className="w-full rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
-                    <span className="mt-1 block text-xs text-ink/50">Base de la cuota (0,3%).{parseMoney(form.asignacionBasica) > 0 ? ` Cuota: ${formatCop(Math.round(parseMoney(form.asignacionBasica) * porcentajeCuota))}` : ''}</span>
+                    <span className="mt-1 block text-xs text-ink/50">Base de la cuota ({(porcentajeCuota * 100).toLocaleString('es-CO', { maximumFractionDigits: 2 })}%).{parseMoney(form.asignacionBasica) > 0 ? ` Cuota: ${formatCop(Math.round(parseMoney(form.asignacionBasica) * porcentajeCuota))}` : ''}</span>
                   </label>
                   <DateField label="Fecha de vinculación" value={form.joinDate} onChange={(v) => set('joinDate', v)} />
                   <ChoiceField label="¿Por qué medio se enteró?" value={form.medio} onChange={(v) => set('medio', v)} options={MEDIOS} placeholder="Seleccionar" />
@@ -628,7 +631,7 @@ function EditAffiliateModal({ affiliate, onClose }: { affiliate: Affiliate; onCl
           <label className="block sm:col-span-2">
             <span className="mb-1.5 block text-xs font-semibold text-ink/70">Asignación básica mensual</span>
             <input value={form.asignacionBasica} onChange={(e) => set('asignacionBasica', e.target.value)} inputMode="numeric" placeholder="$ 3.500.000" className="w-full rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
-            <span className="mt-1 block text-xs text-ink/50">Base de la cuota (0,3%).{parseMoney(form.asignacionBasica) > 0 ? ` Cuota: ${formatCop(Math.round(parseMoney(form.asignacionBasica) * porcentajeCuota))}` : ''}</span>
+            <span className="mt-1 block text-xs text-ink/50">Base de la cuota ({(porcentajeCuota * 100).toLocaleString('es-CO', { maximumFractionDigits: 2 })}%).{parseMoney(form.asignacionBasica) > 0 ? ` Cuota: ${formatCop(Math.round(parseMoney(form.asignacionBasica) * porcentajeCuota))}` : ''}</span>
           </label>
         </div>
         <div className="mt-6 flex justify-end gap-2">

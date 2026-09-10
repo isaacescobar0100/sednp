@@ -43,7 +43,7 @@ export function FinancieroPage() {
         description="Seguimiento a recaudo, ejecución y movimientos contables del periodo."
         action={
           can('finance.create') ? (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button
                 onClick={() => setModalKind('Ingreso')}
                 className="inline-flex items-center gap-2 rounded-xl border border-night/15 bg-white px-4 py-2.5 text-sm font-semibold text-night transition hover:bg-canvas"
@@ -336,7 +336,7 @@ function AportesSection() {
           <p className="mt-1 text-xs text-ink/50">Cuota ordinaria: {pctLabel}% de la asignación básica · recaudado {formatCop(recaudado)} · pendiente {formatCop(pendiente)}{enMora ? ` · ${enMora} en mora` : ''}</p>
           <p className="mt-0.5 text-[11px] text-ink/40">Distribución del recaudo: 80% Junta Directiva Nacional / 20% subdirectivas seccionales (Art. 32) — sin seccionales, 100% JDN.</p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <select value={period} onChange={(e) => { setPeriod(e.target.value); setAportePage(1) }} className="rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night">
             {periods.map((p) => <option key={p} value={p}>{periodLabel(p)}</option>)}
           </select>

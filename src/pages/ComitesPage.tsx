@@ -41,11 +41,13 @@ export function ComitesPage() {
         </div>
       )}
 
-      <section className="mt-6 rounded-2xl bg-night px-6 py-6 text-white">
-        <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold">Participación activa</p>
-        <h2 className="mt-1 font-display text-xl font-semibold">{totalMembers} afiliados aportan desde los comités</h2>
-        <p className="mt-2 text-sm text-white/60">El {pct}% de la base activa participa en al menos un espacio de trabajo · {committees.length} comités.</p>
-      </section>
+      {committees.length > 0 ? (
+        <section className="mt-6 rounded-2xl bg-night px-6 py-6 text-white">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold">Participación activa</p>
+          <h2 className="mt-1 font-display text-xl font-semibold">{totalMembers} afiliados aportan desde los comités</h2>
+          <p className="mt-2 text-sm text-white/60">El {pct}% de la base activa participa en al menos un espacio de trabajo · {committees.length} comités.</p>
+        </section>
+      ) : null}
 
       {formFor ? <CommitteeForm committee={formFor === 'new' ? undefined : formFor} onClose={() => setFormFor(null)} /> : null}
     </div>
