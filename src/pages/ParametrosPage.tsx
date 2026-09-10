@@ -24,7 +24,7 @@ export function ParametrosPage() {
       />
 
       {!canManage ? (
-        <div className="rounded-2xl border border-ink/[0.08] bg-white px-6 py-8 text-sm text-ink/55">Solo la Secretaría General y la Presidencia pueden administrar los catálogos.</div>
+        <ParametrosReadOnly />
       ) : (
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           <div className="min-w-0 xl:col-span-2">
@@ -83,6 +83,158 @@ export function ParametrosPage() {
         </div>
       )}
     </div>
+  )
+}
+
+// Vista de solo lectura de los catálogos: para los cargos que NO administran
+// parámetros (p. ej. Tesorería, Fiscal). Ven toda la configuración vigente pero
+// sin campos ni botones para modificarla.
+function ParametrosReadOnly() {
+  const { porcentajeCuota, smmlv, caucionVence, juntaDesde, escalas, presupuestos, cuentas, cargos, dependencias, vinculaciones } = useDemo()
+  const { org } = useAuth()
+  const ordered = sortEscalas(escalas)
+  const actualPct = (porcentajeCuota * 100).toLocaleString('es-CO', { maximumFractionDigits: 2 })
+  const proxima = /^\d{4}-\d{2}-\d{2}$/.test(juntaDesde) ? `${Number(juntaDesde.slice(0, 4)) + 2}${juntaDesde.slice(4)}` : '—'
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-start gap-3 rounded-xl border border-gold/30 bg-gold/[0.08] px-4 py-3 text-sm text-ink/70">
+        <ScaleIcon className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
+        <p>Vista de <strong>solo lectura</strong>: puedes consultar la configuración del sindicato. La administración de estos catálogos corresponde a la Secretaría General y la Presidencia.</p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <ROCard title="Logo del sindicato">
+          <div className="flex items-center gap-4">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-ink/10 bg-canvas">
+              <img src={org?.logoUrl || '/sindika.png'} alt="Logo del sindicato" className="h-full w-full object-contain" />
+            </div>
+            <p className="text-sm font-semibold text-ink">{org?.nombre ?? 'SERDNP'}</p>
+          </div>
+        </ROCard>
+
+        <ROCard title="Cuota sindical ordinaria" hint="Porcentaje sobre la asignación básica (Art. 32)">
+          <p className="font-display text-2xl font-semibold text-ink">{actualPct}%</p>
+        </ROCard>
+
+        <ROCard title="SMMLV vigente" hint="Base de los rangos de aprobación de gastos (Art. 34)">
+          <p className="font-display text-2xl font-semibold text-ink">{formatCop(smmlv)}</p>
+        </ROCard>
+
+        <ROCard title="Caución del Tesorero" hint="Garantía del manejo de fondos (Art. 26)">
+          <p className="text-sm text-ink/80">{caucionVence ? `Vence: ${caucionVence}` : 'Sin registrar'}</p>
+        </ROCard>
+
+        <ROCard title="Periodo de la Junta Directiva" hint="Elección por la Asamblea cada 2 años (Art. 13)">
+          <p className="text-sm text-ink/80">Inicio: {juntaDesde || '—'}</p>
+          <p className="text-sm text-ink/60">Próxima elección: {proxima}</p>
+        </ROCard>
+
+        <div className="min-w-0 xl:col-span-2">
+          <ROCard title="Presupuesto anual por rubro" hint={`${presupuestos.length} rubros`}>
+            {presupuestos.length > 0 ? (
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {presupuestos.map((p) => (
+                  <div key={p.category} className="flex items-center justify-between rounded-xl border border-ink/10 bg-canvas/40 px-3 py-2 text-sm">
+                    <span className="min-w-0 truncate text-ink/75">{p.category}</span>
+                    <span className="shrink-0 font-medium text-ink">{formatCop(p.anual)}</span>
+                  </div>
+                ))}
+              </div>
+            ) : <p className="text-xs text-ink/45">Sin rubros definidos.</p>}
+          </ROCard>
+        </div>
+
+        <div className="min-w-0 xl:col-span-2">
+          <ROCard title="Escalas salariales" hint={`${escalas.length} escalas · nivel/grado → asignación básica`}>
+            {ordered.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[420px] text-left text-sm">
+                  <thead className="text-[10px] uppercase tracking-[0.12em] text-ink/45">
+                    <tr><th className="py-2 pr-3 font-semibold">Nivel</th><th className="py-2 pr-3 font-semibold">Grado</th><th className="py-2 pr-3 font-semibold">Asignación básica</th></tr>
+                  </thead>
+                  <tbody className="divide-y divide-ink/[0.07]">
+                    {ordered.map((e) => (
+                      <tr key={e.id}>
+                        <td className="py-2 pr-3 text-ink/80">{e.nivel}</td>
+                        <td className="py-2 pr-3 text-ink/60">{e.grado}</td>
+                        <td className="py-2 pr-3 font-medium text-ink">{formatCop(e.asignacionBasica)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : <p className="text-xs text-ink/45">Sin escalas cargadas.</p>}
+          </ROCard>
+        </div>
+
+        <div className="min-w-0 xl:col-span-2">
+          <ROCard title="Catálogo de cuentas (PUC)" hint={`${cuentas.length} cuentas`}>
+            {cuentas.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[520px] text-left text-sm">
+                  <thead className="text-[10px] uppercase tracking-[0.12em] text-ink/45">
+                    <tr><th className="py-2 pr-3 font-semibold">Código</th><th className="py-2 pr-3 font-semibold">Nombre</th><th className="py-2 pr-3 font-semibold">Tipo</th><th className="py-2 pr-3 font-semibold">Naturaleza</th><th className="py-2 pr-3 font-semibold">Estado</th></tr>
+                  </thead>
+                  <tbody className="divide-y divide-ink/[0.07]">
+                    {cuentas.map((c) => (
+                      <tr key={c.codigo}>
+                        <td className="py-2 pr-3 font-mono text-xs text-ink/70">{c.codigo}</td>
+                        <td className="py-2 pr-3 text-ink/80">{c.nombre}</td>
+                        <td className="py-2 pr-3 text-ink/55">{c.tipo}</td>
+                        <td className="py-2 pr-3 text-ink/55">{c.naturaleza}</td>
+                        <td className="py-2 pr-3 text-ink/55">{c.activa ? 'Activa' : 'Inactiva'}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : <p className="text-xs text-ink/45">Sin cuentas registradas.</p>}
+          </ROCard>
+        </div>
+
+        <ROCard title="Cargos" hint={`${cargos.length} registrados`}>
+          {cargos.length > 0 ? (
+            <ul className="divide-y divide-ink/[0.07] text-sm">
+              {cargos.map((c) => <li key={c} className="py-2 text-ink/75">{c}</li>)}
+            </ul>
+          ) : <p className="text-xs text-ink/45">Sin registros.</p>}
+        </ROCard>
+
+        <ROCard title="Dependencias" hint={`${dependencias.length} registradas`}>
+          {dependencias.length > 0 ? (
+            <ul className="divide-y divide-ink/[0.07] text-sm">
+              {dependencias.map((d) => <li key={d} className="py-2 text-ink/75">{d}</li>)}
+            </ul>
+          ) : <p className="text-xs text-ink/45">Sin registros.</p>}
+        </ROCard>
+
+        <div className="min-w-0 xl:col-span-2">
+          <ROCard title="Tipos de vinculación" hint={`${vinculaciones.length} tipos`}>
+            {vinculaciones.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {vinculaciones.map((t) => (
+                  <span key={t.id} className="inline-flex items-center gap-2 rounded-full border border-ink/10 bg-canvas/50 px-3 py-1.5 text-sm text-ink/75">
+                    <i className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: t.color }} />
+                    {t.name}
+                  </span>
+                ))}
+              </div>
+            ) : <p className="text-xs text-ink/45">Sin tipos de vinculación.</p>}
+          </ROCard>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ROCard({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <section className="min-w-0 rounded-2xl border border-ink/[0.08] bg-white p-5">
+      <h2 className="font-display text-base font-semibold">{title}</h2>
+      {hint ? <p className="mt-0.5 text-xs text-ink/50">{hint}</p> : null}
+      <div className="mt-3">{children}</div>
+    </section>
   )
 }
 
