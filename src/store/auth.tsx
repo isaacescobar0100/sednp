@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { Role } from './session'
+import { setMarca } from './emailApi'
 
 // Autenticación real con Supabase. El rol de la persona vive en la tabla
 // `profiles` (creada por un trigger al registrarse). 'afiliado' usa el portal;
@@ -51,7 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const loadProfile = useCallback(async (s: Session | null) => {
-    if (!s?.user) { setProfile(null); setOrg(null); return }
+    if (!s?.user) { setProfile(null); setOrg(null); setMarca(null); return }
     const meta = (s.user.user_metadata?.full_name as string) || ''
     try {
       // Perfil y marca del sindicato se piden en paralelo (no dependen entre sí);
@@ -64,10 +65,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const role = (data?.role as AppRole) || 'afiliado'
       setProfile({ id: s.user.id, full_name: fullName, role, initials: initialsOf(fullName, s.user.email ?? ''), platformAdmin: Boolean(data?.platform_admin), fotoUrl: (data?.foto_url as string | null) ?? '' })
       setOrg(o ? { nombre: o.nombre as string, logoUrl: (o.logo_url as string | null) ?? null, activo: (o.activo as boolean | null) ?? true, slug: (o.slug as string | null) ?? null } : null)
+      // Marca de los correos = nombre del sindicato de la sesión.
+      setMarca((o?.nombre as string | undefined) || null)
     } catch {
       // Si la consulta falla (red/RLS), no dejamos la app colgada: perfil mínimo.
       setProfile({ id: s.user.id, full_name: meta, role: 'afiliado', initials: initialsOf(meta, s.user.email ?? ''), platformAdmin: false, fotoUrl: '' })
       setOrg(null)
+      setMarca(null)
     }
   }, [])
 
@@ -141,6 +145,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut()
     setProfile(null)
     setOrg(null)
+    setMarca(null)
     setNeedsMfa(false)
   }, [])
 
