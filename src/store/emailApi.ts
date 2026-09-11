@@ -72,8 +72,9 @@ export async function enviarBoletin(recipients: string[], subject: string, html:
 // El encabezado y el pie usan el nombre del sindicato actual (marca()).
 export function plantillaCorreo(titulo: string, cuerpoHtml: string): string {
   const m = escapeHtml(marca())
-  const logo = logoActual
-    ? `<td style="padding-right:12px" valign="middle"><span style="display:inline-block;background:#fff;border-radius:10px;padding:6px"><img src="${escapeHtml(logoActual)}" alt="${m}" height="34" style="display:block;height:34px;width:auto"></span></td>`
+  const logoUrl = logoAbsoluto(logoActual)
+  const logo = logoUrl
+    ? `<td style="padding-right:12px" valign="middle"><span style="display:inline-block;background:#fff;border-radius:10px;padding:6px"><img src="${escapeHtml(logoUrl)}" alt="${m}" height="34" style="display:block;height:34px;width:auto"></span></td>`
     : ''
   return `<!doctype html><html><body style="margin:0;background:#f7f6f2;font-family:'Segoe UI',Arial,sans-serif;color:#1c2333">
     <div style="max-width:560px;margin:0 auto;padding:24px">
@@ -93,6 +94,15 @@ export function plantillaCorreo(titulo: string, cuerpoHtml: string): string {
       <p style="text-align:center;color:#8b93a3;font-size:11px;margin-top:16px">${m} — gestionado con Sindika</p>
     </div>
   </body></html>`
+}
+
+// Los clientes de correo NO resuelven rutas relativas (ej. "/logo.png"): las
+// convierte en URL absoluta usando el origen actual. Si ya es absoluta, la deja.
+function logoAbsoluto(url: string): string {
+  if (!url) return ''
+  if (/^https?:\/\//i.test(url)) return url
+  if (url.startsWith('/') && typeof window !== 'undefined') return window.location.origin + url
+  return url
 }
 
 // Escapa el nombre del sindicato para insertarlo con seguridad en el HTML.
