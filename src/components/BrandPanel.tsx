@@ -3,17 +3,24 @@ import { UsersIcon } from 'lucide-react'
 import { AndesRange } from './AndesRange'
 import { supabase } from '../lib/supabase'
 
-// Logo del sindicato a mostrar en el login (co-marca con Sindika).
-// Para la demo de hoy: SERDNP. Pon null para mostrar SOLO Sindika.
-const DEMO_TENANT: { logo: string; nombre: string } | null = { logo: '/logo.png', nombre: 'SERDNP' }
-
 export function BrandPanel() {
   // Conteo público de afiliados activos (RPC), visible sin iniciar sesión.
   const [activos, setActivos] = useState(0)
+  // Logo del sindicato del dominio actual (co-marca con Sindika). Si el sindicato
+  // no tiene logo, se muestra SOLO Sindika.
+  const [tenantLogo, setTenantLogo] = useState('')
+  const [tenantNombre, setTenantNombre] = useState('')
   useEffect(() => {
     let on = true
     supabase.rpc('contar_afiliados_activos').then(({ data, error }) => {
       if (on && !error && typeof data === 'number') setActivos(data)
+    })
+    const paramOrg = new URLSearchParams(window.location.search).get('org') || null
+    supabase.rpc('sitio_publico', { p_host: window.location.hostname, p_slug: paramOrg }).then(({ data }) => {
+      if (!on) return
+      const d = (data || {}) as { nombre?: string; logoUrl?: string }
+      setTenantLogo(d.logoUrl || '')
+      setTenantNombre(d.nombre || '')
     })
     return () => { on = false }
   }, [])
@@ -29,9 +36,9 @@ export function BrandPanel() {
       <div className="relative z-10 flex w-full flex-col justify-between px-10 py-12 xl:px-14">
         <div>
           <div className="flex items-center gap-5">
-            {DEMO_TENANT ? (
+            {tenantLogo ? (
               <>
-                <img src={DEMO_TENANT.logo} alt={DEMO_TENANT.nombre} className="h-16 w-auto drop-shadow-xl" />
+                <img src={tenantLogo} alt={tenantNombre || 'Sindicato'} className="h-16 w-auto drop-shadow-xl" />
                 <span className="h-12 w-px bg-white/20" />
               </>
             ) : null}
