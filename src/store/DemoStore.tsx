@@ -8,6 +8,7 @@ import { Params, clearCajaGastos, deletePresupuesto as deletePresupuestoRow, fet
 import { deleteCaseRow, fetchCases, insertCase, patchCase } from './casesApi'
 import { CaseEvent, fetchCaseEvents, insertCaseEvent } from './caseEventsApi'
 import { Acto, fetchActos, insertActo, nextActoNumero } from './actosApi'
+import { enviarCorreo, correoAportePagado } from './emailApi'
 import { cerrarVencidas, deleteBallotRow, deleteSessionRow, emitirVoto, fetchBallots, fetchMyVotes, fetchSessions, insertBallot, insertSession, patchBallot, patchSession } from './governanceApi'
 import { deleteComunicadoRow, fetchComunicados, insertComunicado } from './commsApi'
 import { deleteCommitteeRow, fetchCommittees, insertCommittee, patchCommittee } from './committeesApi'
@@ -1333,6 +1334,18 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
         category: 'Recaudo', kind: 'Ingreso', amount: aporte.amount, status: 'Confirmado',
       }
       insertMovement(mov).then((saved) => dispatch({ type: 'addMovement', movement: saved })).catch(() => {})
+    }
+    // Correo de agradecimiento al afiliado (#11). Fire-and-forget: si el correo
+    // no está configurado o falla, el pago igual queda registrado.
+    if (aporte) {
+      const afiliado = affiliatesRef.current.find((a) => a.id === aporte.affiliateId)
+      if (afiliado?.email) {
+        void enviarCorreo({
+          to: afiliado.email,
+          subject: 'Confirmación de aporte sindical — SERDNP',
+          html: correoAportePagado(afiliado.name, periodLabel(aporte.period), formatCop(aporte.amount)),
+        })
+      }
     }
     notify(method === 'Portal' ? 'Pago de aporte registrado. ¡Gracias!' : 'Aporte marcado como pagado.', 'success')
   }, [notify])
