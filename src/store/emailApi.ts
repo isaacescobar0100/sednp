@@ -12,9 +12,11 @@ export type CorreoInput = { to: string; subject: string; html?: string; text?: s
 // La dirección de correo (@dominio) la fija EMAIL_FROM en el servidor.
 let marcaActual = 'SERDNP'
 let remitenteActual = '' // dirección propia del sindicato (si compró dominio); vacío = usa la global
-export function setMarca(nombre?: string | null, correoRemitente?: string | null): void {
+let logoActual = ''      // URL pública del logo del sindicato para el encabezado del correo
+export function setMarca(nombre?: string | null, correoRemitente?: string | null, logoUrl?: string | null): void {
   marcaActual = (nombre || '').trim() || 'SERDNP'
   remitenteActual = (correoRemitente || '').trim()
+  logoActual = (logoUrl || '').trim()
 }
 export function marca(): string {
   return marcaActual
@@ -65,15 +67,24 @@ export async function enviarBoletin(recipients: string[], subject: string, html:
   }
 }
 
-// Envoltura HTML sobria y co-marcada (sin imágenes externas, para no caer en spam).
+// Envoltura HTML sobria y co-marcada. Incluye el logo del sindicato (si tiene)
+// dentro de una pastilla blanca para que se vea sobre el encabezado oscuro.
 // El encabezado y el pie usan el nombre del sindicato actual (marca()).
 export function plantillaCorreo(titulo: string, cuerpoHtml: string): string {
   const m = escapeHtml(marca())
+  const logo = logoActual
+    ? `<td style="padding-right:12px" valign="middle"><span style="display:inline-block;background:#fff;border-radius:10px;padding:6px"><img src="${escapeHtml(logoActual)}" alt="${m}" height="34" style="display:block;height:34px;width:auto"></span></td>`
+    : ''
   return `<!doctype html><html><body style="margin:0;background:#f7f6f2;font-family:'Segoe UI',Arial,sans-serif;color:#1c2333">
     <div style="max-width:560px;margin:0 auto;padding:24px">
-      <div style="background:#0F1B3D;border-radius:14px 14px 0 0;padding:20px 24px">
-        <span style="color:#fff;font-weight:700;font-size:18px;letter-spacing:.5px">${m}</span>
-        <span style="color:#C9973B;font-weight:700;font-size:14px;margin-left:8px">· Sindika</span>
+      <div style="background:#0F1B3D;border-radius:14px 14px 0 0;padding:18px 24px">
+        <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+          ${logo}
+          <td valign="middle">
+            <span style="color:#fff;font-weight:700;font-size:18px;letter-spacing:.5px">${m}</span>
+            <span style="color:#C9973B;font-weight:700;font-size:14px;margin-left:8px">· Sindika</span>
+          </td>
+        </tr></table>
       </div>
       <div style="background:#fff;border:1px solid #e4e6ec;border-top:none;border-radius:0 0 14px 14px;padding:24px">
         <h1 style="font-size:18px;margin:0 0 14px;color:#0F1B3D">${titulo}</h1>

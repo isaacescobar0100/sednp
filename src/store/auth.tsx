@@ -65,8 +65,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const role = (data?.role as AppRole) || 'afiliado'
       setProfile({ id: s.user.id, full_name: fullName, role, initials: initialsOf(fullName, s.user.email ?? ''), platformAdmin: Boolean(data?.platform_admin), fotoUrl: (data?.foto_url as string | null) ?? '' })
       setOrg(o ? { nombre: o.nombre as string, logoUrl: (o.logo_url as string | null) ?? null, activo: (o.activo as boolean | null) ?? true, slug: (o.slug as string | null) ?? null } : null)
-      // Marca de los correos = nombre del sindicato; dirección propia si la tiene.
-      setMarca((o?.nombre as string | undefined) || null, (o?.correo_remitente as string | undefined) || null)
+      // Marca de los correos = nombre + logo del sindicato; dirección propia si la tiene.
+      setMarca((o?.nombre as string | undefined) || null, (o?.correo_remitente as string | undefined) || null, (o?.logo_url as string | undefined) || null)
     } catch {
       // Si la consulta falla (red/RLS), no dejamos la app colgada: perfil mínimo.
       setProfile({ id: s.user.id, full_name: meta, role: 'afiliado', initials: initialsOf(meta, s.user.email ?? ''), platformAdmin: false, fotoUrl: '' })
