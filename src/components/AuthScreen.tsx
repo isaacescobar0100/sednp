@@ -100,7 +100,7 @@ export function AuthScreen() {
           </p>
 
           <div className="mt-4 text-center">
-            <a href="/" className="inline-flex items-center gap-1.5 rounded-xl border border-ink/12 px-4 py-2 text-xs font-semibold text-ink/70 transition hover:border-night hover:text-night">
+            <a href="/?web=1" className="inline-flex items-center gap-1.5 rounded-xl border border-ink/12 px-4 py-2 text-xs font-semibold text-ink/70 transition hover:border-night hover:text-night">
               <GlobeIcon className="h-3.5 w-3.5" />Ver la página web
             </a>
           </div>

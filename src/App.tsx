@@ -60,6 +60,19 @@ function isPlatformHost() {
   return typeof window !== 'undefined' && PLATFORM_HOSTS.includes(window.location.hostname.toLowerCase())
 }
 
+// ¿Hay una sesión de Supabase guardada? (token en localStorage). Sirve para que,
+// en el dominio pelado, un usuario ya autenticado entre directo al sistema y la
+// URL quede limpia (sin /app), mientras que un visitante ve la web pública.
+function tieneSesionGuardada(): boolean {
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const k = localStorage.key(i)
+      if (k && k.startsWith('sb-') && k.endsWith('-auth-token') && localStorage.getItem(k)) return true
+    }
+  } catch { /* sin storage */ }
+  return false
+}
+
 function RootSwitcher() {
   const [path, setPath] = useState(() => window.location.pathname)
   useEffect(() => {
@@ -67,10 +80,17 @@ function RootSwitcher() {
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [])
-  // El sistema vive bajo /app (ej. /app/gobernanza). El sitio público, en el resto.
-  // En un host de plataforma, el dominio pelado también entra al sistema.
+  // El sistema vive bajo /app, pero con sesión iniciada también en el dominio
+  // pelado (URL limpia, sin /app). El sitio público se ve sin sesión, o forzado
+  // con ?web=1 (para que un directivo pueda ver su web pública).
   const params = new URLSearchParams(window.location.search)
-  const appMode = path === '/app' || path.startsWith('/app/') || params.get('app') === '1' || window.location.hash === '#app' || isPlatformHost()
+  const forcePublic = params.get('web') === '1'
+  const appMode = !forcePublic && (
+    path === '/app' || path.startsWith('/app/') ||
+    params.get('app') === '1' || window.location.hash === '#app' ||
+    isPlatformHost() ||
+    (path === '/' && tieneSesionGuardada())
+  )
   const enter = () => { window.history.pushState({}, '', '/app'); setPath('/app') }
   if (appMode) {
     return (
@@ -191,21 +211,23 @@ function SindicatoSuspendido({ onLogout }: { onLogout: () => void }) {
 function DirectivaApp() {
   const { canSeeModule } = useSession()
   const { signOut } = useAuth()
-  // El módulo activo se lee de la URL: /app -> dashboard, /app/<modulo> -> ese módulo.
-  const [pathname, setPathname] = useState(() => window.location.pathname)
+  // Módulo activo en memoria. El primero se toma de la URL (permite abrir un
+  // enlace /app/<modulo>); luego la barra se deja en el dominio pelado.
+  const [wanted, setWanted] = useState<ModuleKey>(() => {
+    const seg = window.location.pathname.replace(/^\/app\/?/, '').split('/')[0]
+    return Object.prototype.hasOwnProperty.call(modules, seg) ? (seg as ModuleKey) : 'dashboard'
+  })
+  // Limpia la URL a dominio pelado ("/") mientras se usa el sistema.
   useEffect(() => {
-    const onPop = () => setPathname(window.location.pathname)
-    window.addEventListener('popstate', onPop)
-    return () => window.removeEventListener('popstate', onPop)
+    if (window.location.pathname !== '/' || window.location.search || window.location.hash) {
+      window.history.replaceState({}, '', '/')
+    }
   }, [])
-  const seg = pathname.replace(/^\/app\/?/, '').split('/')[0]
-  const wanted: ModuleKey = Object.prototype.hasOwnProperty.call(modules, seg) ? (seg as ModuleKey) : 'dashboard'
   const activeModule: ModuleKey = canSeeModule(wanted) ? wanted : 'dashboard'
 
   const navigate = (m: ModuleKey) => {
-    const p = m === 'dashboard' ? '/app' : `/app/${m}`
-    window.history.pushState({}, '', p)
-    setPathname(p)
+    setWanted(m)
+    window.history.replaceState({}, '', '/')
   }
 
   return (
