@@ -38,6 +38,16 @@ export function plantillaCorreo(titulo: string, cuerpoHtml: string): string {
   </body></html>`
 }
 
+// Bienvenida cuando la Junta aprueba la afiliación (el afiliado ya puede entrar).
+export function correoAfiliacionAprobada(nombre: string, acta: string): string {
+  return plantillaCorreo('¡Bienvenido(a) al SERDNP!', `
+    <p style="margin:0 0 10px">Hola <strong>${nombre}</strong>,</p>
+    <p style="margin:0 0 10px">La Junta Directiva <strong>aprobó tu afiliación</strong>${acta ? ` mediante Acta No. ${acta}` : ''}. Ya eres parte de la Organización Sindical de Servidores Públicos del DNP.</p>
+    <p style="margin:0 0 10px">Desde ahora puedes ingresar a tu portal con tu correo y la contraseña que te asignaron, para consultar tus aportes, votaciones, comunicados y documentos.</p>
+    <p style="margin:16px 0 0;color:#5b6577;font-size:13px">Junta Directiva Nacional</p>
+  `)
+}
+
 // #11 — Agradecimiento cuando se registra el pago de un aporte.
 export function correoAportePagado(nombre: string, periodo: string, monto: string): string {
   return plantillaCorreo('¡Gracias por tu aporte!', `
