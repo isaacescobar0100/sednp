@@ -15,13 +15,18 @@ export function BrandPanel() {
     supabase.rpc('contar_afiliados_activos').then(({ data, error }) => {
       if (on && !error && typeof data === 'number') setActivos(data)
     })
-    const paramOrg = new URLSearchParams(window.location.search).get('org') || null
-    supabase.rpc('sitio_publico', { p_host: window.location.hostname, p_slug: paramOrg }).then(({ data }) => {
-      if (!on) return
-      const d = (data || {}) as { nombre?: string; logoUrl?: string }
-      setTenantLogo(d.logoUrl || '')
-      setTenantNombre(d.nombre || '')
-    })
+    // En un host de plataforma se muestra SOLO Sindika (no un sindicato).
+    const platformHosts = (((import.meta.env.VITE_PLATFORM_HOSTS as string | undefined) || 'sindika.acordemusic.com')
+      .split(',').map((s) => s.trim().toLowerCase()).filter(Boolean))
+    if (!platformHosts.includes(window.location.hostname.toLowerCase())) {
+      const paramOrg = new URLSearchParams(window.location.search).get('org') || null
+      supabase.rpc('sitio_publico', { p_host: window.location.hostname, p_slug: paramOrg }).then(({ data }) => {
+        if (!on) return
+        const d = (data || {}) as { nombre?: string; logoUrl?: string }
+        setTenantLogo(d.logoUrl || '')
+        setTenantNombre(d.nombre || '')
+      })
+    }
     return () => { on = false }
   }, [])
   return (
