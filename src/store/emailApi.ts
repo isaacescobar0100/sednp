@@ -30,6 +30,26 @@ export async function enviarCorreoDetallado(input: CorreoInput): Promise<{ ok: b
   }
 }
 
+// Envía un boletín por correo a una lista de destinatarios (vía /api/boletin).
+// Devuelve cuántos se enviaron. No lanza.
+export async function enviarBoletin(recipients: string[], subject: string, html: string): Promise<{ ok: boolean; sent: number; failed: number; total: number; error?: string }> {
+  try {
+    const { data } = await supabase.auth.getSession()
+    const token = data.session?.access_token
+    if (!token) return { ok: false, sent: 0, failed: 0, total: 0, error: 'No hay sesión activa.' }
+    const res = await fetch('/api/boletin', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ recipients, subject, html }),
+    })
+    const payload = await res.json().catch(() => ({}))
+    if (!res.ok) return { ok: false, sent: 0, failed: 0, total: recipients.length, error: payload.error || `Error ${res.status}` }
+    return { ok: true, sent: payload.sent || 0, failed: payload.failed || 0, total: payload.total || recipients.length }
+  } catch (e) {
+    return { ok: false, sent: 0, failed: 0, total: recipients.length, error: e instanceof Error ? e.message : 'Fallo de red' }
+  }
+}
+
 // Envoltura HTML sobria y co-marcada (sin imágenes externas, para no caer en spam).
 export function plantillaCorreo(titulo: string, cuerpoHtml: string): string {
   return `<!doctype html><html><body style="margin:0;background:#f7f6f2;font-family:'Segoe UI',Arial,sans-serif;color:#1c2333">
