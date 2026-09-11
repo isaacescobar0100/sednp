@@ -5,6 +5,16 @@
 // Nota: con Resend en modo prueba (sin dominio verificado) solo llegan los
 // correos al dueño de la cuenta; el resto se cuenta como "no enviado".
 
+// Compone el remitente "Nombre <direccion>": el nombre lo pone el sindicato de
+// la sesión (fromName) y la dirección la fija EMAIL_FROM (dominio verificado).
+function componerFrom(base, fromName) {
+  const def = base || 'SERDNP <onboarding@resend.dev>'
+  const m = def.match(/<([^>]+)>/)
+  const address = (m ? m[1] : def).trim()
+  const name = String(fromName || '').replace(/["<>\r\n]/g, '').trim()
+  return name ? `${name} <${address}>` : def
+}
+
 async function enviarUno(apiKey, from, to, subject, html) {
   try {
     const r = await fetch('https://api.resend.com/emails', {
@@ -41,7 +51,7 @@ export default async function handler(req, res) {
   const recipients = Array.isArray(body.recipients) ? [...new Set(body.recipients.filter((e) => typeof e === 'string' && e.includes('@')))] : []
   if (!subject || !html || recipients.length === 0) { res.status(400).json({ error: 'Faltan datos: recipients, subject y html.' }); return }
 
-  const from = process.env.EMAIL_FROM || 'SERDNP <onboarding@resend.dev>'
+  const from = componerFrom(process.env.EMAIL_FROM, body.fromName)
   let sent = 0
   let failed = 0
   // Envía en tandas de 25 en paralelo para no saturar.
