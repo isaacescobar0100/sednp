@@ -12,6 +12,24 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content="Sindika" />
     <title>Sindika</title>
+    <!-- Marca cacheada (nombre + logo) del sindicato de este dominio: se aplica
+         ANTES de cargar la app para evitar el parpadeo "Sindika → nombre real"
+         en el título y el favicon de la pestaña. -->
+    <script>
+      (function () {
+        try {
+          var raw = localStorage.getItem('tenantBrand:' + location.hostname)
+          if (!raw) return
+          var b = JSON.parse(raw)
+          if (b && b.nombre) document.title = b.nombre
+          if (b && b.logo) {
+            var l = document.querySelector("link[rel='icon']") || document.createElement('link')
+            l.rel = 'icon'; l.href = b.logo
+            document.head.appendChild(l)
+          }
+        } catch (e) { /* sin storage / json inválido */ }
+      })()
+    </script>
   </head>
   <body>
     <div id="root">
