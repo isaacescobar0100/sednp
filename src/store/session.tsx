@@ -58,7 +58,7 @@ const rolePermissions: Record<Role, Permission[]> = {
 // borrar o aprobar está controlado por permisos (rolePermissions / can()), no
 // por la visibilidad del módulo. Así, quien no tiene el permiso ve la
 // información pero en modo solo lectura.
-const allModules: ModuleKey[] = ['dashboard', 'afiliacion', 'financiero', 'gobernanza', 'disciplinario', 'comites', 'comunicaciones', 'documental', 'libro', 'reportes', 'parametros']
+const allModules: ModuleKey[] = ['dashboard', 'afiliacion', 'financiero', 'gobernanza', 'disciplinario', 'comites', 'comunicaciones', 'documental', 'libro', 'publicaciones', 'reportes', 'parametros']
 const roleModules: Record<Role, ModuleKey[]> = {
   presidencia: allModules,
   vicepresidencia: allModules,

@@ -7,6 +7,7 @@ import { AuthScreen } from './components/AuthScreen'
 import { MfaChallenge } from './components/MfaChallenge'
 import { SuperAdminScreen } from './components/SuperAdminPanel'
 import { PublicRegistroPage } from './pages/PublicRegistroPage'
+import { PublicSite } from './components/PublicSite'
 import { ModuleKey, ModuleMeta } from './types/navigation'
 
 // Carga diferida por módulo (code-splitting): cada página se descarga solo
@@ -21,6 +22,7 @@ const DocumentalPage = lazy(() => import('./pages/DocumentalPage').then((m) => (
 const FinancieroPage = lazy(() => import('./pages/FinancieroPage').then((m) => ({ default: m.FinancieroPage })))
 const GobernanzaPage = lazy(() => import('./pages/GobernanzaPage').then((m) => ({ default: m.GobernanzaPage })))
 const LibroPage = lazy(() => import('./pages/LibroPage').then((m) => ({ default: m.LibroPage })))
+const PublicacionesPage = lazy(() => import('./pages/PublicacionesPage').then((m) => ({ default: m.PublicacionesPage })))
 const ParametrosPage = lazy(() => import('./pages/ParametrosPage').then((m) => ({ default: m.ParametrosPage })))
 const ReportesPage = lazy(() => import('./pages/ReportesPage').then((m) => ({ default: m.ReportesPage })))
 
@@ -34,23 +36,34 @@ const modules: Record<ModuleKey, ModuleMeta> = {
   comunicaciones: { key: 'comunicaciones', label: 'Comunicaciones', subtitle: 'Relación con afiliados' },
   documental: { key: 'documental', label: 'Documental', subtitle: 'Repositorio institucional' },
   libro: { key: 'libro', label: 'Libro de Actas y Resoluciones', subtitle: 'Registro inmutable de actos institucionales' },
+  publicaciones: { key: 'publicaciones', label: 'Página web', subtitle: 'Publicaciones del sitio público (CMS)' },
   reportes: { key: 'reportes', label: 'Reportes', subtitle: 'Análisis e indicadores consolidados' },
   parametros: { key: 'parametros', label: 'Parámetros', subtitle: 'Catálogos y datos maestros del sistema' },
 }
 
 export function App() {
-  // Link público de auto-afiliación: .../?afiliacion=<slug>. Se muestra el
-  // formulario público SIN pasar por el login ni cargar la app interna.
-  const slugAfiliacion = new URLSearchParams(window.location.search).get('afiliacion')
+  const params = new URLSearchParams(window.location.search)
+  // Link público de auto-afiliación: .../?afiliacion=<slug> → formulario público.
+  const slugAfiliacion = params.get('afiliacion')
   if (slugAfiliacion) return <PublicRegistroPage slug={slugAfiliacion} />
+  return <RootSwitcher />
+}
 
-  return (
-    <AuthProvider>
-      <DemoProvider>
-        <Root />
-      </DemoProvider>
-    </AuthProvider>
-  )
+// La cara pública (sitio web) es lo primero que se ve. "Ingresar" (o
+// .../?app=1 / #app) entra al sistema (login o, si hay sesión, al panel).
+function RootSwitcher() {
+  const params = new URLSearchParams(window.location.search)
+  const [mode, setMode] = useState<'web' | 'app'>(() => (params.get('app') || window.location.hash === '#app') ? 'app' : 'web')
+  if (mode === 'app') {
+    return (
+      <AuthProvider>
+        <DemoProvider>
+          <Root />
+        </DemoProvider>
+      </AuthProvider>
+    )
+  }
+  return <PublicSite onEnter={() => setMode('app')} />
 }
 
 // Marca en pantallas de carga: logo del sindicato si ya se conoce; si no, Sindika.
@@ -188,6 +201,7 @@ function ActivePage({ module }: { module: ModuleKey }) {
     case 'comunicaciones': return <ComunicacionesPage />
     case 'documental': return <DocumentalPage />
     case 'libro': return <LibroPage />
+    case 'publicaciones': return <PublicacionesPage />
     case 'reportes': return <ReportesPage />
     case 'parametros': return <ParametrosPage />
   }
