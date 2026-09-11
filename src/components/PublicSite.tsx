@@ -36,6 +36,7 @@ export function PublicSite({ onEnter }: { onEnter: () => void }) {
   const [anuncios, setAnuncios] = useState<PostPublico[]>([])
   const [documentos, setDocumentos] = useState<PostPublico[]>([])
   const [view, setView] = useState<View>('inicio')
+  const [showWelcome, setShowWelcome] = useState(true)
   const [post, setPost] = useState<PostPublico | null>(null)
   const [pagina, setPagina] = useState<{ titulo?: string; contenido?: string } | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -75,6 +76,23 @@ export function PublicSite({ onEnter }: { onEnter: () => void }) {
 
   return (
     <div className="min-h-screen bg-canvas">
+      {/* Modal de bienvenida: aparece al entrar y se puede cerrar. */}
+      {showWelcome ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-night/60 p-4" onClick={() => setShowWelcome(false)}>
+          <div className="relative w-full max-w-md rounded-3xl bg-white p-8 text-center shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <button onClick={() => setShowWelcome(false)} className="absolute right-3 top-3 rounded-lg p-2 text-ink/40 transition hover:bg-canvas" aria-label="Cerrar"><XIcon className="h-5 w-5" /></button>
+            <img src={logo} alt="" className="mx-auto h-16 w-16 object-contain" />
+            <p className="mt-4 text-xs font-semibold uppercase tracking-[0.16em] text-gold">Bienvenido</p>
+            <h2 className="mt-1 font-display text-2xl font-semibold text-ink">{org.nombre || 'Nuestro sindicato'}</h2>
+            <p className="mt-3 text-sm leading-relaxed text-ink/60">Noticias, bienestar, formación y la vida de nuestra organización sindical — en un solo lugar.</p>
+            <div className="mt-6 flex flex-col gap-2">
+              <a href={afiliarseUrl} className="inline-flex items-center justify-center gap-2 rounded-xl bg-gold px-5 py-3 text-sm font-semibold text-night transition hover:bg-gold/90"><UserPlusIcon className="h-4 w-4" />Afíliate en línea</a>
+              <button onClick={() => setShowWelcome(false)} className="rounded-xl px-5 py-2.5 text-sm font-semibold text-ink/60 transition hover:bg-canvas">Explorar el sitio</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {/* Header */}
       <header className="sticky top-0 z-30 border-b border-ink/[0.08] bg-white/95 backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-3">
@@ -102,16 +120,16 @@ export function PublicSite({ onEnter }: { onEnter: () => void }) {
       <main className="mx-auto max-w-6xl px-5 py-8">
         {view === 'inicio' ? (
           <>
-            {slides.length > 0 ? <Slider slides={slides} onOpen={abrirPost} /> : null}
-            <section className={`overflow-hidden rounded-3xl bg-night px-8 py-14 text-white sm:px-12 ${slides.length > 0 ? 'mt-8' : ''}`}>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gold">Bienvenido</p>
-              <h1 className="mt-3 max-w-2xl font-display text-3xl font-semibold leading-tight sm:text-4xl">{org.nombre}</h1>
-              <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/70">Noticias, bienestar, formación y la vida de nuestra organización sindical — en un solo lugar.</p>
-              <div className="mt-7 flex flex-wrap gap-3">
-                <a href={afiliarseUrl} className="inline-flex items-center gap-2 rounded-xl bg-gold px-5 py-3 text-sm font-semibold text-night transition hover:bg-gold/90"><UserPlusIcon className="h-4 w-4" />Afíliate en línea</a>
-                <button onClick={() => go('blog')} className="inline-flex items-center gap-2 rounded-xl border border-white/20 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10">Ver publicaciones<ArrowRightIcon className="h-4 w-4" /></button>
-              </div>
-            </section>
+            {slides.length > 0 ? (
+              <Slider slides={slides} onOpen={abrirPost} />
+            ) : (
+              <section className="overflow-hidden rounded-3xl bg-night px-8 py-14 text-white sm:px-12">
+                <p className="text-xs font-semibold uppercase tracking-[0.16em] text-gold">Bienvenido</p>
+                <h1 className="mt-3 font-display text-3xl font-semibold leading-tight sm:text-4xl">{org.nombre}</h1>
+                <p className="mt-4 max-w-xl text-sm leading-relaxed text-white/70">Noticias, bienestar, formación y la vida de nuestra organización sindical.</p>
+                <a href={afiliarseUrl} className="mt-7 inline-flex items-center gap-2 rounded-xl bg-gold px-5 py-3 text-sm font-semibold text-night transition hover:bg-gold/90"><UserPlusIcon className="h-4 w-4" />Afíliate en línea</a>
+              </section>
+            )}
 
             {anuncios.length > 0 ? (
               <section className="mt-8">
@@ -175,10 +193,14 @@ export function PublicSite({ onEnter }: { onEnter: () => void }) {
             </div>
             <h1 className="font-display text-2xl font-semibold leading-tight text-ink">{post.titulo}</h1>
             <div className="mt-5 text-sm"><Parrafos texto={post.contenido} /></div>
-            {youtubeEmbed(post.videoUrl) ? (
-              <div className="mt-6 aspect-video w-full overflow-hidden rounded-2xl border border-ink/10">
-                <iframe src={youtubeEmbed(post.videoUrl)!} title="Video" className="h-full w-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
-              </div>
+            {post.videoUrl ? (
+              youtubeEmbed(post.videoUrl) ? (
+                <div className="mt-6 aspect-video w-full overflow-hidden rounded-2xl border border-ink/10">
+                  <iframe src={youtubeEmbed(post.videoUrl)!} title="Video" className="h-full w-full" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowFullScreen />
+                </div>
+              ) : (
+                <video controls src={post.videoUrl} className="mt-6 w-full rounded-2xl border border-ink/10" />
+              )
             ) : null}
             {post.galeria && post.galeria.length > 0 ? (
               <div className="mt-6">
@@ -270,9 +292,9 @@ function Slider({ slides, onOpen }: { slides: PostPublico[]; onOpen: (p: PostPub
   return (
     <section className="relative overflow-hidden rounded-3xl bg-night">
       <button onClick={() => onOpen(s)} className="block w-full text-left">
-        <div className="relative h-64 sm:h-80">
-          <img src={s.imagenUrl || ''} alt="" className="h-full w-full object-cover opacity-70" />
-          <div className="absolute inset-0 bg-gradient-to-t from-night/90 via-night/30 to-transparent" />
+        <div className="relative h-[70vh] min-h-[440px] sm:h-[72vh]">
+          <img src={s.imagenUrl || ''} alt="" className="h-full w-full object-cover object-center" />
+          <div className="absolute inset-0 bg-gradient-to-t from-night/90 via-night/25 to-transparent" />
           <div className="absolute bottom-0 left-0 right-0 p-6 text-white sm:p-8">
             {s.categoria ? <span className="rounded-md bg-gold px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-night">{s.categoria}</span> : null}
             <h2 className="mt-2 max-w-2xl font-display text-2xl font-semibold leading-tight sm:text-3xl">{s.titulo}</h2>

@@ -9,6 +9,11 @@ alter table public.publicaciones add column if not exists galeria    jsonb not n
 alter table public.publicaciones add column if not exists destacado  boolean not null default false;
 alter table public.publicaciones add column if not exists archivo_url text;
 
+-- El CMS sube imágenes, VIDEOS y PDFs al bucket público 'fotos'. Permitimos
+-- cualquier tipo de archivo y hasta 50 MB por archivo (los videos pesados es
+-- mejor enlazarlos desde YouTube).
+update storage.buckets set file_size_limit = 52428800, allowed_mime_types = null where id = 'fotos';
+
 -- Lectura pública actualizada: incluye los nuevos campos ----------------------
 create or replace function public.posts_publicos(p_slug text, p_tipo text default null)
 returns jsonb
