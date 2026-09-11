@@ -60,7 +60,7 @@ export function ComunicacionesPage() {
         const html = plantillaCorreo(asunto, mensaje.split(/\n\s*\n/).map((p) => `<p style="margin:0 0 10px">${p.replace(/\n/g, '<br>')}</p>`).join(''))
         const r = await enviarBoletin(correos, `${asunto} — ${audienceLabel[audience]}`, html)
         setEnviandoCorreo(false)
-        notify(r.ok ? `Boletín enviado por correo: ${r.sent} de ${r.total}.${r.failed ? ` (${r.failed} no llegaron; con dominio propio llegarán todos.)` : ''}` : `No se pudo enviar el boletín: ${r.error || ''}`, r.ok ? 'success' : 'warning')
+        notify(r.ok ? `Boletín enviado por correo: ${r.sent} de ${r.total}.${r.failed ? ` (${r.failed} no llegaron${r.error ? `: ${r.error}` : ''}.)` : ''}` : `No se pudo enviar el boletín: ${r.error || ''}`, r.ok && !r.failed ? 'success' : 'warning')
       }
     }
     if (porPush) {

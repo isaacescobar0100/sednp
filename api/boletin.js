@@ -29,15 +29,22 @@ function htmlAtexto(html) {
     .replace(/\n{3,}/g, '\n\n').replace(/[ \t]{2,}/g, ' ').trim()
 }
 
-async function enviarUno(apiKey, from, to, subject, html, text) {
+// Envía un LOTE (hasta 100) en UNA sola petición al endpoint batch de Resend.
+// Evita el límite de ~2/seg que rechazaba envíos cuando se mandaban en paralelo.
+async function enviarLote(apiKey, emails) {
   try {
-    const r = await fetch('https://api.resend.com/emails', {
+    const r = await fetch('https://api.resend.com/emails/batch', {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from, to: [to], subject, html, text }),
+      body: JSON.stringify(emails),
     })
-    return r.ok
-  } catch { return false }
+    const data = await r.json().catch(() => ({}))
+    if (!r.ok) return { sent: 0, error: (data && data.message) || `Error ${r.status}` }
+    const n = Array.isArray(data && data.data) ? data.data.length : emails.length
+    return { sent: n }
+  } catch {
+    return { sent: 0, error: 'No se pudo contactar el servicio de correo' }
+  }
 }
 
 export default async function handler(req, res) {
@@ -68,13 +75,16 @@ export default async function handler(req, res) {
   const from = componerFrom(process.env.EMAIL_FROM, body.fromName, body.fromEmail)
   const texto = htmlAtexto(html)
   let sent = 0
-  let failed = 0
-  // Envía en tandas de 25 en paralelo para no saturar.
-  for (let i = 0; i < recipients.length; i += 25) {
-    const chunk = recipients.slice(i, i + 25)
-    const results = await Promise.all(chunk.map((to) => enviarUno(apiKey, from, to, subject, html, texto)))
-    results.forEach((ok) => (ok ? (sent += 1) : (failed += 1)))
+  let ultimoError = ''
+  // Batch de hasta 100 por petición (evita el límite de tasa de Resend).
+  for (let i = 0; i < recipients.length; i += 100) {
+    const chunk = recipients.slice(i, i + 100)
+    const emails = chunk.map((to) => ({ from, to: [to], subject, html, text: texto }))
+    const r = await enviarLote(apiKey, emails)
+    sent += r.sent
+    if (r.error) ultimoError = r.error
   }
+  const failed = recipients.length - sent
 
-  res.status(200).json({ ok: true, sent, failed, total: recipients.length })
+  res.status(200).json({ ok: true, sent, failed, total: recipients.length, error: ultimoError || undefined })
 }

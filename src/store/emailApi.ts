@@ -61,7 +61,7 @@ export async function enviarBoletin(recipients: string[], subject: string, html:
     })
     const payload = await res.json().catch(() => ({}))
     if (!res.ok) return { ok: false, sent: 0, failed: 0, total: recipients.length, error: payload.error || `Error ${res.status}` }
-    return { ok: true, sent: payload.sent || 0, failed: payload.failed || 0, total: payload.total || recipients.length }
+    return { ok: true, sent: payload.sent || 0, failed: payload.failed || 0, total: payload.total || recipients.length, error: payload.error }
   } catch (e) {
     return { ok: false, sent: 0, failed: 0, total: recipients.length, error: e instanceof Error ? e.message : 'Fallo de red' }
   }
