@@ -76,6 +76,16 @@ export function PublicSite({ onEnter }: { onEnter: () => void }) {
     return () => { on = false }
   }, [])
 
+  // Título y favicon de la pestaña según el sindicato del sitio: su logo propio
+  // si lo tiene; si no, el de Sindika. (El sistema ya lo hace; aquí, la web pública.)
+  useEffect(() => {
+    document.title = org.nombre && org.nombre !== 'Sindicato' ? org.nombre : 'Sindika'
+    const href = org.logo || '/sindika.png'
+    let link = document.querySelector<HTMLLinkElement>("link[rel='icon']")
+    if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link) }
+    link.href = href
+  }, [org])
+
   useEffect(() => {
     if (!slug) return
     let on = true
