@@ -8,7 +8,7 @@ import { Params, clearCajaGastos, deletePresupuesto as deletePresupuestoRow, fet
 import { deleteCaseRow, fetchCases, insertCase, patchCase } from './casesApi'
 import { CaseEvent, fetchCaseEvents, insertCaseEvent } from './caseEventsApi'
 import { Acto, fetchActos, insertActo, nextActoNumero } from './actosApi'
-import { enviarCorreo, correoAportePagado } from './emailApi'
+import { enviarCorreo, correoAportePagado, correoAfiliacionAprobada } from './emailApi'
 import { cerrarVencidas, deleteBallotRow, deleteSessionRow, emitirVoto, fetchBallots, fetchMyVotes, fetchSessions, insertBallot, insertSession, patchBallot, patchSession } from './governanceApi'
 import { deleteComunicadoRow, fetchComunicados, insertComunicado } from './commsApi'
 import { deleteCommitteeRow, fetchCommittees, insertCommittee, patchCommittee } from './committeesApi'
@@ -989,6 +989,14 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       affiliateId: id,
       resultado: `Acta ${acta}`,
     })
+    // Notifica al afiliado que su afiliación fue aprobada (fire-and-forget).
+    if (target?.email) {
+      void enviarCorreo({
+        to: target.email,
+        subject: 'Tu afiliación fue aprobada — SERDNP',
+        html: correoAfiliacionAprobada(target.name, acta),
+      })
+    }
     notify('Afiliación aprobada por la Junta Directiva.', 'success')
   }, [notify, crearAporteAlActivar, registrarActo])
 
