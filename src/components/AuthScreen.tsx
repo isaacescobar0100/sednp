@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react'
 import HCaptcha from '@hcaptcha/react-hcaptcha'
-import { AlertCircleIcon, ArrowRightIcon, EyeIcon, EyeOffIcon, LockIcon, MailIcon } from 'lucide-react'
+import { AlertCircleIcon, ArrowRightIcon, EyeIcon, EyeOffIcon, GlobeIcon, LockIcon, MailIcon } from 'lucide-react'
 import { BrandPanel } from './BrandPanel'
 import { useAuth } from '../store/auth'
 
@@ -98,6 +98,12 @@ export function AuthScreen() {
           <p className="mt-5 text-center text-xs text-ink/45">
             Las cuentas las habilita la administración del sindicato. Si no puedes entrar, contacta a la Secretaría.
           </p>
+
+          <div className="mt-4 text-center">
+            <a href="/" className="inline-flex items-center gap-1.5 rounded-xl border border-ink/12 px-4 py-2 text-xs font-semibold text-ink/70 transition hover:border-night hover:text-night">
+              <GlobeIcon className="h-3.5 w-3.5" />Ver la página web
+            </a>
+          </div>
         </form>
       </section>
     </main>
