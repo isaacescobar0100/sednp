@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { subirFoto } from '../store/storageApi'
 import { useAuth } from '../store/auth'
 
-type OrgRow = { id: string; nombre: string; slug: string; logo_url: string | null; activo: boolean; dominio: string | null }
+type OrgRow = { id: string; nombre: string; slug: string; logo_url: string | null; activo: boolean; dominio: string | null; correo_remitente: string | null }
 
 // ---------------------------------------------------------------------------
 // Contenido reutilizable: dar de alta sindicatos y gestionar su marca.
@@ -26,7 +26,7 @@ function SuperAdminContent() {
 
   async function load() {
     setLoading(true)
-    const { data, error } = await supabase.from('organizations').select('id, nombre, slug, logo_url, activo, dominio').order('created_at')
+    const { data, error } = await supabase.from('organizations').select('id, nombre, slug, logo_url, activo, dominio, correo_remitente').order('created_at')
     if (error) setError('No se pudieron cargar los sindicatos.')
     else setOrgs((data as OrgRow[]) ?? [])
     setLoading(false)
@@ -258,6 +258,7 @@ function EditOrgModal({ org, onClose, onSaved }: { org: OrgRow; onClose: () => v
   const [nombre, setNombre] = useState(org.nombre)
   const [logoUrl, setLogoUrl] = useState(org.logo_url ?? '')
   const [dominio, setDominio] = useState(org.dominio ?? '')
+  const [correo, setCorreo] = useState(org.correo_remitente ?? '')
   const [busy, setBusy] = useState(false)
   const [subiendo, setSubiendo] = useState(false)
   const [error, setError] = useState('')
@@ -275,8 +276,10 @@ function EditOrgModal({ org, onClose, onSaved }: { org: OrgRow; onClose: () => v
   async function guardar() {
     setBusy(true); setError('')
     const dom = dominio.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '')
+    const rem = correo.trim().toLowerCase()
+    if (rem && !/^[^@\s<>"]+@[^@\s<>"]+\.[^@\s<>"]+$/.test(rem)) { setBusy(false); setError('El correo remitente no es válido (ej. notificaciones@sudominio.com).'); return }
     const { error } = await supabase.from('organizations')
-      .update({ nombre: nombre.trim() || org.nombre, logo_url: logoUrl || null, dominio: dom || null })
+      .update({ nombre: nombre.trim() || org.nombre, logo_url: logoUrl || null, dominio: dom || null, correo_remitente: rem || null })
       .eq('id', org.id)
     setBusy(false)
     if (error) setError(error.message)
@@ -301,9 +304,15 @@ function EditOrgModal({ org, onClose, onSaved }: { org: OrgRow; onClose: () => v
           </label>
 
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-ink/70">Dominio propio (opcional)</span>
+            <span className="mb-1 block text-xs font-medium text-ink/70">Dominio propio de la web (opcional)</span>
             <input value={dominio} onChange={(e) => setDominio(e.target.value)} placeholder="ej. acordemusic.com" className={inputC} />
             <span className="mt-1 block text-[11px] text-ink/45">Si lo dejas vacío, su web abre con el dominio por defecto. El dominio también debe agregarse al proyecto en Vercel.</span>
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-ink/70">Correo remitente propio (opcional)</span>
+            <input value={correo} onChange={(e) => setCorreo(e.target.value)} placeholder="ej. notificaciones@sudominio.com" className={inputC} />
+            <span className="mt-1 block text-[11px] text-ink/45">Dirección desde la que salen SUS correos. Requiere tener ese dominio verificado en Resend. Si lo dejas vacío, envía con la dirección del sistema pero con el nombre del sindicato.</span>
           </label>
 
           <div>
