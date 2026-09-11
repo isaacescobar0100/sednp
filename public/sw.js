@@ -38,6 +38,10 @@ self.addEventListener('push', (event) => {
     body: data.body || '',
     icon: '/icon-192.png',
     badge: '/icon-192.png',
+    vibrate: [120, 60, 120],
+    requireInteraction: true, // se queda hasta que la toquen (más visible)
+    renotify: true,
+    tag: 'serdnp',
     data: { url: data.url || '/?app=1' },
   }
   event.waitUntil(self.registration.showNotification(title, options))
