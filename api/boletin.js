@@ -19,12 +19,22 @@ function componerFrom(base, fromName, fromEmail) {
   return name ? `${name} <${address}>` : `${address}`
 }
 
-async function enviarUno(apiKey, from, to, subject, html) {
+// Deriva texto plano del HTML (mejora entrega a Principal y notificaciones).
+function htmlAtexto(html) {
+  return String(html || '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<(br|\/p|\/div|\/h[1-6]|\/tr)>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"')
+    .replace(/\n{3,}/g, '\n\n').replace(/[ \t]{2,}/g, ' ').trim()
+}
+
+async function enviarUno(apiKey, from, to, subject, html, text) {
   try {
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from, to: [to], subject, html }),
+      body: JSON.stringify({ from, to: [to], subject, html, text }),
     })
     return r.ok
   } catch { return false }
@@ -56,12 +66,13 @@ export default async function handler(req, res) {
   if (!subject || !html || recipients.length === 0) { res.status(400).json({ error: 'Faltan datos: recipients, subject y html.' }); return }
 
   const from = componerFrom(process.env.EMAIL_FROM, body.fromName, body.fromEmail)
+  const texto = htmlAtexto(html)
   let sent = 0
   let failed = 0
   // Envía en tandas de 25 en paralelo para no saturar.
   for (let i = 0; i < recipients.length; i += 25) {
     const chunk = recipients.slice(i, i + 25)
-    const results = await Promise.all(chunk.map((to) => enviarUno(apiKey, from, to, subject, html)))
+    const results = await Promise.all(chunk.map((to) => enviarUno(apiKey, from, to, subject, html, texto)))
     results.forEach((ok) => (ok ? (sent += 1) : (failed += 1)))
   }
 
