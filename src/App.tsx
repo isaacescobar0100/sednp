@@ -80,16 +80,18 @@ function RootSwitcher() {
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [])
-  // El sistema vive bajo /app, pero con sesión iniciada también en el dominio
-  // pelado (URL limpia, sin /app). El sitio público se ve sin sesión, o forzado
-  // con ?web=1 (para que un directivo pueda ver su web pública).
+  // El sistema usa URLs limpias por módulo (ej. /parametros), sin prefijo /app.
+  // Con sesión iniciada, la raíz y las rutas de módulo entran al sistema; el sitio
+  // público se ve sin sesión, o forzado con ?web=1 (para que un directivo vea su web).
   const params = new URLSearchParams(window.location.search)
   const forcePublic = params.get('web') === '1'
+  const primerSeg = path.replace(/^\//, '').split('/')[0]
+  const esModulo = Object.prototype.hasOwnProperty.call(modules, primerSeg)
   const appMode = !forcePublic && (
     path === '/app' || path.startsWith('/app/') ||
     params.get('app') === '1' || window.location.hash === '#app' ||
     isPlatformHost() ||
-    (path === '/' && tieneSesionGuardada())
+    (tieneSesionGuardada() && (path === '/' || esModulo))
   )
   const enter = () => { window.history.pushState({}, '', '/app'); setPath('/app') }
   if (appMode) {
@@ -211,23 +213,32 @@ function SindicatoSuspendido({ onLogout }: { onLogout: () => void }) {
 function DirectivaApp() {
   const { canSeeModule } = useSession()
   const { signOut } = useAuth()
-  // Módulo activo en memoria. El primero se toma de la URL (permite abrir un
-  // enlace /app/<modulo>); luego la barra se deja en el dominio pelado.
-  const [wanted, setWanted] = useState<ModuleKey>(() => {
-    const seg = window.location.pathname.replace(/^\/app\/?/, '').split('/')[0]
-    return Object.prototype.hasOwnProperty.call(modules, seg) ? (seg as ModuleKey) : 'dashboard'
-  })
-  // Limpia la URL a dominio pelado ("/") mientras se usa el sistema.
+  // URLs limpias por módulo, SIN prefijo /app: /parametros, /gobernanza…
+  // El dashboard vive en la raíz "/". Se lee el módulo de la URL (deep-link y
+  // recarga funcionan) y se acepta el formato viejo /app/<modulo>.
+  const [pathname, setPathname] = useState(() => window.location.pathname)
   useEffect(() => {
-    if (window.location.pathname !== '/' || window.location.search || window.location.hash) {
-      window.history.replaceState({}, '', '/')
+    const onPop = () => setPathname(window.location.pathname)
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+  // Normaliza enlaces viejos /app/<modulo> → /<modulo> (URL limpia).
+  useEffect(() => {
+    if (window.location.pathname.startsWith('/app')) {
+      const s = window.location.pathname.replace(/^\/app\/?/, '').split('/')[0]
+      const clean = s && Object.prototype.hasOwnProperty.call(modules, s) ? `/${s}` : '/'
+      window.history.replaceState({}, '', clean)
+      setPathname(clean)
     }
   }, [])
+  const seg = pathname.replace(/^\/(app\/?)?/, '').split('/')[0]
+  const wanted: ModuleKey = Object.prototype.hasOwnProperty.call(modules, seg) ? (seg as ModuleKey) : 'dashboard'
   const activeModule: ModuleKey = canSeeModule(wanted) ? wanted : 'dashboard'
 
   const navigate = (m: ModuleKey) => {
-    setWanted(m)
-    window.history.replaceState({}, '', '/')
+    const p = m === 'dashboard' ? '/' : `/${m}`
+    window.history.pushState({}, '', p)
+    setPathname(p)
   }
 
   return (
