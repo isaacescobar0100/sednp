@@ -8,14 +8,14 @@ import { useAuth } from '../store/auth'
 import { subirFoto } from '../store/storageApi'
 import { Publicacion, PubTipo, fetchPublicaciones, insertPublicacion, updatePublicacion, deletePublicacion } from '../store/publicacionesApi'
 
-const TIPO_LABEL: Record<PubTipo, string> = { articulo: 'Artículo', anuncio: 'Anuncio', pagina: 'Página fija' }
+const TIPO_LABEL: Record<PubTipo, string> = { articulo: 'Artículo', anuncio: 'Anuncio', pagina: 'Página fija', documento: 'Documento' }
 const CLAVES: Array<{ value: string; label: string }> = [
   { value: 'quienes-somos', label: 'Quiénes somos' },
   { value: 'servicios', label: 'Nuestros servicios' },
   { value: 'contacto', label: 'Contacto' },
 ]
 const filtros: Array<{ k: 'todos' | PubTipo; label: string }> = [
-  { k: 'todos', label: 'Todos' }, { k: 'articulo', label: 'Artículos' }, { k: 'anuncio', label: 'Anuncios' }, { k: 'pagina', label: 'Páginas' },
+  { k: 'todos', label: 'Todos' }, { k: 'articulo', label: 'Artículos' }, { k: 'anuncio', label: 'Anuncios' }, { k: 'documento', label: 'Documentos' }, { k: 'pagina', label: 'Páginas' },
 ]
 
 export function PublicacionesPage() {
@@ -120,8 +120,12 @@ function EditorModal({ pub, onClose, onSaved }: { pub: Publicacion | null; onClo
   const { profile } = useAuth()
   const autorNombre = profile?.full_name || user.name
   const [form, setForm] = useState<Publicacion>(() => pub ?? {
-    id: '', tipo: 'articulo', clave: '', titulo: '', resumen: '', contenido: '', categoria: '', imagenUrl: '', estado: 'borrador', autor: autorNombre,
+    id: '', tipo: 'articulo', clave: '', titulo: '', resumen: '', contenido: '', categoria: '', imagenUrl: '',
+    videoUrl: '', galeria: [], destacado: false, archivoUrl: '', estado: 'borrador', autor: autorNombre,
   })
+  const galRef = useRef<HTMLInputElement>(null)
+  const archRef = useRef<HTMLInputElement>(null)
+  const [archNombre, setArchNombre] = useState('')
   const [subiendo, setSubiendo] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
@@ -133,6 +137,23 @@ function EditorModal({ pub, onClose, onSaved }: { pub: Publicacion | null; onClo
     setSubiendo(true)
     try { set('imagenUrl', await subirFoto(file)) } catch { notify('No se pudo subir la imagen.', 'warning') } finally { setSubiendo(false) }
   }
+  async function addGaleria(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? [])
+    if (files.length === 0) return
+    setSubiendo(true)
+    try {
+      const urls: string[] = []
+      for (const f of files) { urls.push(await subirFoto(f)) }
+      setForm((p) => ({ ...p, galeria: [...p.galeria, ...urls] }))
+    } catch { notify('No se pudieron subir algunas imágenes.', 'warning') } finally { setSubiendo(false) }
+  }
+  function quitarGaleria(url: string) { setForm((p) => ({ ...p, galeria: p.galeria.filter((g) => g !== url) })) }
+  async function handleArchivo(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setSubiendo(true)
+    try { set('archivoUrl', await subirFoto(file)); setArchNombre(file.name) } catch { notify('No se pudo subir el archivo.', 'warning') } finally { setSubiendo(false) }
+  }
 
   const valid = form.titulo.trim() !== '' && (form.tipo !== 'pagina' || form.clave !== '')
 
@@ -142,7 +163,9 @@ function EditorModal({ pub, onClose, onSaved }: { pub: Publicacion | null; onClo
     const estado = publicar ? 'publicado' : form.estado
     const payload: Partial<Publicacion> = {
       tipo: form.tipo, clave: form.tipo === 'pagina' ? form.clave : '', titulo: form.titulo.trim(), resumen: form.resumen.trim(),
-      contenido: form.contenido, categoria: form.categoria.trim(), imagenUrl: form.imagenUrl, estado, autor: form.autor || autorNombre,
+      contenido: form.contenido, categoria: form.categoria.trim(), imagenUrl: form.imagenUrl,
+      videoUrl: form.videoUrl.trim(), galeria: form.galeria, destacado: form.destacado, archivoUrl: form.archivoUrl,
+      estado, autor: form.autor || autorNombre,
       fechaPub: estado === 'publicado' && !form.fechaPub ? new Date().toISOString() : form.fechaPub,
     }
     try {
@@ -168,6 +191,7 @@ function EditorModal({ pub, onClose, onSaved }: { pub: Publicacion | null; onClo
             <select value={form.tipo} onChange={(e) => set('tipo', e.target.value as PubTipo)} className={inputClass}>
               <option value="articulo">Artículo (blog)</option>
               <option value="anuncio">Anuncio</option>
+              <option value="documento">Documento público</option>
               <option value="pagina">Página fija</option>
             </select>
           </label>
@@ -207,6 +231,43 @@ function EditorModal({ pub, onClose, onSaved }: { pub: Publicacion | null; onClo
               <button type="button" onClick={() => fileRef.current?.click()} disabled={subiendo} className="rounded-xl border border-ink/12 px-3 py-2 text-sm font-semibold text-ink/70 transition hover:border-night hover:text-night disabled:opacity-50">{subiendo ? 'Subiendo…' : form.imagenUrl ? 'Cambiar imagen' : 'Subir imagen'}</button>
             </div>
           </div>
+
+          {form.tipo === 'documento' ? (
+            <div className="sm:col-span-2">
+              <span className="mb-1.5 block text-xs font-semibold text-ink/70">Archivo (PDF o imagen)</span>
+              <div className="flex items-center gap-3">
+                <input ref={archRef} type="file" accept="application/pdf,image/*" onChange={handleArchivo} className="hidden" />
+                <button type="button" onClick={() => archRef.current?.click()} disabled={subiendo} className="rounded-xl border border-ink/12 px-3 py-2 text-sm font-semibold text-ink/70 transition hover:border-night hover:text-night disabled:opacity-50">{subiendo ? 'Subiendo…' : form.archivoUrl ? 'Cambiar archivo' : 'Subir archivo'}</button>
+                {form.archivoUrl ? <span className="truncate text-xs text-emerald-700">{archNombre || 'Archivo cargado'}</span> : <span className="text-xs text-ink/40">Requerido para publicar el documento</span>}
+              </div>
+            </div>
+          ) : null}
+
+          {form.tipo === 'articulo' || form.tipo === 'anuncio' ? (
+            <>
+              <label className="block sm:col-span-2">
+                <span className="mb-1.5 block text-xs font-semibold text-ink/70">Video de YouTube (opcional)</span>
+                <input value={form.videoUrl} onChange={(e) => set('videoUrl', e.target.value)} placeholder="https://www.youtube.com/watch?v=…" className={inputClass} />
+              </label>
+              <div className="sm:col-span-2">
+                <span className="mb-1.5 block text-xs font-semibold text-ink/70">Galería de imágenes (opcional)</span>
+                <div className="flex flex-wrap items-center gap-2">
+                  {form.galeria.map((g) => (
+                    <span key={g} className="relative inline-block">
+                      <img src={g} alt="" className="h-14 w-20 rounded-lg border border-ink/12 object-cover" />
+                      <button type="button" onClick={() => quitarGaleria(g)} className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-brick text-white" aria-label="Quitar"><XIcon className="h-3 w-3" /></button>
+                    </span>
+                  ))}
+                  <input ref={galRef} type="file" accept="image/*" multiple onChange={addGaleria} className="hidden" />
+                  <button type="button" onClick={() => galRef.current?.click()} disabled={subiendo} className="h-14 w-20 rounded-lg border border-dashed border-ink/25 text-xs font-semibold text-ink/50 transition hover:border-night hover:text-night disabled:opacity-50">+ Agregar</button>
+                </div>
+              </div>
+              <label className="flex items-center gap-2 sm:col-span-2">
+                <input type="checkbox" checked={form.destacado} onChange={(e) => set('destacado', e.target.checked)} className="h-4 w-4 accent-night" />
+                <span className="text-sm text-ink/75">Mostrar en el <strong>carrusel de la portada</strong></span>
+              </label>
+            </>
+          ) : null}
         </div>
 
         <div className="mt-6 flex flex-wrap justify-end gap-2">
