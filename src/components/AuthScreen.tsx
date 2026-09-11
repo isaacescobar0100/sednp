@@ -19,6 +19,11 @@ export function AuthScreen() {
   const [busy, setBusy] = useState(false)
   const [captchaToken, setCaptchaToken] = useState('')
   const captchaRef = useRef<HCaptcha>(null)
+  // Aviso si la sesión anterior se cerró por inactividad.
+  const [idleNotice] = useState(() => {
+    try { if (sessionStorage.getItem('idleLogout')) { sessionStorage.removeItem('idleLogout'); return true } } catch { /* sin storage */ }
+    return false
+  })
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -51,6 +56,12 @@ export function AuthScreen() {
             <h2 className="font-display text-2xl font-semibold text-ink">Iniciar sesión</h2>
             <p className="mt-2 text-sm leading-relaxed text-ink/55">Ingresa con tu correo y contraseña.</p>
           </div>
+
+          {idleNotice ? (
+            <div className="mb-4 rounded-xl border border-gold/30 bg-gold/[0.08] px-3 py-2.5 text-sm text-ink/70">
+              Tu sesión se cerró por inactividad. Vuelve a ingresar.
+            </div>
+          ) : null}
 
           <Field id="email" label="Correo electrónico" icon={MailIcon}>
             <input id="email" type="email" autoComplete="email" value={email} onChange={(e) => { setEmail(e.target.value); setError('') }} placeholder="tu-correo@dnp.gov.co" className={inputClass} />
