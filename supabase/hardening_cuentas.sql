@@ -138,17 +138,35 @@ grant execute on function public.solicitar_afiliacion(text,text,text,text,text,t
 select 'listo: hardening_cuentas' as estado;
 
 -- =============================================================================
--- LIMPIEZA (opcional): si tu cuenta de super-admin quedó como "afiliado".
--- Descomenta y reemplaza el correo por el tuyo, y ejecuta las que necesites.
+-- LIMPIEZA: arregla la(s) cuenta(s) de super-admin que quedaron como "afiliado".
+-- Detecta solo (no necesitas escribir tu correo). Ejecuta los pasos 1 a 3.
 -- =============================================================================
--- 1) Ver el estado actual:
--- select u.email, p.role, p.platform_admin, p.org_id
--- from public.profiles p join auth.users u on u.id = p.id
--- where lower(u.email) = lower('issac10.es@gmail.com');
 
--- 2) Quitar la fila de afiliado creada por error (deja de estar en el padrón):
--- delete from public.affiliates where lower(email) = lower('issac10.es@gmail.com');
+-- 1) Diagnóstico: cuentas super-admin y si quedaron metidas en el padrón.
+select u.email, p.role, p.platform_admin,
+       exists (select 1 from public.affiliates a where lower(a.email) = lower(u.email)) as en_padron
+from public.profiles p
+join auth.users u on u.id = p.id
+where p.platform_admin = true;
 
--- 3) Asegurar que sigue siendo super-admin:
--- update public.profiles set platform_admin = true
--- where id in (select id from auth.users where lower(email) = lower('issac10.es@gmail.com'));
+-- 2) Quita del padrón las filas de afiliado de cualquier super-admin (creadas por error).
+delete from public.affiliates a
+using public.profiles p
+join auth.users u on u.id = p.id
+where p.platform_admin = true and lower(a.email) = lower(u.email);
+
+-- 3) Verifica que quedó limpio (en_padron debe salir false):
+select u.email, p.role, p.platform_admin,
+       exists (select 1 from public.affiliates a where lower(a.email) = lower(u.email)) as en_padron
+from public.profiles p
+join auth.users u on u.id = p.id
+where p.platform_admin = true;
+
+-- =============================================================================
+-- (OPCIONAL) Restablecer la contraseña de tu super-admin, si te quedó cambiada.
+-- Cambia el correo y la NUEVA contraseña, quita los "--" y ejecútalo:
+-- =============================================================================
+-- update auth.users
+-- set encrypted_password = crypt('TU_NUEVA_CONTRASENA', gen_salt('bf')),
+--     email_confirmed_at = coalesce(email_confirmed_at, now())
+-- where lower(email) = lower('issac10.es@gmail.com');

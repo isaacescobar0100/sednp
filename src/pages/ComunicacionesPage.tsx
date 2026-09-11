@@ -6,6 +6,7 @@ import { useDemo } from '../store/DemoStore'
 import { useSession } from '../store/session'
 import { AudienceKey, audienceLabel } from '../store/comms'
 import { enviarBoletin, plantillaCorreo } from '../store/emailApi'
+import { enviarPush } from '../store/pushApi'
 import { Pagination, paginate } from '../components/Pagination'
 
 const COM_PAGE = 10
@@ -19,6 +20,7 @@ export function ComunicacionesPage() {
   const [body, setBody] = useState('')
   const [audience, setAudience] = useState<AudienceKey>('todos')
   const [porCorreo, setPorCorreo] = useState(false)
+  const [porPush, setPorPush] = useState(false)
   const [enviandoCorreo, setEnviandoCorreo] = useState(false)
   // La confirmación de envío la muestra el aviso global (notify) del store, para
   // no duplicar el mensaje.
@@ -61,6 +63,10 @@ export function ComunicacionesPage() {
         notify(r.ok ? `Boletín enviado por correo: ${r.sent} de ${r.total}.${r.failed ? ` (${r.failed} no llegaron; con dominio propio llegarán todos.)` : ''}` : `No se pudo enviar el boletín: ${r.error || ''}`, r.ok ? 'success' : 'warning')
       }
     }
+    if (porPush) {
+      const r = await enviarPush(asunto, mensaje, '/?app=1')
+      notify(r.ok ? (r.total === 0 ? 'Nadie tiene notificaciones activas todavía.' : `Notificación push enviada a ${r.sent} dispositivo(s).`) : `No se pudo enviar la notificación: ${r.error || ''}`, r.ok ? 'success' : 'warning')
+    }
     setSubject('')
     setBody('')
   }
@@ -101,6 +107,10 @@ export function ComunicacionesPage() {
             <label className="mt-4 flex items-start gap-2 rounded-xl border border-ink/10 bg-canvas/40 px-3 py-2.5">
               <input type="checkbox" checked={porCorreo} onChange={(e) => setPorCorreo(e.target.checked)} className="mt-0.5 h-4 w-4 accent-night" />
               <span className="text-xs text-ink/70">Enviar también por <strong>correo electrónico</strong> a la audiencia. <span className="text-ink/45">(En pruebas, sin dominio propio, solo llega al correo de tu cuenta de Resend.)</span></span>
+            </label>
+            <label className="mt-2 flex items-start gap-2 rounded-xl border border-ink/10 bg-canvas/40 px-3 py-2.5">
+              <input type="checkbox" checked={porPush} onChange={(e) => setPorPush(e.target.checked)} className="mt-0.5 h-4 w-4 accent-night" />
+              <span className="text-xs text-ink/70">Enviar también como <strong>notificación push</strong> a quienes la tengan activada.</span>
             </label>
 
             <button onClick={send} disabled={!valid || enviandoCorreo} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-night py-3 text-sm font-semibold text-white transition hover:bg-night-deep disabled:cursor-not-allowed disabled:opacity-35">

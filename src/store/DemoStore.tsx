@@ -9,6 +9,7 @@ import { deleteCaseRow, fetchCases, insertCase, patchCase } from './casesApi'
 import { CaseEvent, fetchCaseEvents, insertCaseEvent } from './caseEventsApi'
 import { Acto, fetchActos, insertActo, nextActoNumero } from './actosApi'
 import { enviarCorreo, correoAportePagado, correoAfiliacionAprobada } from './emailApi'
+import { enviarPush } from './pushApi'
 import { cerrarVencidas, deleteBallotRow, deleteSessionRow, emitirVoto, fetchBallots, fetchMyVotes, fetchSessions, insertBallot, insertSession, patchBallot, patchSession } from './governanceApi'
 import { deleteComunicadoRow, fetchComunicados, insertComunicado } from './commsApi'
 import { deleteCommitteeRow, fetchCommittees, insertCommittee, patchCommittee } from './committeesApi'
@@ -1187,7 +1188,12 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
 
   const addBallot = useCallback((input: NewBallotInput) => {
     insertBallot({ title: input.title, closesAt: input.closesAt, closesAtTs: input.closesAtTs, secreta: input.secreta })
-      .then((saved) => { dispatch({ type: 'addBallot', ballot: saved }); notify(`Votación abierta: "${input.title}".`, 'info') })
+      .then((saved) => {
+        dispatch({ type: 'addBallot', ballot: saved })
+        notify(`Votación abierta: "${input.title}".`, 'info')
+        // Aviso push a los dispositivos suscritos (#10).
+        void enviarPush('Nueva votación', input.title, '/?app=1')
+      })
       .catch(() => notify('No se pudo abrir la votación en el servidor.', 'warning'))
   }, [notify])
 

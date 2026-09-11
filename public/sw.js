@@ -27,3 +27,29 @@ self.addEventListener('fetch', (event) => {
     )
   }
 })
+
+// --- Notificaciones push ----------------------------------------------------
+// Muestra la notificación cuando llega un mensaje del servidor.
+self.addEventListener('push', (event) => {
+  let data = {}
+  try { data = event.data ? event.data.json() : {} } catch { data = {} }
+  const title = data.title || 'SERDNP'
+  const options = {
+    body: data.body || '',
+    icon: '/icon-192.png',
+    badge: '/icon-192.png',
+    data: { url: data.url || '/?app=1' },
+  }
+  event.waitUntil(self.registration.showNotification(title, options))
+})
+
+// Al tocar la notificación, abre (o enfoca) la app en la URL indicada.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  const url = (event.notification.data && event.notification.data.url) || '/?app=1'
+  event.waitUntil((async () => {
+    const all = await self.clients.matchAll({ type: 'window', includeUncontrolled: true })
+    for (const c of all) { if ('focus' in c) { c.navigate(url); return c.focus() } }
+    if (self.clients.openWindow) return self.clients.openWindow(url)
+  })())
+})

@@ -4,6 +4,7 @@ import { AppSidebar, MobileMenuButton } from './AppSidebar'
 import { MfaSettings } from './MfaSettings'
 import { AuditLog } from './AuditLog'
 import { MiFoto } from './MiFoto'
+import { PushToggle } from './PushToggle'
 import { useDemo } from '../store/DemoStore'
 import { roleLabel, useSession } from '../store/session'
 import { useAuth } from '../store/auth'
@@ -41,6 +42,7 @@ export function AppShell({ activeModule, module, onNavigate, onLogout, children 
             <GlobalSearch onNavigate={onNavigate} />
             <UserChip onClick={() => setMiFotoOpen(true)} />
             <NotificationsBell onNavigate={onNavigate} />
+            <PushToggle variant="icon" />
             {canAudit ? <AuditButton onClick={() => setAuditOpen(true)} /> : null}
             <SecurityButton onClick={() => setSecurityOpen(true)} />
             <LogoutButton onLogout={onLogout} />
