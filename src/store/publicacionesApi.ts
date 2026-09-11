@@ -1,7 +1,7 @@
 // Página Web / CMS: publicaciones (artículos, anuncios, páginas fijas).
 import { supabase } from '../lib/supabase'
 
-export type PubTipo = 'articulo' | 'anuncio' | 'pagina'
+export type PubTipo = 'articulo' | 'anuncio' | 'pagina' | 'documento'
 export type PubEstado = 'borrador' | 'publicado'
 
 export type Publicacion = {
@@ -13,6 +13,10 @@ export type Publicacion = {
   contenido: string
   categoria: string
   imagenUrl: string
+  videoUrl: string
+  galeria: string[]
+  destacado: boolean
+  archivoUrl: string
   estado: PubEstado
   fechaPub?: string
   autor: string
@@ -27,6 +31,10 @@ type Row = {
   contenido: string | null
   categoria: string | null
   imagen_url: string | null
+  video_url: string | null
+  galeria: string[] | null
+  destacado: boolean | null
+  archivo_url: string | null
   estado: PubEstado
   fecha_pub: string | null
   autor: string | null
@@ -42,6 +50,10 @@ function rowToPub(r: Row): Publicacion {
     contenido: r.contenido ?? '',
     categoria: r.categoria ?? '',
     imagenUrl: r.imagen_url ?? '',
+    videoUrl: r.video_url ?? '',
+    galeria: Array.isArray(r.galeria) ? r.galeria : [],
+    destacado: Boolean(r.destacado),
+    archivoUrl: r.archivo_url ?? '',
     estado: r.estado,
     fechaPub: r.fecha_pub ?? undefined,
     autor: r.autor ?? '',
@@ -53,6 +65,7 @@ function pubToRow(p: Partial<Publicacion>): Record<string, unknown> {
   const set = (k: string, v: unknown) => { if (v !== undefined) row[k] = v }
   set('tipo', p.tipo); set('clave', p.clave); set('titulo', p.titulo); set('resumen', p.resumen)
   set('contenido', p.contenido); set('categoria', p.categoria); set('imagen_url', p.imagenUrl)
+  set('video_url', p.videoUrl); set('galeria', p.galeria); set('destacado', p.destacado); set('archivo_url', p.archivoUrl)
   set('estado', p.estado); set('fecha_pub', p.fechaPub); set('autor', p.autor)
   return row
 }
@@ -84,6 +97,7 @@ export async function deletePublicacion(id: string): Promise<void> {
 export type PostPublico = {
   id: string; tipo: PubTipo; clave: string | null; titulo: string; resumen: string
   contenido: string; categoria: string; imagenUrl: string | null; fechaPub: string | null; autor: string
+  videoUrl?: string | null; galeria?: string[] | null; destacado?: boolean; archivoUrl?: string | null
 }
 
 export async function fetchPostsPublicos(slug: string, tipo?: PubTipo): Promise<PostPublico[]> {
