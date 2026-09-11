@@ -125,6 +125,7 @@ function EditorModal({ pub, onClose, onSaved }: { pub: Publicacion | null; onClo
   })
   const galRef = useRef<HTMLInputElement>(null)
   const archRef = useRef<HTMLInputElement>(null)
+  const vidRef = useRef<HTMLInputElement>(null)
   const [archNombre, setArchNombre] = useState('')
   const [subiendo, setSubiendo] = useState(false)
   const [guardando, setGuardando] = useState(false)
@@ -153,6 +154,12 @@ function EditorModal({ pub, onClose, onSaved }: { pub: Publicacion | null; onClo
     if (!file) return
     setSubiendo(true)
     try { set('archivoUrl', await subirFoto(file)); setArchNombre(file.name) } catch { notify('No se pudo subir el archivo.', 'warning') } finally { setSubiendo(false) }
+  }
+  async function handleVideo(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setSubiendo(true)
+    try { set('videoUrl', await subirFoto(file)) } catch { notify('No se pudo subir el video (¿muy pesado?). Prueba con un link de YouTube.', 'warning') } finally { setSubiendo(false) }
   }
 
   const valid = form.titulo.trim() !== '' && (form.tipo !== 'pagina' || form.clave !== '')
@@ -245,10 +252,15 @@ function EditorModal({ pub, onClose, onSaved }: { pub: Publicacion | null; onClo
 
           {form.tipo === 'articulo' || form.tipo === 'anuncio' ? (
             <>
-              <label className="block sm:col-span-2">
-                <span className="mb-1.5 block text-xs font-semibold text-ink/70">Video de YouTube (opcional)</span>
-                <input value={form.videoUrl} onChange={(e) => set('videoUrl', e.target.value)} placeholder="https://www.youtube.com/watch?v=…" className={inputClass} />
-              </label>
+              <div className="sm:col-span-2">
+                <span className="mb-1.5 block text-xs font-semibold text-ink/70">Video (opcional)</span>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <input value={form.videoUrl} onChange={(e) => set('videoUrl', e.target.value)} placeholder="Pega un link de YouTube…" className={inputClass} />
+                  <input ref={vidRef} type="file" accept="video/*" onChange={handleVideo} className="hidden" />
+                  <button type="button" onClick={() => vidRef.current?.click()} disabled={subiendo} className="shrink-0 rounded-xl border border-ink/12 px-3 py-2.5 text-sm font-semibold text-ink/70 transition hover:border-night hover:text-night disabled:opacity-50">{subiendo ? 'Subiendo…' : 'Subir video'}</button>
+                </div>
+                <span className="mt-1 block text-xs text-ink/45">Pega un link de YouTube o sube un archivo. {form.videoUrl && !/youtu/.test(form.videoUrl) ? 'Video cargado.' : 'Para videos pesados, YouTube es lo recomendado.'}</span>
+              </div>
               <div className="sm:col-span-2">
                 <span className="mb-1.5 block text-xs font-semibold text-ink/70">Galería de imágenes (opcional)</span>
                 <div className="flex flex-wrap items-center gap-2">
