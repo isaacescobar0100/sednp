@@ -9,7 +9,7 @@ import { Role } from './session'
 export type AppRole = Role | 'afiliado'
 export type Profile = { id: string; full_name: string; role: AppRole; initials: string; platformAdmin: boolean; fotoUrl: string }
 // Marca del sindicato al que pertenece la persona (multi-sindicato / SaaS).
-export type Org = { nombre: string; logoUrl: string | null; activo: boolean }
+export type Org = { nombre: string; logoUrl: string | null; activo: boolean; slug: string | null }
 
 type Result = { error?: string }
 
@@ -58,12 +58,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // así el splash posterior al login dura una sola ida y vuelta, no dos.
       const [{ data }, o] = await Promise.all([
         supabase.from('profiles').select('id, full_name, role, platform_admin, foto_url').eq('id', s.user.id).maybeSingle(),
-        supabase.from('organizations').select('nombre, logo_url, activo').maybeSingle().then((r) => r.data, () => null),
+        supabase.from('organizations').select('nombre, logo_url, activo, slug').maybeSingle().then((r) => r.data, () => null),
       ])
       const fullName = data?.full_name || meta
       const role = (data?.role as AppRole) || 'afiliado'
       setProfile({ id: s.user.id, full_name: fullName, role, initials: initialsOf(fullName, s.user.email ?? ''), platformAdmin: Boolean(data?.platform_admin), fotoUrl: (data?.foto_url as string | null) ?? '' })
-      setOrg(o ? { nombre: o.nombre as string, logoUrl: (o.logo_url as string | null) ?? null, activo: (o.activo as boolean | null) ?? true } : null)
+      setOrg(o ? { nombre: o.nombre as string, logoUrl: (o.logo_url as string | null) ?? null, activo: (o.activo as boolean | null) ?? true, slug: (o.slug as string | null) ?? null } : null)
     } catch {
       // Si la consulta falla (red/RLS), no dejamos la app colgada: perfil mínimo.
       setProfile({ id: s.user.id, full_name: meta, role: 'afiliado', initials: initialsOf(meta, s.user.email ?? ''), platformAdmin: false, fotoUrl: '' })

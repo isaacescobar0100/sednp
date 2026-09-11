@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from './store/auth'
 import { AuthScreen } from './components/AuthScreen'
 import { MfaChallenge } from './components/MfaChallenge'
 import { SuperAdminScreen } from './components/SuperAdminPanel'
+import { PublicRegistroPage } from './pages/PublicRegistroPage'
 import { ModuleKey, ModuleMeta } from './types/navigation'
 
 // Carga diferida por módulo (code-splitting): cada página se descarga solo
@@ -38,6 +39,11 @@ const modules: Record<ModuleKey, ModuleMeta> = {
 }
 
 export function App() {
+  // Link público de auto-afiliación: .../?afiliacion=<slug>. Se muestra el
+  // formulario público SIN pasar por el login ni cargar la app interna.
+  const slugAfiliacion = new URLSearchParams(window.location.search).get('afiliacion')
+  if (slugAfiliacion) return <PublicRegistroPage slug={slugAfiliacion} />
+
   return (
     <AuthProvider>
       <DemoProvider>

@@ -1,8 +1,10 @@
 import React, { useMemo, useRef, useState } from 'react'
-import { CameraIcon, ChevronLeftIcon, ChevronRightIcon, LockIcon, PlusIcon, SearchIcon, XIcon } from 'lucide-react'
+import { CameraIcon, ChevronLeftIcon, ChevronRightIcon, LinkIcon, LockIcon, PlusIcon, SearchIcon, XIcon } from 'lucide-react'
 import { subirFoto, subirSoporte } from '../store/storageApi'
+import { enviarCorreo, plantillaCorreo } from '../store/emailApi'
 import { useDemo } from '../store/DemoStore'
 import { useSession } from '../store/session'
+import { useAuth } from '../store/auth'
 import { Affiliate, AffiliateStatus, AffiliateType, BENEFICIOS, MEDIOS } from '../store/affiliates'
 import { formatCop } from '../store/finance'
 import { escalaLabel, sortEscalas } from '../store/payscale'
@@ -31,6 +33,7 @@ export function AfiliacionPage() {
   const [editing, setEditing] = useState<Affiliate | null>(null)
   const [approving, setApproving] = useState<Affiliate | null>(null)
   const [concepting, setConcepting] = useState<Affiliate | null>(null)
+  const [showLink, setShowLink] = useState(false)
 
   const rows = useMemo(() => {
     const q = query.trim().toLowerCase()
@@ -63,13 +66,22 @@ export function AfiliacionPage() {
         description="Administra la base de afiliados y sus novedades sindicales."
         action={
           can('affiliates.create') ? (
-            <button
-              onClick={() => setShowEnrollment(true)}
-              className="inline-flex items-center justify-center gap-2 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-night/15 transition hover:bg-night-deep"
-            >
-              <PlusIcon className="h-4 w-4" />
-              Nuevo afiliado
-            </button>
+            <div className="flex flex-wrap gap-2">
+              <button
+                onClick={() => setShowLink(true)}
+                className="inline-flex items-center justify-center gap-2 rounded-xl border border-night/20 px-4 py-2.5 text-sm font-semibold text-night transition hover:bg-night/5"
+              >
+                <LinkIcon className="h-4 w-4" />
+                Link de registro
+              </button>
+              <button
+                onClick={() => setShowEnrollment(true)}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-night/15 transition hover:bg-night-deep"
+              >
+                <PlusIcon className="h-4 w-4" />
+                Nuevo afiliado
+              </button>
+            </div>
           ) : null
         }
       />
@@ -177,6 +189,7 @@ export function AfiliacionPage() {
       {editing ? <EditAffiliateModal affiliate={editing} onClose={() => setEditing(null)} /> : null}
       {approving ? <ApproveModal affiliate={approving} onClose={() => setApproving(null)} /> : null}
       {concepting ? <ConceptoModal affiliate={concepting} onClose={() => setConcepting(null)} /> : null}
+      {showLink ? <LinkRegistroModal onClose={() => setShowLink(false)} /> : null}
     </div>
   )
 }
@@ -212,6 +225,85 @@ function ApproveModal({ affiliate, onClose }: { affiliate: Affiliate; onClose: (
           <button onClick={onClose} className="rounded-xl px-4 py-2.5 text-sm font-semibold text-ink/60 hover:bg-canvas">Cancelar</button>
           <button onClick={save} disabled={!valid} className="rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">Aprobar afiliación</button>
         </div>
+      </section>
+    </div>
+  )
+}
+
+// Link de auto-afiliación: la Secretaría/Presidencia genera un enlace público y
+// puede enviarlo por correo con un saludo personalizado (#4).
+function LinkRegistroModal({ onClose }: { onClose: () => void }) {
+  const { org } = useAuth()
+  const slug = org?.slug ?? ''
+  const link = slug ? `${window.location.origin}/?afiliacion=${slug}` : ''
+  const [copiado, setCopiado] = useState(false)
+  const [nombre, setNombre] = useState('')
+  const [correo, setCorreo] = useState('')
+  const [enviando, setEnviando] = useState(false)
+  const [estado, setEstado] = useState<{ ok: boolean; msg: string } | null>(null)
+
+  async function copiar() {
+    try { await navigator.clipboard.writeText(link); setCopiado(true); setTimeout(() => setCopiado(false), 2000) } catch { /* sin portapapeles */ }
+  }
+
+  async function invitar() {
+    const dest = correo.trim()
+    if (!dest || !link) return
+    setEnviando(true); setEstado(null)
+    const saludo = nombre.trim() ? `Hola ${nombre.trim()},` : 'Hola,'
+    const ok = await enviarCorreo({
+      to: dest,
+      subject: `Invitación a afiliarte — ${org?.nombre ?? 'nuestro sindicato'}`,
+      html: plantillaCorreo('Te invitamos a afiliarte', `
+        <p style="margin:0 0 10px">${saludo}</p>
+        <p style="margin:0 0 10px">Te invitamos a afiliarte a <strong>${org?.nombre ?? 'nuestro sindicato'}</strong>. Completa el formulario en el siguiente enlace:</p>
+        <p style="margin:0 0 10px"><a href="${link}" style="color:#0F1B3D;font-weight:700">${link}</a></p>
+        <p style="margin:0">Tu solicitud pasará a revisión de la Junta Directiva.</p>
+      `),
+    })
+    setEnviando(false)
+    setEstado(ok ? { ok: true, msg: 'Invitación enviada.' } : { ok: false, msg: 'No se pudo enviar. Revisa la configuración de correo (Parámetros → Correo diagnóstico).' })
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-night/45 p-4">
+      <section role="dialog" aria-modal="true" className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6 shadow-2xl">
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold">Afiliación</p>
+            <h2 className="mt-1 font-display text-xl font-semibold">Link de auto-afiliación</h2>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-2 text-ink/50 hover:bg-canvas" aria-label="Cerrar"><XIcon className="h-5 w-5" /></button>
+        </div>
+
+        {!slug ? (
+          <p className="rounded-xl bg-amber-50 px-3 py-2.5 text-xs text-amber-700">Tu sindicato aún no tiene un identificador (slug) configurado, necesario para el enlace. Comunícate con la administración de la plataforma.</p>
+        ) : (
+          <>
+            <p className="text-sm text-ink/60">Comparte este enlace con quien quiera afiliarse. Cada persona llena el formulario y su solicitud entra <strong>en revisión</strong> (Fiscal conceptúa → Junta aprueba).</p>
+            <div className="mt-3 flex items-center gap-2">
+              <input readOnly value={link} className="w-full truncate rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-xs text-ink/70 outline-none" />
+              <button onClick={copiar} className="shrink-0 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep">{copiado ? 'Copiado' : 'Copiar'}</button>
+            </div>
+
+            <div className="mt-6 border-t border-ink/[0.08] pt-5">
+              <h3 className="font-display text-sm font-semibold text-ink">Enviar por correo (opcional)</h3>
+              <p className="mt-0.5 text-xs text-ink/50">Se envía el enlace con un saludo personalizado.</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-semibold text-ink/70">Nombre (para el saludo)</span>
+                  <input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Nombre de la persona" className="w-full rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
+                </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-semibold text-ink/70">Correo de destino</span>
+                  <input value={correo} onChange={(e) => setCorreo(e.target.value)} placeholder="correo@ejemplo.com" className="w-full rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
+                </label>
+              </div>
+              {estado ? <p className={`mt-3 rounded-xl px-3 py-2.5 text-xs font-medium ${estado.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-brick/[0.07] text-brick'}`}>{estado.ok ? '✓ ' : '✕ '}{estado.msg}</p> : null}
+              <button onClick={invitar} disabled={!correo.trim() || enviando} className="mt-4 w-full rounded-xl border border-night/20 py-2.5 text-sm font-semibold text-night transition hover:bg-night/5 disabled:opacity-40">{enviando ? 'Enviando…' : 'Enviar invitación'}</button>
+            </div>
+          </>
+        )}
       </section>
     </div>
   )
