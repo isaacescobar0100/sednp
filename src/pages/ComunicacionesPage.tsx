@@ -106,7 +106,7 @@ export function ComunicacionesPage() {
 
             <label className="mt-4 flex items-start gap-2 rounded-xl border border-ink/10 bg-canvas/40 px-3 py-2.5">
               <input type="checkbox" checked={porCorreo} onChange={(e) => setPorCorreo(e.target.checked)} className="mt-0.5 h-4 w-4 accent-night" />
-              <span className="text-xs text-ink/70">Enviar también por <strong>correo electrónico</strong> a la audiencia. <span className="text-ink/45">(En pruebas, sin dominio propio, solo llega al correo de tu cuenta de Resend.)</span></span>
+              <span className="text-xs text-ink/70">Enviar también por <strong>correo electrónico</strong> a la audiencia. <span className="text-ink/45">(Marca esta casilla para que salga por correo; si no, el comunicado solo se publica dentro del sistema.)</span></span>
             </label>
             <label className="mt-2 flex items-start gap-2 rounded-xl border border-ink/10 bg-canvas/40 px-3 py-2.5">
               <input type="checkbox" checked={porPush} onChange={(e) => setPorPush(e.target.checked)} className="mt-0.5 h-4 w-4 accent-night" />
