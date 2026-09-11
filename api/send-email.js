@@ -14,6 +14,17 @@
 //    si no, la global de EMAIL_FROM. Resend rechaza direcciones de dominios no
 //    verificados, así que esto no permite suplantar dominios ajenos.
 // Si EMAIL_FROM no está, cae al remitente de prueba de Resend.
+// Deriva una versión de texto plano del HTML (mejora la entrega a Principal y
+// las notificaciones: Gmail prefiere correos con parte de texto + HTML).
+function htmlAtexto(html) {
+  return String(html || '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<(br|\/p|\/div|\/h[1-6]|\/tr)>/gi, '\n')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&#39;/g, "'").replace(/&quot;/g, '"')
+    .replace(/\n{3,}/g, '\n\n').replace(/[ \t]{2,}/g, ' ').trim()
+}
+
 const EMAIL_RE = /^[^@\s<>"]+@[^@\s<>"]+\.[^@\s<>"]+$/
 function componerFrom(base, fromName, fromEmail) {
   const def = base || 'SERDNP <onboarding@resend.dev>'
@@ -66,13 +77,14 @@ export default async function handler(req, res) {
   }
 
   const from = componerFrom(process.env.EMAIL_FROM, fromName, body.fromEmail)
+  const textoPlano = text || (html ? htmlAtexto(html) : undefined)
 
   // 3) Enviar con Resend.
   try {
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from, to: Array.isArray(to) ? to : [to], subject, html, text }),
+      body: JSON.stringify({ from, to: Array.isArray(to) ? to : [to], subject, html, text: textoPlano }),
     })
     const data = await r.json().catch(() => ({}))
     if (!r.ok) {
