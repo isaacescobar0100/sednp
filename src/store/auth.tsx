@@ -91,6 +91,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => { active = false; sub.subscription.unsubscribe() }
   }, [loadProfile, refreshMfa])
 
+  // Cierre automático por inactividad (30 min). Protege sesiones dejadas abiertas,
+  // sobre todo en equipos compartidos. Cualquier actividad reinicia el conteo.
+  useEffect(() => {
+    if (!session) return
+    const IDLE_MS = 30 * 60 * 1000
+    let last = Date.now()
+    const bump = () => { last = Date.now() }
+    const events: Array<keyof WindowEventMap> = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click']
+    events.forEach((e) => window.addEventListener(e, bump, { passive: true }))
+    const iv = window.setInterval(() => {
+      if (Date.now() - last > IDLE_MS) {
+        try { sessionStorage.setItem('idleLogout', '1') } catch { /* sin storage */ }
+        void supabase.auth.signOut()
+      }
+    }, 30000)
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, bump))
+      window.clearInterval(iv)
+    }
+  }, [session])
+
   const refreshProfile = useCallback(async () => {
     const { data } = await supabase.auth.getSession()
     await loadProfile(data.session)
