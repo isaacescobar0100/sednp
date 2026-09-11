@@ -5,18 +5,21 @@ import { StatusBadge } from '../components/StatusBadge'
 import { useDemo } from '../store/DemoStore'
 import { useSession } from '../store/session'
 import { AudienceKey, audienceLabel } from '../store/comms'
+import { enviarBoletin, plantillaCorreo } from '../store/emailApi'
 import { Pagination, paginate } from '../components/Pagination'
 
 const COM_PAGE = 10
 
 export function ComunicacionesPage() {
-  const { comunicados, stats, sendComunicado, deleteComunicado } = useDemo()
+  const { comunicados, stats, affiliates, sendComunicado, deleteComunicado, notify } = useDemo()
   const { can } = useSession()
   const canSend = can('comms.send')
 
   const [subject, setSubject] = useState('')
   const [body, setBody] = useState('')
   const [audience, setAudience] = useState<AudienceKey>('todos')
+  const [porCorreo, setPorCorreo] = useState(false)
+  const [enviandoCorreo, setEnviandoCorreo] = useState(false)
   // La confirmación de envío la muestra el aviso global (notify) del store, para
   // no duplicar el mensaje.
   const [query, setQuery] = useState('')
@@ -34,9 +37,30 @@ export function ComunicacionesPage() {
   const recipients = recipientsFor[audience]
   const valid = subject.trim() !== '' && body.trim() !== '' && recipients > 0
 
-  function send() {
-    if (!valid) return
-    sendComunicado({ subject: subject.trim(), body: body.trim(), audience: audienceLabel[audience], recipients })
+  // Correos de los afiliados según la audiencia elegida.
+  function correosAudiencia(): string[] {
+    const pool = audience === 'activos' ? affiliates.filter((a) => a.status === 'Activo')
+      : audience === 'pendientes' ? affiliates.filter((a) => a.status === 'Pendiente')
+      : affiliates
+    return pool.map((a) => a.email.trim()).filter((e) => e.includes('@'))
+  }
+
+  async function send() {
+    if (!valid || enviandoCorreo) return
+    const asunto = subject.trim()
+    const mensaje = body.trim()
+    sendComunicado({ subject: asunto, body: mensaje, audience: audienceLabel[audience], recipients })
+    if (porCorreo) {
+      const correos = correosAudiencia()
+      if (correos.length === 0) { notify('No hay correos en esa audiencia para enviar el boletín.', 'warning') }
+      else {
+        setEnviandoCorreo(true)
+        const html = plantillaCorreo(asunto, mensaje.split(/\n\s*\n/).map((p) => `<p style="margin:0 0 10px">${p.replace(/\n/g, '<br>')}</p>`).join(''))
+        const r = await enviarBoletin(correos, `${asunto} — ${audienceLabel[audience]}`, html)
+        setEnviandoCorreo(false)
+        notify(r.ok ? `Boletín enviado por correo: ${r.sent} de ${r.total}.${r.failed ? ` (${r.failed} no llegaron; con dominio propio llegarán todos.)` : ''}` : `No se pudo enviar el boletín: ${r.error || ''}`, r.ok ? 'success' : 'warning')
+      }
+    }
     setSubject('')
     setBody('')
   }
@@ -74,9 +98,14 @@ export function ComunicacionesPage() {
               <textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Redacta el contenido de tu comunicado..." className="mt-1.5 h-36 w-full resize-none rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm font-normal outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
             </label>
 
-            <button onClick={send} disabled={!valid} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-night py-3 text-sm font-semibold text-white transition hover:bg-night-deep disabled:cursor-not-allowed disabled:opacity-35">
+            <label className="mt-4 flex items-start gap-2 rounded-xl border border-ink/10 bg-canvas/40 px-3 py-2.5">
+              <input type="checkbox" checked={porCorreo} onChange={(e) => setPorCorreo(e.target.checked)} className="mt-0.5 h-4 w-4 accent-night" />
+              <span className="text-xs text-ink/70">Enviar también por <strong>correo electrónico</strong> a la audiencia. <span className="text-ink/45">(En pruebas, sin dominio propio, solo llega al correo de tu cuenta de Resend.)</span></span>
+            </label>
+
+            <button onClick={send} disabled={!valid || enviandoCorreo} className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-night py-3 text-sm font-semibold text-white transition hover:bg-night-deep disabled:cursor-not-allowed disabled:opacity-35">
               <SendIcon className="h-4 w-4" />
-              Enviar a {recipients} destinatario(s)
+              {enviandoCorreo ? 'Enviando…' : `Enviar a ${recipients} destinatario(s)`}
             </button>
           </section>
         ) : (

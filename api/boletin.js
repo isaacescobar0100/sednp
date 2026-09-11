@@ -1,0 +1,55 @@
+// Función serverless (Vercel): envía un boletín por correo a una lista de
+// destinatarios usando Resend. Solo para usuarios autenticados (directiva).
+// Body: { recipients: string[], subject: string, html: string }
+//
+// Nota: con Resend en modo prueba (sin dominio verificado) solo llegan los
+// correos al dueño de la cuenta; el resto se cuenta como "no enviado".
+
+async function enviarUno(apiKey, from, to, subject, html) {
+  try {
+    const r = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from, to: [to], subject, html }),
+    })
+    return r.ok
+  } catch { return false }
+}
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') { res.status(405).json({ error: 'Método no permitido' }); return }
+
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) { res.status(500).json({ error: 'Falta RESEND_API_KEY en el servidor.' }); return }
+
+  // Validar sesión de Supabase del que llama.
+  const authHeader = req.headers.authorization || ''
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
+  const supaUrl = process.env.VITE_SUPABASE_URL
+  const supaKey = process.env.VITE_SUPABASE_ANON_KEY
+  if (!token || !supaUrl || !supaKey) { res.status(401).json({ error: 'No autorizado' }); return }
+  try {
+    const u = await fetch(`${supaUrl}/auth/v1/user`, { headers: { apikey: supaKey, Authorization: `Bearer ${token}` } })
+    if (!u.ok) { res.status(401).json({ error: 'Sesión inválida' }); return }
+  } catch { res.status(401).json({ error: 'No se pudo validar la sesión' }); return }
+
+  let body = req.body
+  if (typeof body === 'string') { try { body = JSON.parse(body) } catch { body = {} } }
+  body = body || {}
+  const subject = String(body.subject || '').trim()
+  const html = String(body.html || '')
+  const recipients = Array.isArray(body.recipients) ? [...new Set(body.recipients.filter((e) => typeof e === 'string' && e.includes('@')))] : []
+  if (!subject || !html || recipients.length === 0) { res.status(400).json({ error: 'Faltan datos: recipients, subject y html.' }); return }
+
+  const from = process.env.EMAIL_FROM || 'SERDNP <onboarding@resend.dev>'
+  let sent = 0
+  let failed = 0
+  // Envía en tandas de 25 en paralelo para no saturar.
+  for (let i = 0; i < recipients.length; i += 25) {
+    const chunk = recipients.slice(i, i + 25)
+    const results = await Promise.all(chunk.map((to) => enviarUno(apiKey, from, to, subject, html)))
+    results.forEach((ok) => (ok ? (sent += 1) : (failed += 1)))
+  }
+
+  res.status(200).json({ ok: true, sent, failed, total: recipients.length })
+}
