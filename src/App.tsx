@@ -52,17 +52,17 @@ export function App() {
 // La cara pública (sitio web) es lo primero que se ve. "Ingresar" (o
 // .../?app=1 / #app) entra al sistema (login o, si hay sesión, al panel).
 function RootSwitcher() {
+  const [path, setPath] = useState(() => window.location.pathname)
+  useEffect(() => {
+    const onPop = () => setPath(window.location.pathname)
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+  // El sistema vive bajo /app (ej. /app/gobernanza). El sitio público, en el resto.
   const params = new URLSearchParams(window.location.search)
-  const [mode, setMode] = useState<'web' | 'app'>(() => (params.get('app') || window.location.hash === '#app') ? 'app' : 'web')
-  // Al entrar al sistema, se marca ?app=1 en la URL: así un recargar mantiene el
-  // sistema (login/panel) y no regresa al sitio público.
-  const enter = () => {
-    const url = new URL(window.location.href)
-    url.searchParams.set('app', '1')
-    window.history.replaceState({}, '', url.toString())
-    setMode('app')
-  }
-  if (mode === 'app') {
+  const appMode = path === '/app' || path.startsWith('/app/') || params.get('app') === '1' || window.location.hash === '#app'
+  const enter = () => { window.history.pushState({}, '', '/app'); setPath('/app') }
+  if (appMode) {
     return (
       <AuthProvider>
         <DemoProvider>
@@ -181,18 +181,32 @@ function SindicatoSuspendido({ onLogout }: { onLogout: () => void }) {
 function DirectivaApp() {
   const { canSeeModule } = useSession()
   const { signOut } = useAuth()
-  const [activeModule, setActiveModule] = useState<ModuleKey>('dashboard')
-  const effectiveModule: ModuleKey = canSeeModule(activeModule) ? activeModule : 'dashboard'
+  // El módulo activo se lee de la URL: /app -> dashboard, /app/<modulo> -> ese módulo.
+  const [pathname, setPathname] = useState(() => window.location.pathname)
+  useEffect(() => {
+    const onPop = () => setPathname(window.location.pathname)
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+  const seg = pathname.replace(/^\/app\/?/, '').split('/')[0]
+  const wanted: ModuleKey = Object.prototype.hasOwnProperty.call(modules, seg) ? (seg as ModuleKey) : 'dashboard'
+  const activeModule: ModuleKey = canSeeModule(wanted) ? wanted : 'dashboard'
+
+  const navigate = (m: ModuleKey) => {
+    const p = m === 'dashboard' ? '/app' : `/app/${m}`
+    window.history.pushState({}, '', p)
+    setPathname(p)
+  }
 
   return (
     <AppShell
-      activeModule={effectiveModule}
-      module={modules[effectiveModule]}
-      onNavigate={setActiveModule}
+      activeModule={activeModule}
+      module={modules[activeModule]}
+      onNavigate={navigate}
       onLogout={signOut}
     >
       <Suspense fallback={<PageLoader />}>
-        <ActivePage module={effectiveModule} />
+        <ActivePage module={activeModule} />
       </Suspense>
     </AppShell>
   )
