@@ -8,16 +8,20 @@
 //
 // Seguridad: solo responde a usuarios autenticados de Supabase (Bearer token).
 
-// Compone el remitente "Nombre <direccion>" usando el nombre del sindicato de
-// la sesión (fromName) y la DIRECCIÓN fijada en EMAIL_FROM. Así cada sindicato
-// envía con su propio nombre aunque compartan el mismo dominio verificado.
+// Compone el remitente "Nombre <direccion>":
+//  - NOMBRE: el nombre del sindicato de la sesión (fromName).
+//  - DIRECCIÓN: la propia del sindicato (fromEmail) si tiene dominio verificado;
+//    si no, la global de EMAIL_FROM. Resend rechaza direcciones de dominios no
+//    verificados, así que esto no permite suplantar dominios ajenos.
 // Si EMAIL_FROM no está, cae al remitente de prueba de Resend.
-function componerFrom(base, fromName) {
+const EMAIL_RE = /^[^@\s<>"]+@[^@\s<>"]+\.[^@\s<>"]+$/
+function componerFrom(base, fromName, fromEmail) {
   const def = base || 'SERDNP <onboarding@resend.dev>'
   const m = def.match(/<([^>]+)>/)
-  const address = (m ? m[1] : def).trim()
+  const propia = String(fromEmail || '').trim().toLowerCase()
+  const address = (EMAIL_RE.test(propia) ? propia : (m ? m[1] : def)).trim()
   const name = String(fromName || '').replace(/["<>\r\n]/g, '').trim()
-  return name ? `${name} <${address}>` : def
+  return name ? `${name} <${address}>` : `${address}`
 }
 
 export default async function handler(req, res) {
@@ -61,7 +65,7 @@ export default async function handler(req, res) {
     return
   }
 
-  const from = componerFrom(process.env.EMAIL_FROM, fromName)
+  const from = componerFrom(process.env.EMAIL_FROM, fromName, body.fromEmail)
 
   // 3) Enviar con Resend.
   try {

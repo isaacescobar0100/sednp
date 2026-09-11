@@ -11,8 +11,10 @@ export type CorreoInput = { to: string; subject: string; html?: string; text?: s
 // sindicato envía con SU nombre aunque compartan el mismo dominio verificado.
 // La dirección de correo (@dominio) la fija EMAIL_FROM en el servidor.
 let marcaActual = 'SERDNP'
-export function setMarca(nombre?: string | null): void {
+let remitenteActual = '' // dirección propia del sindicato (si compró dominio); vacío = usa la global
+export function setMarca(nombre?: string | null, correoRemitente?: string | null): void {
   marcaActual = (nombre || '').trim() || 'SERDNP'
+  remitenteActual = (correoRemitente || '').trim()
 }
 export function marca(): string {
   return marcaActual
@@ -32,7 +34,7 @@ export async function enviarCorreoDetallado(input: CorreoInput): Promise<{ ok: b
     const res = await fetch('/api/send-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ ...input, fromName: marcaActual }),
+      body: JSON.stringify({ ...input, fromName: marcaActual, fromEmail: remitenteActual || undefined }),
     })
     let payload: { id?: string; error?: string } = {}
     try { payload = await res.json() } catch { /* respuesta sin JSON */ }
@@ -53,7 +55,7 @@ export async function enviarBoletin(recipients: string[], subject: string, html:
     const res = await fetch('/api/boletin', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ recipients, subject, html, fromName: marcaActual }),
+      body: JSON.stringify({ recipients, subject, html, fromName: marcaActual, fromEmail: remitenteActual || undefined }),
     })
     const payload = await res.json().catch(() => ({}))
     if (!res.ok) return { ok: false, sent: 0, failed: 0, total: recipients.length, error: payload.error || `Error ${res.status}` }
