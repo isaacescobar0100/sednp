@@ -51,6 +51,15 @@ export function App() {
 
 // La cara pública (sitio web) es lo primero que se ve. "Ingresar" (o
 // .../?app=1 / #app) entra al sistema (login o, si hay sesión, al panel).
+// Hosts que son la ENTRADA de la plataforma (no la web pública de un sindicato):
+// abrir el dominio pelado (sin /app) lleva directo al login/admin. Configurable
+// por VITE_PLATFORM_HOSTS (separado por comas). Por defecto, el subdominio actual.
+const PLATFORM_HOSTS = ((import.meta.env.VITE_PLATFORM_HOSTS as string | undefined) || 'sindika.acordemusic.com')
+  .split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
+function isPlatformHost() {
+  return typeof window !== 'undefined' && PLATFORM_HOSTS.includes(window.location.hostname.toLowerCase())
+}
+
 function RootSwitcher() {
   const [path, setPath] = useState(() => window.location.pathname)
   useEffect(() => {
@@ -59,8 +68,9 @@ function RootSwitcher() {
     return () => window.removeEventListener('popstate', onPop)
   }, [])
   // El sistema vive bajo /app (ej. /app/gobernanza). El sitio público, en el resto.
+  // En un host de plataforma, el dominio pelado también entra al sistema.
   const params = new URLSearchParams(window.location.search)
-  const appMode = path === '/app' || path.startsWith('/app/') || params.get('app') === '1' || window.location.hash === '#app'
+  const appMode = path === '/app' || path.startsWith('/app/') || params.get('app') === '1' || window.location.hash === '#app' || isPlatformHost()
   const enter = () => { window.history.pushState({}, '', '/app'); setPath('/app') }
   if (appMode) {
     return (

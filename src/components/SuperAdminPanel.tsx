@@ -148,9 +148,10 @@ function SuperAdminContent() {
 // ---------------------------------------------------------------------------
 export function SuperAdminScreen() {
   const { signOut } = useAuth()
-  // El panel de admin no usa rutas de módulo: deja la URL limpia en /app.
+  // El panel de admin no usa rutas de módulo: quita el /app/<modulo> sobrante.
+  // (No toca el dominio pelado de plataforma, que queda sin ruta.)
   useEffect(() => {
-    if (window.location.pathname !== '/app') window.history.replaceState({}, '', '/app')
+    if (window.location.pathname.startsWith('/app/')) window.history.replaceState({}, '', '/app')
   }, [])
   return (
     <div className="min-h-screen bg-canvas">
