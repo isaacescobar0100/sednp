@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import { CheckCircle2Icon } from 'lucide-react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { CameraIcon, CheckCircle2Icon } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { subirFotoPublica } from '../store/storageApi'
 import { BENEFICIOS, MEDIOS } from '../store/affiliates'
 import { Escala, escalaLabel, sortEscalas } from '../store/payscale'
 import { formatCop } from '../store/finance'
@@ -17,7 +18,7 @@ type Catalogos = { cargos: string[]; dependencias: string[]; vinculaciones: { na
 const emptyForm = {
   nombres: '', apellidos: '', doc: '', email: '', telefono: '', direccion: '', password: '', password2: '',
   type: '', dependency: '', cargoTitular: '', role: '', asignacionBasica: '', joinDate: '', medio: '', motivo: '', interesComites: '',
-  beneficios: [] as string[],
+  beneficios: [] as string[], fotoUrl: '',
 }
 
 export function PublicRegistroPage({ slug }: { slug: string }) {
@@ -31,9 +32,17 @@ export function PublicRegistroPage({ slug }: { slug: string }) {
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState('')
   const [okSol, setOkSol] = useState('')
+  const [subiendoFoto, setSubiendoFoto] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) { setForm((p) => ({ ...p, [k]: v })) }
   function toggleBen(b: string) { setForm((p) => ({ ...p, beneficios: p.beneficios.includes(b) ? p.beneficios.filter((x) => x !== b) : [...p.beneficios, b] })) }
+  async function handleFoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setSubiendoFoto(true)
+    try { const url = await subirFotoPublica(file); set('fotoUrl', url) } catch { /* reintentar */ } finally { setSubiendoFoto(false) }
+  }
 
   useEffect(() => {
     let on = true
@@ -81,6 +90,7 @@ export function PublicRegistroPage({ slug }: { slug: string }) {
         type: form.type, dependency: form.dependency, cargoTitular: form.cargoTitular, role: form.role,
         asignacionBasica: parseMoney(form.asignacionBasica), beneficios: form.beneficios,
         medio: form.medio, motivo: form.motivo.trim(), interesComites: form.interesComites.trim(), joinDate: form.joinDate,
+        fotoUrl: form.fotoUrl,
       },
     })
     setEnviando(false)
@@ -117,6 +127,18 @@ export function PublicRegistroPage({ slug }: { slug: string }) {
             <section className="rounded-2xl border border-ink/[0.08] bg-white p-6">
               <h2 className="font-display text-base font-semibold text-ink">Datos personales</h2>
               <p className="mt-0.5 text-sm text-ink/50">Información de identificación y contacto.</p>
+              <div className="mt-4 flex items-center gap-4">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-full border border-ink/12 bg-canvas">
+                  {form.fotoUrl ? <img src={form.fotoUrl} alt="Foto" className="h-full w-full object-cover" /> : <CameraIcon className="h-6 w-6 text-ink/30" />}
+                </div>
+                <div>
+                  <input ref={fileRef} type="file" accept="image/*" onChange={handleFoto} className="hidden" />
+                  <button type="button" onClick={() => fileRef.current?.click()} disabled={subiendoFoto} className="rounded-xl border border-ink/12 px-3 py-2 text-sm font-semibold text-ink/70 transition hover:border-night hover:text-night disabled:opacity-50">
+                    {subiendoFoto ? 'Subiendo…' : form.fotoUrl ? 'Cambiar foto' : 'Subir foto'}
+                  </button>
+                  <p className="mt-1 text-xs text-ink/45">Foto de perfil (opcional).</p>
+                </div>
+              </div>
               <div className="mt-4 grid gap-4 sm:grid-cols-2">
                 <Field label="Nombres" value={form.nombres} onChange={(v) => set('nombres', v)} required cls={inputClass} />
                 <Field label="Apellidos" value={form.apellidos} onChange={(v) => set('apellidos', v)} required cls={inputClass} />

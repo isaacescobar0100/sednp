@@ -35,3 +35,14 @@ export async function subirFoto(file: File): Promise<string> {
   const { data } = supabase.storage.from('fotos').getPublicUrl(path)
   return data.publicUrl
 }
+
+// Foto desde el formulario PÚBLICO de afiliación (usuario anónimo): se sube a la
+// carpeta 'solicitudes/' del bucket 'fotos', habilitada por política específica.
+export async function subirFotoPublica(file: File): Promise<string> {
+  const ext = (file.name.split('.').pop() ?? 'jpg').replace(/[^\w]+/g, '').toLowerCase()
+  const path = `solicitudes/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+  const { error } = await supabase.storage.from('fotos').upload(path, file, { upsert: false, contentType: file.type })
+  if (error) throw error
+  const { data } = supabase.storage.from('fotos').getPublicUrl(path)
+  return data.publicUrl
+}

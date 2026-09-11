@@ -42,6 +42,12 @@ begin
 end $$;
 grant execute on function public.catalogos_publicos(text) to anon, authenticated;
 
+-- Permite que el formulario PÚBLICO (anónimo) suba la foto a la carpeta
+-- 'solicitudes/' del bucket público 'fotos' (la lectura ya es pública).
+drop policy if exists fotos_insert_publica on storage.objects;
+create policy fotos_insert_publica on storage.objects for insert to anon
+  with check (bucket_id = 'fotos' and (storage.foldername(name))[1] = 'solicitudes');
+
 -- Solicitud de afiliación (datos completos) -----------------------------------
 -- Se elimina la versión anterior (8 args) para dejar una sola definición.
 drop function if exists public.solicitar_afiliacion(text,text,text,text,text,text,text,text);
@@ -142,7 +148,7 @@ begin
   insert into public.affiliates (
     org_id, user_id, name, doc, email, phone, address, status, solicitud_no,
     type, dependency, cargo_titular, role, asignacion_basica, beneficios,
-    medio, motivo, interes_comites, join_date
+    medio, motivo, interes_comites, join_date, foto_url
   ) values (
     v_org, uid, v_nombre, trim(p_doc), lower(trim(p_email)),
     coalesce(p_telefono,''), coalesce(p_direccion,''), 'Pendiente', v_sol,
@@ -150,7 +156,8 @@ begin
     nullif(p_extra->>'cargoTitular',''), nullif(p_extra->>'role',''),
     coalesce((p_extra->>'asignacionBasica')::numeric, 0), v_benef,
     nullif(p_extra->>'medio',''), nullif(p_extra->>'motivo',''),
-    nullif(p_extra->>'interesComites',''), nullif(p_extra->>'joinDate','')
+    nullif(p_extra->>'interesComites',''), nullif(p_extra->>'joinDate',''),
+    nullif(p_extra->>'fotoUrl','')
   );
 
   return v_sol;
