@@ -1,19 +1,18 @@
 -- =============================================================================
--- Auto-afiliación por link público.
+-- Auto-afiliación por link público (FORMULARIO COMPLETO).
 --
--- - `org_publica(slug)`: datos de marca del sindicato para la página pública
---   (nombre + logo), sin necesidad de sesión.
--- - `solicitar_afiliacion(...)`: crea la SOLICITUD de afiliación (cuenta de
---   acceso + afiliado en estado 'Pendiente') desde el formulario público.
---   La solicitud entra al flujo normal: Fiscal conceptúa → Junta aprueba.
---   El acceso al portal solo funciona cuando la Junta la aprueba (estado Activo).
+-- - `org_publica(slug)`       : marca del sindicato (nombre + logo) para la página.
+-- - `catalogos_publicos(slug)`: cargos, dependencias, tipos de vinculación,
+--   escalas salariales y % de cuota del sindicato, para llenar el formulario.
+-- - `solicitar_afiliacion(...)`: crea la SOLICITUD (cuenta + afiliado 'Pendiente')
+--   con TODOS los datos (personales + laborales). Sigue el flujo Fiscal → Junta.
 --
--- Requiere stage1..stage6. Idempotente. Ejecutar en el SQL Editor de Supabase.
+-- Requiere stage1..stage6. Idempotente. Ejecutar (o re-ejecutar) en el SQL Editor.
 -- =============================================================================
 
 create extension if not exists pgcrypto;
 
--- Marca pública del sindicato (para el encabezado del formulario) -------------
+-- Marca pública del sindicato --------------------------------------------------
 create or replace function public.org_publica(p_slug text)
 returns table (nombre text, logo_url text)
 language sql stable security definer set search_path = public as $$
@@ -24,8 +23,31 @@ language sql stable security definer set search_path = public as $$
 $$;
 grant execute on function public.org_publica(text) to anon, authenticated;
 
--- Solicitud de afiliación desde el formulario público -------------------------
-create or replace function public.solicitar_afiliacion(
+-- Catálogos públicos para el formulario ---------------------------------------
+create or replace function public.catalogos_publicos(p_slug text)
+returns jsonb
+language plpgsql stable security definer set search_path = public as $$
+declare v_org uuid; result jsonb;
+begin
+  select id into v_org from public.organizations where slug = p_slug and activo = true limit 1;
+  if v_org is null then return '{}'::jsonb; end if;
+  select jsonb_build_object(
+    'cargos',        coalesce((select jsonb_agg(c.name order by c.name) from public.cargos c where c.org_id = v_org), '[]'::jsonb),
+    'dependencias',  coalesce((select jsonb_agg(d.name order by d.name) from public.dependencias d where d.org_id = v_org), '[]'::jsonb),
+    'vinculaciones', coalesce((select jsonb_agg(jsonb_build_object('name', v.name, 'color', v.color)) from public.vinculaciones v where v.org_id = v_org), '[]'::jsonb),
+    'escalas',       coalesce((select jsonb_agg(jsonb_build_object('nivel', e.nivel, 'grado', e.grado, 'asignacionBasica', e.asignacion_basica)) from public.escalas e where e.org_id = v_org), '[]'::jsonb),
+    'porcentajeCuota', coalesce((select p.porcentaje_cuota from public.params p where p.org_id = v_org limit 1), 0.003)
+  ) into result;
+  return result;
+end $$;
+grant execute on function public.catalogos_publicos(text) to anon, authenticated;
+
+-- Solicitud de afiliación (datos completos) -----------------------------------
+-- Se elimina la versión anterior (8 args) para dejar una sola definición.
+drop function if exists public.solicitar_afiliacion(text,text,text,text,text,text,text,text);
+drop function if exists public.solicitar_afiliacion(text,text,text,text,text,text,text,text,jsonb);
+
+create function public.solicitar_afiliacion(
   p_slug text,
   p_nombres text,
   p_apellidos text,
@@ -33,7 +55,8 @@ create or replace function public.solicitar_afiliacion(
   p_email text,
   p_telefono text,
   p_direccion text,
-  p_password text
+  p_password text,
+  p_extra jsonb default '{}'::jsonb
 ) returns text
 language plpgsql
 security definer
@@ -45,6 +68,7 @@ declare
   uid      uuid;
   v_n      integer;
   v_sol    text;
+  v_benef  text[];
 begin
   -- 1) Sindicato válido y activo.
   select id into v_org from public.organizations where slug = p_slug and activo = true limit 1;
@@ -68,7 +92,7 @@ begin
     raise exception 'Ya existe una solicitud o afiliación con ese correo.';
   end if;
 
-  -- 4) Cuenta de acceso (se crea, pero el portal solo abre cuando la aprueban).
+  -- 4) Cuenta de acceso (el portal solo abre cuando la aprueban).
   select id into uid from auth.users where lower(email) = lower(trim(p_email));
   if uid is not null and exists (
     select 1 from public.profiles where id = uid and org_id is not null and org_id <> v_org
@@ -109,16 +133,29 @@ begin
   values (uid, v_nombre, 'afiliado', v_org)
   on conflict (id) do update set full_name = excluded.full_name, org_id = v_org;
 
-  -- 5) Consecutivo de solicitud y creación del afiliado PENDIENTE.
+  -- 5) Consecutivo + afiliado PENDIENTE con datos completos.
   select count(*) into v_n from public.affiliates where org_id = v_org;
   v_sol := 'WEB-' || to_char(now(),'YYYY') || '-' || lpad((v_n + 1)::text, 4, '0');
 
-  insert into public.affiliates (org_id, user_id, name, doc, email, phone, address, status, solicitud_no)
-  values (v_org, uid, v_nombre, trim(p_doc), lower(trim(p_email)), coalesce(p_telefono,''), coalesce(p_direccion,''), 'Pendiente', v_sol);
+  v_benef := coalesce(array(select jsonb_array_elements_text(p_extra->'beneficios')), '{}'::text[]);
+
+  insert into public.affiliates (
+    org_id, user_id, name, doc, email, phone, address, status, solicitud_no,
+    type, dependency, cargo_titular, role, asignacion_basica, beneficios,
+    medio, motivo, interes_comites, join_date
+  ) values (
+    v_org, uid, v_nombre, trim(p_doc), lower(trim(p_email)),
+    coalesce(p_telefono,''), coalesce(p_direccion,''), 'Pendiente', v_sol,
+    nullif(p_extra->>'type',''), nullif(p_extra->>'dependency',''),
+    nullif(p_extra->>'cargoTitular',''), nullif(p_extra->>'role',''),
+    coalesce((p_extra->>'asignacionBasica')::numeric, 0), v_benef,
+    nullif(p_extra->>'medio',''), nullif(p_extra->>'motivo',''),
+    nullif(p_extra->>'interesComites',''), nullif(p_extra->>'joinDate','')
+  );
 
   return v_sol;
 end $$;
 
-grant execute on function public.solicitar_afiliacion(text,text,text,text,text,text,text,text) to anon, authenticated;
+grant execute on function public.solicitar_afiliacion(text,text,text,text,text,text,text,text,jsonb) to anon, authenticated;
 
-select 'listo: solicitar_afiliacion' as estado;
+select 'listo: solicitar_afiliacion (completo)' as estado;

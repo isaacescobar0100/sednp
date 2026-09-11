@@ -1,41 +1,69 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { CheckCircle2Icon } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { BENEFICIOS, MEDIOS } from '../store/affiliates'
+import { Escala, escalaLabel, sortEscalas } from '../store/payscale'
+import { formatCop } from '../store/finance'
 
-// Página PÚBLICA de auto-afiliación (sin iniciar sesión). Se abre con el link
-// que genera la Secretaría: .../?afiliacion=<slug-del-sindicato>
-// Crea una SOLICITUD (estado Pendiente) que luego el Fiscal conceptúa y la
-// Junta aprueba. El acceso al portal solo funciona una vez aprobada.
+// Página PÚBLICA de auto-afiliación (sin iniciar sesión). Formulario completo:
+// datos personales + información laboral. Se abre con .../?afiliacion=<slug>.
+// Crea una SOLICITUD (Pendiente) que sigue el flujo Fiscal → Junta.
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+function parseMoney(text: string): number { return Number(text.replace(/\D/g, '')) }
+
+type Catalogos = { cargos: string[]; dependencias: string[]; vinculaciones: { name: string }[]; escalas: Escala[]; porcentajeCuota: number }
+
+const emptyForm = {
+  nombres: '', apellidos: '', doc: '', email: '', telefono: '', direccion: '', password: '', password2: '',
+  type: '', dependency: '', cargoTitular: '', role: '', asignacionBasica: '', joinDate: '', medio: '', motivo: '', interesComites: '',
+  beneficios: [] as string[],
+}
 
 export function PublicRegistroPage({ slug }: { slug: string }) {
-  const [orgNombre, setOrgNombre] = useState<string>('')
-  const [orgLogo, setOrgLogo] = useState<string>('')
+  const [orgNombre, setOrgNombre] = useState('')
+  const [orgLogo, setOrgLogo] = useState('')
   const [cargando, setCargando] = useState(true)
   const [orgValida, setOrgValida] = useState(false)
+  const [cat, setCat] = useState<Catalogos>({ cargos: [], dependencias: [], vinculaciones: [], escalas: [], porcentajeCuota: 0.003 })
 
-  const [form, setForm] = useState({ nombres: '', apellidos: '', doc: '', email: '', telefono: '', direccion: '', password: '', password2: '' })
+  const [form, setForm] = useState(emptyForm)
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState('')
   const [okSol, setOkSol] = useState('')
 
-  function set<K extends keyof typeof form>(k: K, v: string) { setForm((p) => ({ ...p, [k]: v })) }
+  function set<K extends keyof typeof form>(k: K, v: (typeof form)[K]) { setForm((p) => ({ ...p, [k]: v })) }
+  function toggleBen(b: string) { setForm((p) => ({ ...p, beneficios: p.beneficios.includes(b) ? p.beneficios.filter((x) => x !== b) : [...p.beneficios, b] })) }
 
   useEffect(() => {
     let on = true
-    supabase.rpc('org_publica', { p_slug: slug }).then(({ data }) => {
+    Promise.all([
+      supabase.rpc('org_publica', { p_slug: slug }),
+      supabase.rpc('catalogos_publicos', { p_slug: slug }),
+    ]).then(([orgRes, catRes]) => {
       if (!on) return
-      const row = Array.isArray(data) ? data[0] : data
+      const row = Array.isArray(orgRes.data) ? orgRes.data[0] : orgRes.data
       if (row?.nombre) { setOrgNombre(row.nombre as string); setOrgLogo((row.logo_url as string) || ''); setOrgValida(true) }
+      const c = (catRes.data || {}) as Partial<Catalogos>
+      setCat({
+        cargos: Array.isArray(c.cargos) ? c.cargos : [],
+        dependencias: Array.isArray(c.dependencias) ? c.dependencias : [],
+        vinculaciones: Array.isArray(c.vinculaciones) ? c.vinculaciones : [],
+        escalas: Array.isArray(c.escalas) ? (c.escalas as Escala[]).map((e, i) => ({ ...e, id: String(i) })) : [],
+        porcentajeCuota: typeof c.porcentajeCuota === 'number' ? c.porcentajeCuota : 0.003,
+      })
       setCargando(false)
     })
     return () => { on = false }
   }, [slug])
 
+  const escalasOrdenadas = useMemo(() => sortEscalas(cat.escalas), [cat.escalas])
   const emailInvalid = form.email.trim() !== '' && !EMAIL_RE.test(form.email.trim())
   const pass2Invalid = form.password2 !== '' && form.password !== form.password2
-  const valid = form.nombres.trim() && form.apellidos.trim() && form.doc.trim() && form.email.trim() && !emailInvalid && form.password.length >= 6 && form.password === form.password2
+  const cuota = parseMoney(form.asignacionBasica) > 0 ? Math.round(parseMoney(form.asignacionBasica) * cat.porcentajeCuota) : 0
+  const valid = form.nombres.trim() && form.apellidos.trim() && form.doc.trim() && form.email.trim() && !emailInvalid
+    && form.password.length >= 6 && form.password === form.password2
+    && form.type.trim() !== '' && parseMoney(form.asignacionBasica) > 0
 
   async function enviar() {
     if (!valid || enviando) return
@@ -49,6 +77,11 @@ export function PublicRegistroPage({ slug }: { slug: string }) {
       p_telefono: form.telefono.trim(),
       p_direccion: form.direccion.trim(),
       p_password: form.password,
+      p_extra: {
+        type: form.type, dependency: form.dependency, cargoTitular: form.cargoTitular, role: form.role,
+        asignacionBasica: parseMoney(form.asignacionBasica), beneficios: form.beneficios,
+        medio: form.medio, motivo: form.motivo.trim(), interesComites: form.interesComites.trim(), joinDate: form.joinDate,
+      },
     })
     setEnviando(false)
     if (error) { setError(error.message || 'No se pudo enviar la solicitud.'); return }
@@ -59,7 +92,7 @@ export function PublicRegistroPage({ slug }: { slug: string }) {
 
   return (
     <div className="min-h-screen bg-canvas px-4 py-10">
-      <div className="mx-auto max-w-lg">
+      <div className="mx-auto max-w-2xl">
         <div className="mb-6 flex items-center gap-3">
           <img src={orgLogo || '/sindika.png'} alt={orgNombre || 'Sindicato'} className="h-12 w-12 object-contain" />
           <div>
@@ -79,21 +112,64 @@ export function PublicRegistroPage({ slug }: { slug: string }) {
             <p className="mt-2 text-sm text-ink/60">Tu solicitud <strong>{okSol}</strong> quedó registrada y está <strong>en revisión</strong>. La Junta Directiva la estudiará y te avisaremos por correo cuando sea aprobada. A partir de ahí podrás entrar con tu correo y contraseña.</p>
           </div>
         ) : (
-          <div className="rounded-2xl border border-ink/[0.08] bg-white p-6">
-            <p className="mb-5 text-sm text-ink/55">Completa tus datos para solicitar tu afiliación. Tu solicitud pasará a revisión de la organización.</p>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <Field label="Nombres" value={form.nombres} onChange={(v) => set('nombres', v)} required className={inputClass} />
-              <Field label="Apellidos" value={form.apellidos} onChange={(v) => set('apellidos', v)} required className={inputClass} />
-              <Field label="Documento de identidad" value={form.doc} onChange={(v) => set('doc', v)} required className={inputClass} />
-              <Field label="Correo" value={form.email} onChange={(v) => set('email', v)} required error={emailInvalid ? 'Correo no válido.' : ''} className={inputClass} />
-              <Field label="Teléfono" value={form.telefono} onChange={(v) => set('telefono', v)} className={inputClass} />
-              <Field label="Dirección" value={form.direccion} onChange={(v) => set('direccion', v)} className={inputClass} />
-              <Field label="Contraseña (mín. 6)" value={form.password} onChange={(v) => set('password', v)} required type="password" className={inputClass} />
-              <Field label="Confirmar contraseña" value={form.password2} onChange={(v) => set('password2', v)} required type="password" error={pass2Invalid ? 'No coincide.' : ''} className={inputClass} />
-            </div>
-            <p className="mt-3 rounded-xl border border-gold/25 bg-gold/[0.07] px-3 py-2.5 text-xs text-ink/60">Usarás tu <strong>correo</strong> y esta <strong>contraseña</strong> para entrar a tu portal, una vez la Junta Directiva apruebe tu afiliación.</p>
-            {error ? <p className="mt-3 rounded-xl bg-brick/[0.07] px-3 py-2.5 text-xs font-medium text-brick">{error}</p> : null}
-            <button onClick={enviar} disabled={!valid || enviando} className="mt-5 w-full rounded-xl bg-night py-3 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">{enviando ? 'Enviando…' : 'Enviar solicitud de afiliación'}</button>
+          <div className="space-y-6">
+            {/* Datos personales */}
+            <section className="rounded-2xl border border-ink/[0.08] bg-white p-6">
+              <h2 className="font-display text-base font-semibold text-ink">Datos personales</h2>
+              <p className="mt-0.5 text-sm text-ink/50">Información de identificación y contacto.</p>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <Field label="Nombres" value={form.nombres} onChange={(v) => set('nombres', v)} required cls={inputClass} />
+                <Field label="Apellidos" value={form.apellidos} onChange={(v) => set('apellidos', v)} required cls={inputClass} />
+                <Field label="Documento de identidad" value={form.doc} onChange={(v) => set('doc', v)} required cls={inputClass} />
+                <Field label="Correo" value={form.email} onChange={(v) => set('email', v)} required error={emailInvalid ? 'Correo no válido.' : ''} cls={inputClass} />
+                <Field label="Teléfono" value={form.telefono} onChange={(v) => set('telefono', v)} cls={inputClass} />
+                <Field label="Dirección" value={form.direccion} onChange={(v) => set('direccion', v)} cls={inputClass} />
+                <Field label="Contraseña (mín. 6)" value={form.password} onChange={(v) => set('password', v)} required type="password" cls={inputClass} />
+                <Field label="Confirmar contraseña" value={form.password2} onChange={(v) => set('password2', v)} required type="password" error={pass2Invalid ? 'No coincide.' : ''} cls={inputClass} />
+              </div>
+            </section>
+
+            {/* Información laboral */}
+            <section className="rounded-2xl border border-ink/[0.08] bg-white p-6">
+              <h2 className="font-display text-base font-semibold text-ink">Información laboral</h2>
+              <p className="mt-0.5 text-sm text-ink/50">Datos de vinculación y base de tu cuota sindical.</p>
+              <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <Choice label="Tipo de vinculación" value={form.type} onChange={(v) => set('type', v)} options={cat.vinculaciones.map((t) => t.name)} placeholder="Seleccionar tipo" required cls={inputClass} />
+                <Choice label="Dependencia" value={form.dependency} onChange={(v) => set('dependency', v)} options={cat.dependencias} placeholder="Seleccionar dependencia" cls={inputClass} />
+                <Choice label="Cargo titular" value={form.cargoTitular} onChange={(v) => set('cargoTitular', v)} options={cat.cargos} placeholder="Seleccionar cargo titular" cls={inputClass} />
+                <Choice label="Cargo que ocupa" value={form.role} onChange={(v) => set('role', v)} options={cat.cargos} placeholder="Seleccionar cargo" cls={inputClass} />
+                {escalasOrdenadas.length > 0 ? (
+                  <Choice label="Escala salarial (autocompleta)" value="" onChange={(v) => { const e = escalasOrdenadas.find((x) => `${escalaLabel(x)} · ${formatCop(x.asignacionBasica)}` === v); if (e) set('asignacionBasica', String(e.asignacionBasica)) }} options={escalasOrdenadas.map((e) => `${escalaLabel(e)} · ${formatCop(e.asignacionBasica)}`)} placeholder="Elegir nivel/grado" cls={inputClass} />
+                ) : null}
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-semibold text-ink/70">Asignación básica mensual <span className="text-brick">*</span></span>
+                  <input value={form.asignacionBasica} onChange={(e) => set('asignacionBasica', e.target.value)} inputMode="numeric" placeholder="$ 3.500.000" className={inputClass} />
+                  <span className="mt-1 block text-xs text-ink/50">Base de tu cuota ({(cat.porcentajeCuota * 100).toLocaleString('es-CO', { maximumFractionDigits: 2 })}%).{cuota > 0 ? ` Cuota: ${formatCop(cuota)}` : ''}</span>
+                </label>
+                <label className="block">
+                  <span className="mb-1.5 block text-xs font-semibold text-ink/70">Fecha de vinculación</span>
+                  <input type="date" value={form.joinDate} onChange={(e) => set('joinDate', e.target.value)} className={inputClass} />
+                </label>
+                <Choice label="¿Por qué medio se enteró?" value={form.medio} onChange={(v) => set('medio', v)} options={MEDIOS} placeholder="Seleccionar" cls={inputClass} />
+              </div>
+
+              <div className="mt-4">
+                <span className="mb-1.5 block text-xs font-semibold text-ink/70">Programas de bienestar de interés</span>
+                <div className="flex flex-wrap gap-2">
+                  {BENEFICIOS.map((b) => (
+                    <button type="button" key={b} onClick={() => toggleBen(b)} className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition ${form.beneficios.includes(b) ? 'border-night bg-night/[0.06] text-night' : 'border-ink/12 text-ink/55 hover:border-ink/25'}`}>{b}</button>
+                  ))}
+                </div>
+              </div>
+              <label className="mt-4 block">
+                <span className="mb-1.5 block text-xs font-semibold text-ink/70">¿Por qué te gustaría pertenecer al sindicato?</span>
+                <textarea value={form.motivo} onChange={(e) => set('motivo', e.target.value)} rows={2} className={`${inputClass} resize-none`} />
+              </label>
+            </section>
+
+            <p className="rounded-xl border border-gold/25 bg-gold/[0.07] px-3 py-2.5 text-xs text-ink/60">Usarás tu <strong>correo</strong> y tu <strong>contraseña</strong> para entrar a tu portal, una vez la Junta Directiva apruebe tu afiliación.</p>
+            {error ? <p className="rounded-xl bg-brick/[0.07] px-3 py-2.5 text-xs font-medium text-brick">{error}</p> : null}
+            <button onClick={enviar} disabled={!valid || enviando} className="w-full rounded-xl bg-night py-3 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">{enviando ? 'Enviando…' : 'Enviar solicitud de afiliación'}</button>
           </div>
         )}
 
@@ -103,12 +179,24 @@ export function PublicRegistroPage({ slug }: { slug: string }) {
   )
 }
 
-function Field({ label, value, onChange, required, error, type = 'text', className }: { label: string; value: string; onChange: (v: string) => void; required?: boolean; error?: string; type?: string; className: string }) {
+function Field({ label, value, onChange, required, error, type = 'text', cls }: { label: string; value: string; onChange: (v: string) => void; required?: boolean; error?: string; type?: string; cls: string }) {
   return (
     <label className="block">
       <span className="mb-1.5 block text-xs font-semibold text-ink/70">{label}{required ? <span className="text-brick"> *</span> : null}</span>
-      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} className={className} />
+      <input type={type} value={value} onChange={(e) => onChange(e.target.value)} className={cls} />
       {error ? <span className="mt-1 block text-xs text-brick">{error}</span> : null}
+    </label>
+  )
+}
+
+function Choice({ label, value, onChange, options, placeholder, required, cls }: { label: string; value: string; onChange: (v: string) => void; options: string[]; placeholder: string; required?: boolean; cls: string }) {
+  return (
+    <label className="block">
+      <span className="mb-1.5 block text-xs font-semibold text-ink/70">{label}{required ? <span className="text-brick"> *</span> : null}</span>
+      <select value={value} onChange={(e) => onChange(e.target.value)} className={`${cls} ${value === '' ? 'text-ink/45' : ''}`}>
+        <option value="">{placeholder}</option>
+        {options.map((o) => <option key={o} value={o} className="text-ink">{o}</option>)}
+      </select>
     </label>
   )
 }
