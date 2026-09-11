@@ -54,6 +54,14 @@ export function App() {
 function RootSwitcher() {
   const params = new URLSearchParams(window.location.search)
   const [mode, setMode] = useState<'web' | 'app'>(() => (params.get('app') || window.location.hash === '#app') ? 'app' : 'web')
+  // Al entrar al sistema, se marca ?app=1 en la URL: así un recargar mantiene el
+  // sistema (login/panel) y no regresa al sitio público.
+  const enter = () => {
+    const url = new URL(window.location.href)
+    url.searchParams.set('app', '1')
+    window.history.replaceState({}, '', url.toString())
+    setMode('app')
+  }
   if (mode === 'app') {
     return (
       <AuthProvider>
@@ -63,7 +71,7 @@ function RootSwitcher() {
       </AuthProvider>
     )
   }
-  return <PublicSite onEnter={() => setMode('app')} />
+  return <PublicSite onEnter={enter} />
 }
 
 // Marca en pantallas de carga: logo del sindicato si ya se conoce; si no, Sindika.
