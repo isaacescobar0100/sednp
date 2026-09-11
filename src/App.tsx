@@ -136,7 +136,7 @@ function Root() {
 
   // Pestaña del navegador (título + favicon) según el sindicato; si no, Sindika.
   useEffect(() => {
-    document.title = org?.nombre ? `${org.nombre} · Sindika` : 'Sindika'
+    document.title = org?.nombre || 'Sindika'
     const href = org?.logoUrl || logoCacheado()
     let link = document.querySelector<HTMLLinkElement>("link[rel='icon']")
     if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link) }
