@@ -235,7 +235,9 @@ function ApproveModal({ affiliate, onClose }: { affiliate: Affiliate; onClose: (
 function LinkRegistroModal({ onClose }: { onClose: () => void }) {
   const { org } = useAuth()
   const slug = org?.slug ?? ''
-  const link = slug ? `${window.location.origin}/?afiliacion=${slug}` : ''
+  // Se comparte el link que pasa por la función: así WhatsApp/redes muestran la
+  // vista previa con el logo del sindicato antes de redirigir al formulario.
+  const link = slug ? `${window.location.origin}/api/afiliacion?org=${slug}` : ''
   const [copiado, setCopiado] = useState(false)
   const [nombre, setNombre] = useState('')
   const [correo, setCorreo] = useState('')
