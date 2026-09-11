@@ -4,7 +4,7 @@ import { supabase } from '../lib/supabase'
 import { subirFoto } from '../store/storageApi'
 import { useAuth } from '../store/auth'
 
-type OrgRow = { id: string; nombre: string; slug: string; logo_url: string | null; activo: boolean }
+type OrgRow = { id: string; nombre: string; slug: string; logo_url: string | null; activo: boolean; dominio: string | null }
 
 // ---------------------------------------------------------------------------
 // Contenido reutilizable: dar de alta sindicatos y gestionar su marca.
@@ -24,7 +24,7 @@ function SuperAdminContent() {
 
   async function load() {
     setLoading(true)
-    const { data, error } = await supabase.from('organizations').select('id, nombre, slug, logo_url, activo').order('created_at')
+    const { data, error } = await supabase.from('organizations').select('id, nombre, slug, logo_url, activo, dominio').order('created_at')
     if (error) setError('No se pudieron cargar los sindicatos.')
     else setOrgs((data as OrgRow[]) ?? [])
     setLoading(false)
@@ -173,6 +173,7 @@ function OrgItem({ org, onReload }: { org: OrgRow; onReload: () => void }) {
 function EditOrgModal({ org, onClose, onSaved }: { org: OrgRow; onClose: () => void; onSaved: () => void }) {
   const [nombre, setNombre] = useState(org.nombre)
   const [logoUrl, setLogoUrl] = useState(org.logo_url ?? '')
+  const [dominio, setDominio] = useState(org.dominio ?? '')
   const [busy, setBusy] = useState(false)
   const [subiendo, setSubiendo] = useState(false)
   const [error, setError] = useState('')
@@ -189,8 +190,9 @@ function EditOrgModal({ org, onClose, onSaved }: { org: OrgRow; onClose: () => v
 
   async function guardar() {
     setBusy(true); setError('')
+    const dom = dominio.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '')
     const { error } = await supabase.from('organizations')
-      .update({ nombre: nombre.trim() || org.nombre, logo_url: logoUrl || null })
+      .update({ nombre: nombre.trim() || org.nombre, logo_url: logoUrl || null, dominio: dom || null })
       .eq('id', org.id)
     setBusy(false)
     if (error) setError(error.message)
@@ -212,6 +214,12 @@ function EditOrgModal({ org, onClose, onSaved }: { org: OrgRow; onClose: () => v
           <label className="block">
             <span className="mb-1 block text-xs font-medium text-ink/70">Nombre del sindicato</span>
             <input value={nombre} onChange={(e) => setNombre(e.target.value)} className={inputC} />
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium text-ink/70">Dominio propio (opcional)</span>
+            <input value={dominio} onChange={(e) => setDominio(e.target.value)} placeholder="ej. acordemusic.com" className={inputC} />
+            <span className="mt-1 block text-[11px] text-ink/45">Si lo dejas vacío, su web abre con el dominio por defecto. El dominio también debe agregarse al proyecto en Vercel.</span>
           </label>
 
           <div>

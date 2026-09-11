@@ -44,7 +44,7 @@ const VIEW_PATH: Record<string, string> = {
 const KNOWN_ROOTS = ['inicio', 'blog', 'anuncios', 'documentos', 'contacto']
 
 export function PublicSite({ onEnter }: { onEnter: () => void }) {
-  const slug = new URLSearchParams(window.location.search).get('org') || 'serdnp'
+  const [slug, setSlug] = useState('')
   const [org, setOrg] = useState<{ nombre: string; logo: string }>({ nombre: '', logo: '' })
   const [articulos, setArticulos] = useState<PostPublico[]>([])
   const [anuncios, setAnuncios] = useState<PostPublico[]>([])
@@ -62,13 +62,23 @@ export function PublicSite({ onEnter }: { onEnter: () => void }) {
     return () => window.removeEventListener('popstate', onPop)
   }, [])
 
+  // Resuelve el sindicato del sitio: por ?org=slug, luego por el DOMINIO (host),
+  // y si no, SERDNP por defecto.
   useEffect(() => {
     let on = true
-    supabase.rpc('org_publica', { p_slug: slug }).then(({ data }) => {
+    const paramOrg = new URLSearchParams(window.location.search).get('org') || null
+    supabase.rpc('sitio_publico', { p_host: window.location.hostname, p_slug: paramOrg }).then(({ data }) => {
       if (!on) return
-      const r = Array.isArray(data) ? data[0] : data
-      setOrg({ nombre: r?.nombre || 'Sindicato', logo: r?.logo_url || '' })
+      const d = (data || {}) as { slug?: string; nombre?: string; logoUrl?: string }
+      setSlug(d.slug || 'serdnp')
+      setOrg({ nombre: d.nombre || 'Sindicato', logo: d.logoUrl || '' })
     })
+    return () => { on = false }
+  }, [])
+
+  useEffect(() => {
+    if (!slug) return
+    let on = true
     fetchPostsPublicos(slug, 'articulo').then((l) => on && setArticulos(l))
     fetchPostsPublicos(slug, 'anuncio').then((l) => on && setAnuncios(l))
     fetchPostsPublicos(slug, 'documento').then((l) => on && setDocumentos(l))
@@ -89,7 +99,7 @@ export function PublicSite({ onEnter }: { onEnter: () => void }) {
 
   const paginaClave = isPagina ? root : ''
   useEffect(() => {
-    if (!paginaClave) { setPagina(null); return }
+    if (!paginaClave || !slug) { setPagina(null); return }
     let on = true
     fetchPaginaPublica(slug, paginaClave).then((p) => on && setPagina(p))
     return () => { on = false }
