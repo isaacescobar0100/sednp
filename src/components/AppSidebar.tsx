@@ -6,6 +6,7 @@ import {
   FileCheck2Icon,
   FolderArchiveIcon,
   GavelIcon,
+  GlobeIcon,
   LandmarkIcon,
   LayoutDashboardIcon,
   LogOutIcon,
@@ -37,6 +38,7 @@ const items: Array<{ key: ModuleKey; label: string; icon: typeof LayoutDashboard
   { key: 'comunicaciones', label: 'Comunicaciones', icon: BellIcon },
   { key: 'documental', label: 'Documental', icon: FolderArchiveIcon },
   { key: 'libro', label: 'Libro de Actas', icon: ScrollTextIcon },
+  { key: 'publicaciones', label: 'Página web', icon: GlobeIcon },
   { key: 'reportes', label: 'Reportes', icon: BarChart3Icon },
   { key: 'parametros', label: 'Parámetros', icon: SlidersHorizontalIcon },
 ]
