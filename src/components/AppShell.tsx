@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { BellIcon, HistoryIcon, LogOutIcon, SearchIcon, ShieldCheckIcon } from 'lucide-react'
+import { BellIcon, CameraIcon, ChevronDownIcon, HistoryIcon, LogOutIcon, SearchIcon, ShieldCheckIcon } from 'lucide-react'
 import { AppSidebar, MobileMenuButton } from './AppSidebar'
 import { MfaSettings } from './MfaSettings'
 import { AuditLog } from './AuditLog'
@@ -38,14 +38,16 @@ export function AppShell({ activeModule, module, onNavigate, onLogout, children 
               <p className="hidden text-xs text-ink/50 sm:block">{module.subtitle}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-3">
             <GlobalSearch onNavigate={onNavigate} />
-            <UserChip onClick={() => setMiFotoOpen(true)} />
             <NotificationsBell onNavigate={onNavigate} />
-            <PushToggle variant="icon" />
-            {canAudit ? <AuditButton onClick={() => setAuditOpen(true)} /> : null}
-            <SecurityButton onClick={() => setSecurityOpen(true)} />
-            <LogoutButton onLogout={onLogout} />
+            <UserMenu
+              canAudit={canAudit}
+              onMiFoto={() => setMiFotoOpen(true)}
+              onAudit={() => setAuditOpen(true)}
+              onSecurity={() => setSecurityOpen(true)}
+              onLogout={onLogout}
+            />
           </div>
         </header>
         <main className="p-5 sm:p-8">{children}</main>
@@ -57,18 +59,51 @@ export function AppShell({ activeModule, module, onNavigate, onLogout, children 
   )
 }
 
-function SecurityButton({ onClick }: { onClick: () => void }) {
+// Menú del usuario: reúne perfil, notificaciones, auditoría, 2FA y salir en un
+// solo desplegable, para no llenar la barra superior de botones sueltos.
+function UserMenu({ canAudit, onMiFoto, onAudit, onSecurity, onLogout }: { canAudit: boolean; onMiFoto: () => void; onAudit: () => void; onSecurity: () => void; onLogout: () => void }) {
+  const { role, user } = useSession()
+  const { profile } = useAuth()
+  const [open, setOpen] = useState(false)
+  const close = () => setOpen(false)
   return (
-    <button onClick={onClick} title="Seguridad · verificación en dos pasos" aria-label="Seguridad" className="rounded-xl p-2 text-ink/60 transition hover:bg-white hover:text-night">
-      <ShieldCheckIcon className="h-5 w-5" strokeWidth={1.8} />
-    </button>
+    <div className="relative">
+      <button onClick={() => setOpen((v) => !v)} className="inline-flex items-center gap-2 rounded-xl border border-ink/10 bg-white px-2 py-1.5 transition hover:border-night/25">
+        <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-night font-display text-[11px] font-semibold text-gold">
+          {profile?.fotoUrl ? <img src={profile.fotoUrl} alt={user.name} className="h-full w-full object-cover" /> : user.initials}
+        </div>
+        <div className="hidden min-w-0 leading-tight sm:block">
+          <p className="max-w-[140px] truncate text-xs font-semibold text-ink">{user.name}</p>
+          <p className="text-[10px] text-ink/50">{roleLabel[role]}</p>
+        </div>
+        <ChevronDownIcon className={`h-4 w-4 text-ink/40 transition ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open ? (
+        <>
+          <button className="fixed inset-0 z-30 cursor-default" aria-hidden="true" onClick={close} />
+          <div className="absolute right-0 top-12 z-40 w-64 overflow-hidden rounded-xl border border-ink/10 bg-white py-1 shadow-xl shadow-night/10">
+            <div className="border-b border-ink/[0.07] px-4 py-2.5">
+              <p className="truncate text-sm font-semibold text-ink">{user.name}</p>
+              <p className="text-[11px] text-ink/50">{roleLabel[role]}</p>
+            </div>
+            <MenuItem icon={CameraIcon} label="Mi foto" onClick={() => { close(); onMiFoto() }} />
+            <PushToggle variant="menu" />
+            {canAudit ? <MenuItem icon={HistoryIcon} label="Auditoría" onClick={() => { close(); onAudit() }} /> : null}
+            <MenuItem icon={ShieldCheckIcon} label="Verificación en dos pasos" onClick={() => { close(); onSecurity() }} />
+            <div className="my-1 border-t border-ink/[0.07]" />
+            <MenuItem icon={LogOutIcon} label="Cerrar sesión" danger onClick={() => { close(); onLogout() }} />
+          </div>
+        </>
+      ) : null}
+    </div>
   )
 }
 
-function AuditButton({ onClick }: { onClick: () => void }) {
+function MenuItem({ icon: Icon, label, onClick, danger }: { icon: typeof CameraIcon; label: string; onClick: () => void; danger?: boolean }) {
   return (
-    <button onClick={onClick} title="Auditoría · quién cambió qué" aria-label="Auditoría" className="rounded-xl p-2 text-ink/60 transition hover:bg-white hover:text-night">
-      <HistoryIcon className="h-5 w-5" strokeWidth={1.8} />
+    <button onClick={onClick} className={`flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm transition hover:bg-canvas ${danger ? 'text-brick' : 'text-ink/75'}`}>
+      <Icon className={`h-4 w-4 ${danger ? 'text-brick' : 'text-ink/50'}`} strokeWidth={1.8} />
+      {label}
     </button>
   )
 }
@@ -182,28 +217,3 @@ function NotificationsBell({ onNavigate }: { onNavigate: (module: ModuleKey) => 
   )
 }
 
-function LogoutButton({ onLogout }: { onLogout: () => void }) {
-  return (
-    <button onClick={onLogout} title="Cerrar sesión" className="inline-flex items-center gap-1.5 rounded-xl border border-ink/10 px-2.5 py-2 text-xs font-semibold text-ink/60 transition hover:border-brick/30 hover:text-brick">
-      <LogOutIcon className="h-3.5 w-3.5" /><span className="hidden lg:inline">Salir</span>
-    </button>
-  )
-}
-
-// Ficha del usuario autenticado (nombre + rol). Ya no hay cambiador de rol:
-// cada persona opera con el rol de su cuenta.
-function UserChip({ onClick }: { onClick: () => void }) {
-  const { role, user } = useSession()
-  const { profile } = useAuth()
-  return (
-    <button onClick={onClick} title="Mi foto" className="inline-flex items-center gap-2 rounded-xl border border-ink/10 bg-white px-2 py-1.5 transition hover:border-night/25">
-      <div className="flex h-7 w-7 items-center justify-center overflow-hidden rounded-full bg-night font-display text-[11px] font-semibold text-gold">
-        {profile?.fotoUrl ? <img src={profile.fotoUrl} alt={user.name} className="h-full w-full object-cover" /> : user.initials}
-      </div>
-      <div className="hidden min-w-0 leading-tight sm:block">
-        <p className="max-w-[140px] truncate text-xs font-semibold text-ink">{user.name}</p>
-        <p className="text-[10px] text-ink/50">{roleLabel[role]}</p>
-      </div>
-    </button>
-  )
-}

@@ -4,7 +4,7 @@ import { pushSoportado, pushActivo, activarPush, desactivarPush } from '../store
 
 // Botón para activar/desactivar las notificaciones push en este dispositivo.
 // variant 'icon' para la barra superior; por defecto, botón con texto.
-export function PushToggle({ variant = 'button' }: { variant?: 'icon' | 'button' }) {
+export function PushToggle({ variant = 'button' }: { variant?: 'icon' | 'button' | 'menu' }) {
   const [soportado] = useState(() => pushSoportado())
   const [activo, setActivo] = useState(false)
   const [busy, setBusy] = useState(false)
@@ -20,6 +20,19 @@ export function PushToggle({ variant = 'button' }: { variant?: 'icon' | 'button'
     const r = await activarPush()
     setBusy(false)
     if (r.ok) setActivo(true); else setMsg(r.error || 'No se pudo activar.')
+  }
+
+  if (variant === 'menu') {
+    return (
+      <>
+        <button onClick={toggle} disabled={busy} className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-sm text-ink/75 transition hover:bg-canvas disabled:opacity-60">
+          <BellRingIcon className={`h-4 w-4 ${activo ? 'text-gold' : 'text-ink/50'}`} strokeWidth={1.8} />
+          <span className="flex-1">{busy ? 'Un momento…' : activo ? 'Notificaciones activas' : 'Activar notificaciones'}</span>
+          {activo ? <span className="rounded-md bg-emerald-100 px-1.5 py-0.5 text-[9px] font-bold text-emerald-700">ON</span> : null}
+        </button>
+        {msg ? <p className="px-4 pb-1 text-[11px] text-brick">{msg}</p> : null}
+      </>
+    )
   }
 
   if (variant === 'icon') {
