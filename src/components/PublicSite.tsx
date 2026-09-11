@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowLeftIcon, ArrowRightIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon, FileTextIcon, GlobeIcon, LogInIcon, MegaphoneIcon, MenuIcon, Share2Icon, UserPlusIcon, XIcon } from 'lucide-react'
 import { PostPublico, fetchPaginaPublica, fetchPostsPublicos } from '../store/publicacionesApi'
 import { supabase } from '../lib/supabase'
+import { marcaCacheada, guardarMarca } from '../store/brandCache'
 
 // Convierte una URL de YouTube (varias formas) en su URL para incrustar.
 function youtubeEmbed(url?: string | null): string | null {
@@ -45,7 +46,11 @@ const KNOWN_ROOTS = ['inicio', 'blog', 'anuncios', 'documentos', 'contacto']
 
 export function PublicSite({ onEnter }: { onEnter: () => void }) {
   const [slug, setSlug] = useState('')
-  const [org, setOrg] = useState<{ nombre: string; logo: string }>({ nombre: '', logo: '' })
+  // Inicia con la marca cacheada (si existe) para no parpadear el logo al recargar.
+  const [org, setOrg] = useState<{ nombre: string; logo: string }>(() => {
+    const c = marcaCacheada()
+    return { nombre: c?.nombre || '', logo: c?.logo || '' }
+  })
   const [articulos, setArticulos] = useState<PostPublico[]>([])
   const [anuncios, setAnuncios] = useState<PostPublico[]>([])
   const [documentos, setDocumentos] = useState<PostPublico[]>([])
@@ -72,6 +77,7 @@ export function PublicSite({ onEnter }: { onEnter: () => void }) {
       const d = (data || {}) as { slug?: string; nombre?: string; logoUrl?: string }
       setSlug(d.slug || 'serdnp')
       setOrg({ nombre: d.nombre || 'Sindicato', logo: d.logoUrl || '' })
+      guardarMarca(d.nombre || '', d.logoUrl || '')
     })
     return () => { on = false }
   }, [])

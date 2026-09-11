@@ -2,14 +2,16 @@ import React, { useEffect, useState } from 'react'
 import { UsersIcon } from 'lucide-react'
 import { AndesRange } from './AndesRange'
 import { supabase } from '../lib/supabase'
+import { marcaCacheada, guardarMarca } from '../store/brandCache'
 
 export function BrandPanel() {
   // Conteo público de afiliados activos (RPC), visible sin iniciar sesión.
   const [activos, setActivos] = useState(0)
   // Logo del sindicato del dominio actual (co-marca con Sindika). Si el sindicato
   // no tiene logo, se muestra SOLO Sindika.
-  const [tenantLogo, setTenantLogo] = useState('')
-  const [tenantNombre, setTenantNombre] = useState('')
+  // Inicia con la marca cacheada (evita el parpadeo del logo al recargar el login).
+  const [tenantLogo, setTenantLogo] = useState(() => marcaCacheada()?.logo || '')
+  const [tenantNombre, setTenantNombre] = useState(() => marcaCacheada()?.nombre || '')
   useEffect(() => {
     let on = true
     supabase.rpc('contar_afiliados_activos').then(({ data, error }) => {
@@ -25,7 +27,12 @@ export function BrandPanel() {
         const d = (data || {}) as { nombre?: string; logoUrl?: string }
         setTenantLogo(d.logoUrl || '')
         setTenantNombre(d.nombre || '')
+        guardarMarca(d.nombre || '', d.logoUrl || '')
       })
+    } else {
+      // Host de plataforma: solo Sindika (ignora cualquier marca cacheada).
+      setTenantLogo('')
+      setTenantNombre('')
     }
     return () => { on = false }
   }, [])

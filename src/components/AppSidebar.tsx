@@ -19,6 +19,7 @@ import {
 import { ModuleKey } from '../types/navigation'
 import { roleLabel, useSession } from '../store/session'
 import { useAuth } from '../store/auth'
+import { logoCacheado } from '../store/brandCache'
 
 type AppSidebarProps = {
   activeModule: ModuleKey
@@ -56,7 +57,8 @@ export function AppSidebar({ activeModule, onNavigate, mobileOpen, onMobileOpenC
   const { org } = useAuth()
   const brandName = org?.nombre ?? 'SERDNP'
   // Logo del sindicato si lo tiene; si no, el de Sindika (versión clara para fondo oscuro).
-  const brandLogo = org ? (org.logoUrl || '/sindika-dark.png') : '/logo.png'
+  // Mientras carga la sesión, usa el logo cacheado (evita el parpadeo al recargar).
+  const brandLogo = org ? (org.logoUrl || '/sindika-dark.png') : logoCacheado('/logo.png')
   const visibleItems = items.filter((item) => canSeeModule(item.key))
   return (
     <>
