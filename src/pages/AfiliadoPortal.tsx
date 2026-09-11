@@ -3,6 +3,7 @@ import { BadgeCheckIcon, Building2Icon, BriefcaseIcon, CalendarDaysIcon, CameraI
 import { useDemo } from '../store/DemoStore'
 import { useAuth } from '../store/auth'
 import { MiFoto } from '../components/MiFoto'
+import { PushToggle } from '../components/PushToggle'
 import { StatusBadge } from '../components/StatusBadge'
 import { Ballot, totalVotes, votePct } from '../store/governance'
 import { Doc, formatFileSize } from '../store/documents'
@@ -127,6 +128,15 @@ function Perfil({ me }: { me: ReturnType<typeof useDemo>['affiliates'][number] }
         <StatCard icon={CircleDollarSignIcon} label={`Cuota mensual (${(porcentajeCuota * 100).toLocaleString('es-CO', { maximumFractionDigits: 2 })}%)`} value={cuota ? formatCop(cuota) : '—'} />
         <StatCard icon={CheckCircle2Icon} label="Aportes pendientes" value={misPendientes === 0 ? 'Al día' : `${misPendientes} pendiente(s)`} tone={misPendientes === 0 ? 'green' : 'gold'} />
         <StatCard icon={CalendarDaysIcon} label="Afiliado desde" value={me.joinDate || '—'} />
+      </div>
+
+      {/* Notificaciones al celular */}
+      <div className="flex flex-col items-start gap-2 rounded-2xl border border-ink/[0.08] bg-white p-5 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="text-sm font-semibold text-ink">Notificaciones en el celular</p>
+          <p className="text-xs text-ink/55">Recibe avisos de votaciones y comunicados. En iPhone, primero instala la app en la pantalla de inicio.</p>
+        </div>
+        <PushToggle />
       </div>
 
       {/* Grupos de información */}
