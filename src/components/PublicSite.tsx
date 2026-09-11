@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeftIcon, ArrowRightIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon, FileTextIcon, GlobeIcon, LogInIcon, MegaphoneIcon, MenuIcon, UserPlusIcon, XIcon } from 'lucide-react'
+import { ArrowLeftIcon, ArrowRightIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon, FileTextIcon, GlobeIcon, LogInIcon, MegaphoneIcon, MenuIcon, Share2Icon, UserPlusIcon, XIcon } from 'lucide-react'
 import { PostPublico, fetchPaginaPublica, fetchPostsPublicos } from '../store/publicacionesApi'
 import { supabase } from '../lib/supabase'
 
@@ -29,17 +29,38 @@ function Parrafos({ texto }: { texto: string }) {
   return <>{bloques.map((b, i) => <p key={i} className="mb-3 whitespace-pre-line leading-relaxed text-ink/75">{b}</p>)}</>
 }
 
+// Convierte un texto en una porción de URL legible (sin acentos ni símbolos).
+function slugify(s: string): string {
+  return (s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60) || 'p'
+}
+// Dirección propia de un artículo/anuncio: /articulo/<titulo>-<id-corto>.
+function articuloPath(p: PostPublico): string {
+  return `/${p.tipo === 'anuncio' ? 'anuncio' : 'articulo'}/${slugify(p.titulo)}-${p.id.slice(0, 8)}`
+}
+const VIEW_PATH: Record<string, string> = {
+  inicio: '/', blog: '/blog', servicios: '/servicios', 'quienes-somos': '/quienes-somos',
+  anuncios: '/anuncios', documentos: '/documentos', contacto: '/contacto',
+}
+const KNOWN_ROOTS = ['inicio', 'blog', 'anuncios', 'documentos', 'contacto']
+
 export function PublicSite({ onEnter }: { onEnter: () => void }) {
   const slug = new URLSearchParams(window.location.search).get('org') || 'serdnp'
   const [org, setOrg] = useState<{ nombre: string; logo: string }>({ nombre: '', logo: '' })
   const [articulos, setArticulos] = useState<PostPublico[]>([])
   const [anuncios, setAnuncios] = useState<PostPublico[]>([])
   const [documentos, setDocumentos] = useState<PostPublico[]>([])
-  const [view, setView] = useState<View>('inicio')
   const [showWelcome, setShowWelcome] = useState(true)
-  const [post, setPost] = useState<PostPublico | null>(null)
   const [pagina, setPagina] = useState<{ titulo?: string; contenido?: string } | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [copiado, setCopiado] = useState('')
+  const [path, setPath] = useState(() => window.location.pathname)
+
+  // Sincroniza con el botón atrás/adelante del navegador.
+  useEffect(() => {
+    const onPop = () => setPath(window.location.pathname)
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
 
   useEffect(() => {
     let on = true
@@ -54,7 +75,19 @@ export function PublicSite({ onEnter }: { onEnter: () => void }) {
     return () => { on = false }
   }, [slug])
 
-  const paginaClave = view === 'quienes-somos' || view === 'servicios' || view === 'contacto' ? view : ''
+  // Ruta actual → vista.
+  const seg = path.replace(/^\/+|\/+$/g, '').split('/')
+  const root = seg[0] || 'inicio'
+  const isArticulo = root === 'articulo' || root === 'anuncio'
+  const isPagina = root === 'quienes-somos' || root === 'servicios' || root === 'contacto'
+  const view: View = isArticulo ? 'post' : (isPagina ? (root as View) : (KNOWN_ROOTS.includes(root) ? (root as View) : 'inicio'))
+  const postShortId = isArticulo ? (seg[1]?.split('-').pop() || '') : ''
+  const post = useMemo(() => {
+    if (!postShortId) return null
+    return [...articulos, ...anuncios].find((p) => p.id.startsWith(postShortId)) || null
+  }, [postShortId, articulos, anuncios])
+
+  const paginaClave = isPagina ? root : ''
   useEffect(() => {
     if (!paginaClave) { setPagina(null); return }
     let on = true
@@ -62,8 +95,13 @@ export function PublicSite({ onEnter }: { onEnter: () => void }) {
     return () => { on = false }
   }, [slug, paginaClave])
 
-  function go(v: View) { setView(v); setPost(null); setMenuOpen(false); window.scrollTo(0, 0) }
-  function abrirPost(p: PostPublico) { setPost(p); setView('post'); window.scrollTo(0, 0) }
+  function navigate(p: string) { window.history.pushState({}, '', p); setPath(p); setMenuOpen(false); window.scrollTo(0, 0) }
+  function go(v: View) { navigate(VIEW_PATH[v] || '/') }
+  function abrirPost(p: PostPublico) { navigate(articuloPath(p)) }
+  function compartir(p: PostPublico) {
+    const url = `${window.location.origin}/api/post?id=${p.id}&org=${encodeURIComponent(slug)}`
+    try { navigator.clipboard.writeText(url); setCopiado(p.id); window.setTimeout(() => setCopiado(''), 2000) } catch { /* sin portapapeles */ }
+  }
 
   const destacados = useMemo(() => articulos.slice(0, 3), [articulos])
   const slides = useMemo(() => {
@@ -76,8 +114,8 @@ export function PublicSite({ onEnter }: { onEnter: () => void }) {
 
   return (
     <div className="min-h-screen bg-canvas">
-      {/* Modal de bienvenida: aparece al entrar y se puede cerrar. */}
-      {showWelcome ? (
+      {/* Modal de bienvenida: aparece al entrar a la portada y se puede cerrar. */}
+      {showWelcome && view === 'inicio' ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-night/60 p-4" onClick={() => setShowWelcome(false)}>
           <div className="relative w-full max-w-md rounded-3xl bg-white p-8 text-center shadow-2xl" onClick={(e) => e.stopPropagation()}>
             <button onClick={() => setShowWelcome(false)} className="absolute right-3 top-3 rounded-lg p-2 text-ink/40 transition hover:bg-canvas" aria-label="Cerrar"><XIcon className="h-5 w-5" /></button>
@@ -151,7 +189,7 @@ export function PublicSite({ onEnter }: { onEnter: () => void }) {
                 <h2 className="font-display text-lg font-semibold text-ink">Lo más reciente</h2>
                 <button onClick={() => go('blog')} className="text-xs font-semibold text-night hover:underline">Ver todo</button>
               </div>
-              <PostGrid posts={destacados} onOpen={abrirPost} />
+              <PostGrid posts={destacados} onOpen={abrirPost} onShare={compartir} copiadoId={copiado} />
             </section>
           </>
         ) : null}
@@ -160,7 +198,7 @@ export function PublicSite({ onEnter }: { onEnter: () => void }) {
           <section>
             <h1 className="mb-1 font-display text-2xl font-semibold text-ink">Blog</h1>
             <p className="mb-6 text-sm text-ink/50">Artículos y publicaciones de la organización.</p>
-            <PostGrid posts={articulos} onOpen={abrirPost} />
+            <PostGrid posts={articulos} onOpen={abrirPost} onShare={compartir} copiadoId={copiado} />
           </section>
         ) : null}
 
@@ -182,10 +220,15 @@ export function PublicSite({ onEnter }: { onEnter: () => void }) {
           </section>
         ) : null}
 
+        {view === 'post' && !post ? <div className="mx-auto max-w-3xl py-12 text-center text-sm text-ink/50">Cargando…</div> : null}
+
         {view === 'post' && post ? (
           <article className="mx-auto max-w-3xl">
-            <button onClick={() => go(post.tipo === 'anuncio' ? 'anuncios' : 'blog')} className="mb-4 inline-flex items-center gap-1.5 text-sm font-semibold text-night hover:underline"><ArrowLeftIcon className="h-4 w-4" />Volver</button>
-            {post.imagenUrl ? <img src={post.imagenUrl} alt="" className="mb-5 max-h-80 w-full rounded-2xl object-cover" /> : null}
+            <div className="mb-4 flex items-center justify-between">
+              <button onClick={() => go(post.tipo === 'anuncio' ? 'anuncios' : 'blog')} className="inline-flex items-center gap-1.5 text-sm font-semibold text-night hover:underline"><ArrowLeftIcon className="h-4 w-4" />Volver</button>
+              <button onClick={() => compartir(post)} className="inline-flex items-center gap-1.5 rounded-xl border border-night/20 px-3 py-1.5 text-xs font-semibold text-night transition hover:bg-night/5"><Share2Icon className="h-3.5 w-3.5" />{copiado === post.id ? 'Enlace copiado' : 'Compartir'}</button>
+            </div>
+            {post.imagenUrl ? <img src={post.imagenUrl} alt="" className="mb-5 max-h-80 w-full rounded-2xl object-cover object-center" /> : null}
             <div className="mb-2 flex items-center gap-2 text-xs text-ink/45">
               {post.categoria ? <span className="rounded-md bg-gold/15 px-2 py-0.5 font-bold uppercase tracking-wide text-[#8a5a12]">{post.categoria}</span> : null}
               <span className="inline-flex items-center gap-1"><CalendarDaysIcon className="h-3.5 w-3.5" />{fmtFecha(post.fechaPub)}</span>
@@ -255,23 +298,28 @@ export function PublicSite({ onEnter }: { onEnter: () => void }) {
   )
 }
 
-function PostGrid({ posts, onOpen }: { posts: PostPublico[]; onOpen: (p: PostPublico) => void }) {
+function PostGrid({ posts, onOpen, onShare, copiadoId }: { posts: PostPublico[]; onOpen: (p: PostPublico) => void; onShare: (p: PostPublico) => void; copiadoId: string }) {
   if (posts.length === 0) return <Empty texto="Aún no hay publicaciones." />
   return (
     <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
       {posts.map((p) => (
-        <button key={p.id} onClick={() => onOpen(p)} className="flex flex-col overflow-hidden rounded-2xl border border-ink/[0.08] bg-white text-left transition hover:border-night/20 hover:shadow-lg hover:shadow-night/5">
-          <div className="h-40 bg-canvas">{p.imagenUrl ? <img src={p.imagenUrl} alt="" className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-ink/20"><GlobeIcon className="h-8 w-8" /></div>}</div>
-          <div className="flex flex-1 flex-col p-4">
-            <div className="mb-1 flex items-center gap-2 text-[11px] text-ink/45">
-              {p.categoria ? <span className="rounded-md bg-gold/15 px-2 py-0.5 font-bold uppercase tracking-wide text-[#8a5a12]">{p.categoria}</span> : null}
-              <span>{fmtFecha(p.fechaPub)}</span>
+        <div key={p.id} className="flex flex-col overflow-hidden rounded-2xl border border-ink/[0.08] bg-white transition hover:border-night/20 hover:shadow-lg hover:shadow-night/5">
+          <button onClick={() => onOpen(p)} className="block w-full text-left">
+            <div className="h-40 bg-canvas">{p.imagenUrl ? <img src={p.imagenUrl} alt="" className="h-full w-full object-cover object-center" /> : <div className="flex h-full items-center justify-center text-ink/20"><GlobeIcon className="h-8 w-8" /></div>}</div>
+            <div className="p-4 pb-2">
+              <div className="mb-1 flex items-center gap-2 text-[11px] text-ink/45">
+                {p.categoria ? <span className="rounded-md bg-gold/15 px-2 py-0.5 font-bold uppercase tracking-wide text-[#8a5a12]">{p.categoria}</span> : null}
+                <span>{fmtFecha(p.fechaPub)}</span>
+              </div>
+              <h3 className="font-display text-base font-semibold leading-snug text-ink">{p.titulo}</h3>
+              <p className="mt-1.5 line-clamp-3 text-xs leading-relaxed text-ink/55">{p.resumen || p.contenido}</p>
             </div>
-            <h3 className="font-display text-base font-semibold leading-snug text-ink">{p.titulo}</h3>
-            <p className="mt-1.5 line-clamp-3 text-xs leading-relaxed text-ink/55">{p.resumen || p.contenido}</p>
-            <span className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-night">Leer más<ArrowRightIcon className="h-3.5 w-3.5" /></span>
+          </button>
+          <div className="mt-auto flex items-center justify-between px-4 pb-4 pt-1">
+            <button onClick={() => onOpen(p)} className="inline-flex items-center gap-1 text-xs font-semibold text-night">Leer más<ArrowRightIcon className="h-3.5 w-3.5" /></button>
+            <button onClick={() => onShare(p)} className="inline-flex items-center gap-1 text-xs font-semibold text-ink/45 transition hover:text-night"><Share2Icon className="h-3.5 w-3.5" />{copiadoId === p.id ? 'Copiado' : 'Compartir'}</button>
           </div>
-        </button>
+        </div>
       ))}
     </div>
   )
