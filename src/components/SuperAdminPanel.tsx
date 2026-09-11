@@ -20,6 +20,7 @@ function SuperAdminContent() {
   const [presiEmail, setPresiEmail] = useState('')
   const [presiPassword, setPresiPassword] = useState('')
   const [presiNombre, setPresiNombre] = useState('')
+  const [dominio, setDominio] = useState('')
   const [busy, setBusy] = useState(false)
 
   async function load() {
@@ -34,9 +35,10 @@ function SuperAdminContent() {
   async function crear(e: React.FormEvent) {
     e.preventDefault()
     setError(''); setOk(''); setBusy(true)
+    const s = slug.trim().toLowerCase().replace(/\s+/g, '-')
     const { error } = await supabase.rpc('crear_sindicato', {
       p_nombre: nombre.trim(),
-      p_slug: slug.trim().toLowerCase().replace(/\s+/g, '-'),
+      p_slug: s,
       p_presi_email: presiEmail.trim().toLowerCase(),
       p_presi_password: presiPassword,
       p_presi_nombre: presiNombre.trim(),
@@ -44,8 +46,11 @@ function SuperAdminContent() {
     if (error) {
       setError(error.message)
     } else {
-      setOk(`Sindicato "${nombre}" creado. La presidencia entra con ${presiEmail} y la contraseña que pusiste.`)
-      setNombre(''); setSlug(''); setPresiEmail(''); setPresiPassword(''); setPresiNombre('')
+      // Si se indicó dominio, se asigna al sindicato recién creado.
+      const dom = dominio.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '')
+      if (dom) await supabase.from('organizations').update({ dominio: dom }).eq('slug', s)
+      setOk(`Sindicato "${nombre}" creado. La presidencia entra con ${presiEmail} y la contraseña que pusiste.${dom ? ` Dominio: ${dom} (recuerda agregarlo también en Vercel).` : ''}`)
+      setNombre(''); setSlug(''); setPresiEmail(''); setPresiPassword(''); setPresiNombre(''); setDominio('')
       void load()
     }
     setBusy(false)
@@ -65,6 +70,7 @@ function SuperAdminContent() {
           <Field label="Nombre del presidente"><input value={presiNombre} onChange={(e) => setPresiNombre(e.target.value)} placeholder="Nombre y apellido" className={inputC} /></Field>
           <Field label="Correo de presidencia"><input value={presiEmail} onChange={(e) => setPresiEmail(e.target.value)} placeholder="presidencia@…" className={inputC} /></Field>
           <Field label="Contraseña inicial"><input value={presiPassword} onChange={(e) => setPresiPassword(e.target.value)} placeholder="Clave para la presidencia" className={inputC} /></Field>
+          <Field label="Dominio propio (opcional)"><input value={dominio} onChange={(e) => setDominio(e.target.value)} placeholder="ej. serdnp.sindika.com" className={inputC} /></Field>
         </div>
         <button type="submit" disabled={busy || !nombre.trim() || !slug.trim() || !presiEmail.trim() || !presiPassword.trim() || !presiNombre.trim()} className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">
           <PlusIcon className="h-4 w-4" />{busy ? 'Creando…' : 'Crear sindicato'}
