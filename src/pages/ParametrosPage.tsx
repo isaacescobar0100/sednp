@@ -9,6 +9,7 @@ import { useAuth } from '../store/auth'
 import { VinculacionType, nextVinculacionColor } from '../store/catalogs'
 import { CuentaNaturaleza, CuentaTipo, formatCop } from '../store/finance'
 import { AJUSTE_ANUAL, NIVELES, sortEscalas } from '../store/payscale'
+import { enviarCorreoDetallado, plantillaCorreo } from '../store/emailApi'
 
 export function ParametrosPage() {
   const { cargos, dependencias, vinculaciones, setCargos, setDependencias, setVinculaciones, notify } = useDemo()
@@ -29,6 +30,10 @@ export function ParametrosPage() {
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
           <div className="min-w-0 xl:col-span-2">
             <LogoSindicatoCard />
+          </div>
+
+          <div className="min-w-0 xl:col-span-2">
+            <CorreoPruebaCard />
           </div>
 
           <CuotaCard />
@@ -234,6 +239,50 @@ function ROCard({ title, hint, children }: { title: string; hint?: string; child
       <h2 className="font-display text-base font-semibold">{title}</h2>
       {hint ? <p className="mt-0.5 text-xs text-ink/50">{hint}</p> : null}
       <div className="mt-3">{children}</div>
+    </section>
+  )
+}
+
+// Diagnóstico de correo: envía un correo de prueba y muestra el resultado real
+// (o el error exacto del servidor / Resend). Sirve para verificar la
+// configuración sin depender de un flujo completo.
+function CorreoPruebaCard() {
+  const [to, setTo] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [estado, setEstado] = useState<{ ok: boolean; msg: string } | null>(null)
+
+  async function enviar() {
+    const dest = to.trim()
+    if (!dest) return
+    setBusy(true); setEstado(null)
+    const r = await enviarCorreoDetallado({
+      to: dest,
+      subject: 'Correo de prueba — SERDNP',
+      html: plantillaCorreo('Correo de prueba', '<p style="margin:0">Si ves este mensaje, el envío de correos quedó configurado correctamente.</p>'),
+    })
+    setBusy(false)
+    setEstado(r.ok ? { ok: true, msg: `Enviado correctamente${r.id ? ` (id ${r.id})` : ''}.` } : { ok: false, msg: r.error || 'No se pudo enviar.' })
+  }
+
+  return (
+    <section className="rounded-2xl border border-ink/[0.08] bg-white p-5">
+      <div className="flex items-center gap-3">
+        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-canvas text-night"><ImageIcon className="h-5 w-5" strokeWidth={1.8} /></div>
+        <div>
+          <h2 className="font-display text-base font-semibold">Correo (diagnóstico)</h2>
+          <p className="text-xs text-ink/50">Envía un correo de prueba para verificar la configuración (Resend). En modo prueba solo llega al correo de tu cuenta de Resend.</p>
+        </div>
+      </div>
+      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end">
+        <label className="block flex-1">
+          <span className="mb-1.5 block text-xs font-semibold text-ink/70">Correo de destino</span>
+          <input value={to} onChange={(e) => setTo(e.target.value)} placeholder="issac10.es@gmail.com" className="w-full rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
+        </label>
+        <button onClick={enviar} disabled={busy || !to.trim()} className="shrink-0 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">{busy ? 'Enviando…' : 'Enviar correo de prueba'}</button>
+      </div>
+      {estado ? (
+        <p className={`mt-3 rounded-xl px-3 py-2.5 text-xs font-medium ${estado.ok ? 'bg-emerald-50 text-emerald-700' : 'bg-brick/[0.07] text-brick'}`}>{estado.ok ? '✓ ' : '✕ '}{estado.msg}</p>
+      ) : null}
     </section>
   )
 }

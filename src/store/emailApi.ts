@@ -6,18 +6,27 @@ import { supabase } from '../lib/supabase'
 export type CorreoInput = { to: string; subject: string; html?: string; text?: string }
 
 export async function enviarCorreo(input: CorreoInput): Promise<boolean> {
+  return (await enviarCorreoDetallado(input)).ok
+}
+
+// Igual que enviarCorreo pero devuelve el detalle (para diagnóstico/pruebas):
+// si falla, trae el mensaje de error del servidor o de Resend.
+export async function enviarCorreoDetallado(input: CorreoInput): Promise<{ ok: boolean; id?: string; error?: string }> {
   try {
     const { data } = await supabase.auth.getSession()
     const token = data.session?.access_token
-    if (!token) return false
+    if (!token) return { ok: false, error: 'No hay sesión activa.' }
     const res = await fetch('/api/send-email', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
       body: JSON.stringify(input),
     })
-    return res.ok
-  } catch {
-    return false
+    let payload: { id?: string; error?: string } = {}
+    try { payload = await res.json() } catch { /* respuesta sin JSON */ }
+    if (!res.ok) return { ok: false, error: payload.error || `Error ${res.status}` }
+    return { ok: true, id: payload.id }
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'Fallo de red' }
   }
 }
 
