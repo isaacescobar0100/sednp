@@ -3,6 +3,7 @@ import type { Session } from '@supabase/supabase-js'
 import { supabase } from '../lib/supabase'
 import { Role } from './session'
 import { setMarca } from './emailApi'
+import { guardarMarca } from './brandCache'
 
 // Autenticación real con Supabase. El rol de la persona vive en la tabla
 // `profiles` (creada por un trigger al registrarse). 'afiliado' usa el portal;
@@ -67,6 +68,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setOrg(o ? { nombre: o.nombre as string, logoUrl: (o.logo_url as string | null) ?? null, activo: (o.activo as boolean | null) ?? true, slug: (o.slug as string | null) ?? null } : null)
       // Marca de los correos = nombre + logo del sindicato; dirección propia si la tiene.
       setMarca((o?.nombre as string | undefined) || null, (o?.correo_remitente as string | undefined) || null, (o?.logo_url as string | undefined) || null)
+      // Recuerda la marca (evita el parpadeo del logo al recargar).
+      if (o?.nombre) guardarMarca(o.nombre as string, (o.logo_url as string | null) ?? '')
     } catch {
       // Si la consulta falla (red/RLS), no dejamos la app colgada: perfil mínimo.
       setProfile({ id: s.user.id, full_name: meta, role: 'afiliado', initials: initialsOf(meta, s.user.email ?? ''), platformAdmin: false, fotoUrl: '' })

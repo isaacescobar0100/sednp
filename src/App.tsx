@@ -8,6 +8,7 @@ import { MfaChallenge } from './components/MfaChallenge'
 import { SuperAdminScreen } from './components/SuperAdminPanel'
 import { PublicRegistroPage } from './pages/PublicRegistroPage'
 import { PublicSite } from './components/PublicSite'
+import { logoCacheado } from './store/brandCache'
 import { ModuleKey, ModuleMeta } from './types/navigation'
 
 // Carga diferida por módulo (code-splitting): cada página se descarga solo
@@ -109,7 +110,7 @@ function RootSwitcher() {
 // Marca en pantallas de carga: logo del sindicato si ya se conoce; si no, Sindika.
 function BrandMark({ size = 56 }: { size?: number }) {
   const { org } = useAuth()
-  const src = org?.logoUrl || '/sindika.png'
+  const src = org?.logoUrl || logoCacheado()
   return <img src={src} alt={org?.nombre ?? 'Sindika'} style={{ height: size }} className="w-auto object-contain" />
 }
 
@@ -136,7 +137,7 @@ function Root() {
   // Pestaña del navegador (título + favicon) según el sindicato; si no, Sindika.
   useEffect(() => {
     document.title = org?.nombre ? `${org.nombre} · Sindika` : 'Sindika'
-    const href = org?.logoUrl || '/sindika.png'
+    const href = org?.logoUrl || logoCacheado()
     let link = document.querySelector<HTMLLinkElement>("link[rel='icon']")
     if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link) }
     link.href = href
