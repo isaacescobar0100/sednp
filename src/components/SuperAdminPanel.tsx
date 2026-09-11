@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { AlertCircleIcon, Building2Icon, CheckCircle2Icon, ImageIcon, LogOutIcon, PencilIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react'
+import { AlertCircleIcon, Building2Icon, CheckCircle2Icon, DownloadIcon, ImageIcon, LogOutIcon, PencilIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { subirFoto } from '../store/storageApi'
 import { useAuth } from '../store/auth'
@@ -22,6 +22,7 @@ function SuperAdminContent() {
   const [presiNombre, setPresiNombre] = useState('')
   const [dominio, setDominio] = useState('')
   const [busy, setBusy] = useState(false)
+  const [creado, setCreado] = useState<null | { nombre: string; slug: string; dominio: string; email: string; password: string; presi: string }>(null)
 
   async function load() {
     setLoading(true)
@@ -49,17 +50,69 @@ function SuperAdminContent() {
       // Si se indicó dominio, se asigna al sindicato recién creado.
       const dom = dominio.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '')
       if (dom) await supabase.from('organizations').update({ dominio: dom }).eq('slug', s)
-      setOk(`Sindicato "${nombre}" creado. La presidencia entra con ${presiEmail} y la contraseña que pusiste.${dom ? ` Dominio: ${dom} (recuerda agregarlo también en Vercel).` : ''}`)
+      // Guardamos los datos (incl. contraseña) para la tarjeta de credenciales,
+      // ANTES de limpiar el formulario. La contraseña solo se conoce ahora.
+      setCreado({ nombre: nombre.trim(), slug: s, dominio: dom, email: presiEmail.trim().toLowerCase(), password: presiPassword, presi: presiNombre.trim() })
       setNombre(''); setSlug(''); setPresiEmail(''); setPresiPassword(''); setPresiNombre(''); setDominio('')
       void load()
     }
     setBusy(false)
   }
 
+  const webUrl = creado ? (creado.dominio ? `https://${creado.dominio}` : `${window.location.origin}/?org=${creado.slug}`) : ''
+  const loginUrl = creado ? (creado.dominio ? `https://${creado.dominio}/app` : `${window.location.origin}/app`) : ''
+
+  async function descargarCredenciales(cr: NonNullable<typeof creado>) {
+    const canvas = document.createElement('canvas')
+    canvas.width = 1000; canvas.height = 680
+    const ctx = canvas.getContext('2d'); if (!ctx) return
+    ctx.fillStyle = '#0F1B3D'; ctx.fillRect(0, 0, 1000, 680)
+    ctx.fillStyle = '#C9973B'; ctx.fillRect(0, 0, 1000, 10)
+    await new Promise((res) => { const img = new Image(); img.onload = () => { try { ctx.drawImage(img, 60, 54, 110, 110) } catch { /* sin logo */ } res(null) }; img.onerror = () => res(null); img.src = '/sindika-dark.png' })
+    ctx.fillStyle = '#C9973B'; ctx.font = 'bold 20px "Segoe UI", Arial'; ctx.fillText('CREDENCIALES DE ACCESO', 195, 92)
+    ctx.fillStyle = '#ffffff'; ctx.font = 'bold 32px "Segoe UI", Arial'; ctx.fillText(cr.nombre, 195, 138)
+    let y = 240
+    const campo = (label: string, val: string) => {
+      ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = '14px "Segoe UI", Arial'; ctx.fillText(label, 60, y)
+      ctx.fillStyle = '#ffffff'; ctx.font = 'bold 26px "Segoe UI", Arial'; ctx.fillText(val || '—', 60, y + 34); y += 88
+    }
+    campo('PRESIDENCIA', cr.presi)
+    campo('CORREO (USUARIO)', cr.email)
+    campo('CONTRASEÑA', cr.password)
+    const web = cr.dominio ? `https://${cr.dominio}` : `${window.location.origin}/?org=${cr.slug}`
+    const login = cr.dominio ? `https://${cr.dominio}/app` : `${window.location.origin}/app`
+    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = '14px "Segoe UI", Arial'; ctx.fillText('PÁGINA WEB', 60, y)
+    ctx.fillStyle = '#C9973B'; ctx.font = '18px "Segoe UI", Arial'; ctx.fillText(web, 60, y + 28); y += 64
+    ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = '14px "Segoe UI", Arial'; ctx.fillText('INGRESAR', 60, y)
+    ctx.fillStyle = '#C9973B'; ctx.font = '18px "Segoe UI", Arial'; ctx.fillText(login, 60, y + 28)
+    ctx.fillStyle = 'rgba(255,255,255,.5)'; ctx.font = '14px "Segoe UI", Arial'; ctx.fillText('con tecnología de Sindika', 60, 650)
+    const a = document.createElement('a'); a.href = canvas.toDataURL('image/png'); a.download = `credenciales-${cr.slug}.png`; a.click()
+  }
+
   return (
     <div className="space-y-6">
       {error ? <div className="flex items-start gap-2 rounded-xl border border-brick/25 bg-red-50 px-3 py-2.5 text-sm text-brick"><AlertCircleIcon className="mt-0.5 h-4 w-4 shrink-0" /><span>{error}</span></div> : null}
       {ok ? <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800"><CheckCircle2Icon className="mt-0.5 h-4 w-4 shrink-0" /><span>{ok}</span></div> : null}
+
+      {creado ? (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+          <div className="flex items-start justify-between gap-2">
+            <div>
+              <p className="flex items-center gap-1.5 text-sm font-semibold text-emerald-800"><CheckCircle2Icon className="h-4 w-4" />Sindicato "{creado.nombre}" creado</p>
+              <p className="mt-1 text-xs text-ink/60">Entrega estas credenciales a la presidencia. La contraseña solo se muestra ahora.</p>
+            </div>
+            <button onClick={() => setCreado(null)} aria-label="Cerrar" className="rounded-lg p-1.5 text-ink/40 transition hover:bg-white"><XIcon className="h-4 w-4" /></button>
+          </div>
+          <div className="mt-3 grid gap-1.5 text-xs">
+            <div><span className="text-ink/45">Página: </span><a href={webUrl} target="_blank" rel="noreferrer" className="font-semibold text-night underline">{webUrl}</a></div>
+            <div><span className="text-ink/45">Ingresar: </span><a href={loginUrl} target="_blank" rel="noreferrer" className="font-semibold text-night underline">{loginUrl}</a></div>
+            <div><span className="text-ink/45">Correo: </span><span className="font-semibold text-ink">{creado.email}</span></div>
+            <div><span className="text-ink/45">Contraseña: </span><span className="font-semibold text-ink">{creado.password}</span></div>
+          </div>
+          <button onClick={() => descargarCredenciales(creado)} className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep"><DownloadIcon className="h-4 w-4" />Descargar credenciales</button>
+          {creado.dominio ? <p className="mt-2 text-[11px] text-amber-700">Recuerda agregar el dominio <strong>{creado.dominio}</strong> en Vercel para que su página cargue.</p> : null}
+        </div>
+      ) : null}
 
       <form onSubmit={crear} className="rounded-xl border border-ink/10 bg-canvas/40 p-4">
         <h4 className="font-display text-sm font-semibold text-ink">Nuevo sindicato</h4>
