@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import HCaptcha from '@hcaptcha/react-hcaptcha'
 import { AlertCircleIcon, ArrowRightIcon, EyeIcon, EyeOffIcon, GlobeIcon, LockIcon, MailIcon } from 'lucide-react'
 import { BrandPanel } from './BrandPanel'
@@ -12,6 +12,11 @@ const HCAPTCHA_SITEKEY = import.meta.env.VITE_HCAPTCHA_SITEKEY || 'e794b07e-8a8a
 // administración. No hay auto-registro.
 export function AuthScreen() {
   const { signIn } = useAuth()
+  // Deja la URL del login limpia en /ingresar (p. ej. al cerrar sesión desde
+  // un módulo, para que no quede /comites u otra ruta en la barra).
+  useEffect(() => {
+    if (window.location.pathname !== '/ingresar') window.history.replaceState({}, '', '/ingresar')
+  }, [])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
