@@ -89,12 +89,12 @@ function RootSwitcher() {
   const primerSeg = path.replace(/^\//, '').split('/')[0]
   const esModulo = Object.prototype.hasOwnProperty.call(modules, primerSeg)
   const appMode = !forcePublic && (
-    path === '/app' || path.startsWith('/app/') ||
+    path === '/ingresar' || path === '/app' || path.startsWith('/app/') ||
     params.get('app') === '1' || window.location.hash === '#app' ||
     isPlatformHost() ||
     (tieneSesionGuardada() && (path === '/' || esModulo))
   )
-  const enter = () => { window.history.pushState({}, '', '/app'); setPath('/app') }
+  const enter = () => { window.history.pushState({}, '', '/ingresar'); setPath('/ingresar') }
   if (appMode) {
     return (
       <AuthProvider>
@@ -168,6 +168,11 @@ function Root() {
 function AfiliadoGate() {
   const { session, signOut } = useAuth()
   const { affiliates } = useDemo()
+  // Deja la URL limpia (sin /app ni /ingresar) también en el portal del afiliado.
+  useEffect(() => {
+    const p = window.location.pathname
+    if (p.startsWith('/app') || p === '/ingresar') window.history.replaceState({}, '', '/')
+  }, [])
   const email = session?.user.email?.trim().toLowerCase() ?? ''
   const me = affiliates.find((a) => a.email.trim().toLowerCase() === email)
 
@@ -223,10 +228,12 @@ function DirectivaApp() {
     window.addEventListener('popstate', onPop)
     return () => window.removeEventListener('popstate', onPop)
   }, [])
-  // Normaliza enlaces viejos /app/<modulo> → /<modulo> (URL limpia).
+  // Normaliza /ingresar y enlaces viejos /app/<modulo> → ruta limpia (/ o /<modulo>).
   useEffect(() => {
-    if (window.location.pathname.startsWith('/app')) {
-      const s = window.location.pathname.replace(/^\/app\/?/, '').split('/')[0]
+    const p = window.location.pathname
+    if (p === '/ingresar') { window.history.replaceState({}, '', '/'); setPathname('/'); return }
+    if (p.startsWith('/app')) {
+      const s = p.replace(/^\/app\/?/, '').split('/')[0]
       const clean = s && Object.prototype.hasOwnProperty.call(modules, s) ? `/${s}` : '/'
       window.history.replaceState({}, '', clean)
       setPathname(clean)
