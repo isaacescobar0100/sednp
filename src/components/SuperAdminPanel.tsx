@@ -60,7 +60,7 @@ function SuperAdminContent() {
   }
 
   const webUrl = creado ? (creado.dominio ? `https://${creado.dominio}` : `${window.location.origin}/?org=${creado.slug}`) : ''
-  const loginUrl = creado ? (creado.dominio ? `https://${creado.dominio}/app` : `${window.location.origin}/app`) : ''
+  const loginUrl = creado ? (creado.dominio ? `https://${creado.dominio}/ingresar` : `${window.location.origin}/ingresar`) : ''
 
   async function descargarCredenciales(cr: NonNullable<typeof creado>) {
     const canvas = document.createElement('canvas')
@@ -80,7 +80,7 @@ function SuperAdminContent() {
     campo('CORREO (USUARIO)', cr.email)
     campo('CONTRASEÑA', cr.password)
     const web = cr.dominio ? `https://${cr.dominio}` : `${window.location.origin}/?org=${cr.slug}`
-    const login = cr.dominio ? `https://${cr.dominio}/app` : `${window.location.origin}/app`
+    const login = cr.dominio ? `https://${cr.dominio}/ingresar` : `${window.location.origin}/ingresar`
     ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = '14px "Segoe UI", Arial'; ctx.fillText('PÁGINA WEB', 60, y)
     ctx.fillStyle = '#C9973B'; ctx.font = '18px "Segoe UI", Arial'; ctx.fillText(web, 60, y + 28); y += 64
     ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = '14px "Segoe UI", Arial'; ctx.fillText('INGRESAR', 60, y)
@@ -151,7 +151,8 @@ export function SuperAdminScreen() {
   // El panel de admin no usa rutas de módulo: quita el /app/<modulo> sobrante.
   // (No toca el dominio pelado de plataforma, que queda sin ruta.)
   useEffect(() => {
-    if (window.location.pathname.startsWith('/app/')) window.history.replaceState({}, '', '/app')
+    const p = window.location.pathname
+    if (p.startsWith('/app') || p === '/ingresar') window.history.replaceState({}, '', '/')
   }, [])
   return (
     <div className="min-h-screen bg-canvas">
