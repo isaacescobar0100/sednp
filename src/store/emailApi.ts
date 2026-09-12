@@ -13,6 +13,12 @@ export type CorreoInput = { to: string; subject: string; html?: string; text?: s
 let marcaActual = 'SERDNP'
 let remitenteActual = '' // dirección propia del sindicato (si compró dominio); vacío = usa la global
 let logoActual = ''      // URL pública del logo del sindicato para el encabezado del correo
+let plantillaBienvenida = '' // texto configurable del correo de bienvenida (por sindicato)
+
+// Fija el texto del correo de bienvenida del sindicato actual (editable en Parámetros).
+export function setPlantillaBienvenida(texto?: string | null): void {
+  plantillaBienvenida = (texto || '').trim()
+}
 export function setMarca(nombre?: string | null, correoRemitente?: string | null, logoUrl?: string | null): void {
   marcaActual = (nombre || '').trim() || 'SERDNP'
   remitenteActual = (correoRemitente || '').trim()
@@ -111,11 +117,23 @@ function escapeHtml(s: string): string {
 }
 
 // Bienvenida cuando la Junta aprueba la afiliación (el afiliado ya puede entrar).
+// Usa el mensaje configurable del sindicato (Parámetros) con placeholders
+// {nombre}, {acta}, {sindicato}; si no hay, cae en un texto por defecto.
 export function correoAfiliacionAprobada(nombre: string, acta: string): string {
   const m = escapeHtml(marca())
+  if (plantillaBienvenida) {
+    const cuerpo = escapeHtml(plantillaBienvenida)
+      .replace(/\{nombre\}/g, `<strong>${escapeHtml(nombre)}</strong>`)
+      .replace(/\{acta\}/g, escapeHtml(acta || '—'))
+      .replace(/\{sindicato\}/g, m)
+      .split(/\n\s*\n/)
+      .map((p) => `<p style="margin:0 0 10px">${p.replace(/\n/g, '<br>')}</p>`)
+      .join('')
+    return plantillaCorreo(`¡Bienvenido(a) a ${m}!`, cuerpo)
+  }
   return plantillaCorreo(`¡Bienvenido(a) a ${m}!`, `
-    <p style="margin:0 0 10px">Hola <strong>${nombre}</strong>,</p>
-    <p style="margin:0 0 10px">La Junta Directiva <strong>aprobó tu afiliación</strong>${acta ? ` mediante Acta No. ${acta}` : ''}. Ya eres parte de ${m}.</p>
+    <p style="margin:0 0 10px">Hola <strong>${escapeHtml(nombre)}</strong>,</p>
+    <p style="margin:0 0 10px">La Junta Directiva <strong>aprobó tu afiliación</strong>${acta ? ` mediante Acta No. ${escapeHtml(acta)}` : ''}. Ya eres parte de ${m}.</p>
     <p style="margin:0 0 10px">Desde ahora puedes ingresar a tu portal con tu correo y la contraseña que te asignaron, para consultar tus aportes, votaciones, comunicados y documentos.</p>
     <p style="margin:16px 0 0;color:#5b6577;font-size:13px">Junta Directiva</p>
   `)
