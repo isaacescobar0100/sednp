@@ -36,6 +36,10 @@ export function ParametrosPage() {
             <CorreoPruebaCard />
           </div>
 
+          <div className="min-w-0 xl:col-span-2">
+            <MensajeBienvenidaCard />
+          </div>
+
           <CuotaCard />
           <SmmlvCard />
 
@@ -323,6 +327,47 @@ function LogoSindicatoCard() {
         <input ref={fileRef} type="file" accept="image/*" onChange={handle} className="hidden" />
         <button onClick={() => fileRef.current?.click()} disabled={busy} className="inline-flex shrink-0 items-center gap-1.5 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-50">
           <ImageIcon className="h-4 w-4" />{busy ? 'Subiendo…' : 'Subir logo'}
+        </button>
+      </div>
+    </section>
+  )
+}
+
+// Editor del mensaje de bienvenida (correo al aprobar afiliación). Por sindicato.
+function MensajeBienvenidaCard() {
+  const { org, refreshProfile } = useAuth()
+  const [texto, setTexto] = useState(org?.mensajeBienvenida ?? '')
+  const [busy, setBusy] = useState(false)
+  const [estado, setEstado] = useState<{ ok: boolean; msg: string } | null>(null)
+
+  async function guardar() {
+    setBusy(true); setEstado(null)
+    const { error } = await supabase.rpc('set_mensaje_bienvenida', { p_texto: texto })
+    setBusy(false)
+    if (error) { setEstado({ ok: false, msg: error.message }); return }
+    await refreshProfile()
+    setEstado({ ok: true, msg: 'Mensaje guardado. Se usará en los próximos correos de bienvenida.' })
+  }
+
+  return (
+    <section className="rounded-2xl border border-ink/[0.08] bg-white p-5">
+      <h2 className="font-display text-base font-semibold">Mensaje de bienvenida</h2>
+      <p className="mt-0.5 text-xs text-ink/50">
+        Texto del correo que recibe el afiliado cuando la Junta aprueba su afiliación. Puedes usar{' '}
+        <strong>{'{nombre}'}</strong>, <strong>{'{acta}'}</strong> y <strong>{'{sindicato}'}</strong>; se reemplazan al enviar.
+        Separa párrafos con una línea en blanco.
+      </p>
+      <textarea
+        value={texto}
+        onChange={(e) => setTexto(e.target.value)}
+        rows={10}
+        placeholder="Hola {nombre}, reciba un cordial saludo..."
+        className="mt-3 w-full resize-y rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm leading-relaxed outline-none focus:border-night focus:ring-4 focus:ring-night/10"
+      />
+      {estado ? <p className={`mt-2 text-xs ${estado.ok ? 'text-emerald-700' : 'text-brick'}`}>{estado.msg}</p> : null}
+      <div className="mt-3 flex justify-end">
+        <button onClick={guardar} disabled={busy} className="inline-flex items-center gap-1.5 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-50">
+          {busy ? 'Guardando…' : 'Guardar mensaje'}
         </button>
       </div>
     </section>
