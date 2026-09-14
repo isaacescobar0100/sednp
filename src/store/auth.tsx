@@ -11,7 +11,7 @@ import { guardarMarca } from './brandCache'
 export type AppRole = Role | 'afiliado'
 export type Profile = { id: string; full_name: string; role: AppRole; initials: string; platformAdmin: boolean; fotoUrl: string }
 // Marca del sindicato al que pertenece la persona (multi-sindicato / SaaS).
-export type Org = { nombre: string; logoUrl: string | null; activo: boolean; slug: string | null; mensajeBienvenida: string | null }
+export type Org = { nombre: string; logoUrl: string | null; activo: boolean; slug: string | null; mensajeBienvenida: string | null; afiliadosMax: number | null; plan: string | null }
 
 type Result = { error?: string }
 
@@ -60,12 +60,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // así el splash posterior al login dura una sola ida y vuelta, no dos.
       const [{ data }, o] = await Promise.all([
         supabase.from('profiles').select('id, full_name, role, platform_admin, foto_url').eq('id', s.user.id).maybeSingle(),
-        supabase.from('organizations').select('nombre, logo_url, activo, slug, correo_remitente, mensaje_bienvenida').maybeSingle().then((r) => r.data, () => null),
+        supabase.from('organizations').select('nombre, logo_url, activo, slug, correo_remitente, mensaje_bienvenida, afiliados_max, plan').maybeSingle().then((r) => r.data, () => null),
       ])
       const fullName = data?.full_name || meta
       const role = (data?.role as AppRole) || 'afiliado'
       setProfile({ id: s.user.id, full_name: fullName, role, initials: initialsOf(fullName, s.user.email ?? ''), platformAdmin: Boolean(data?.platform_admin), fotoUrl: (data?.foto_url as string | null) ?? '' })
-      setOrg(o ? { nombre: o.nombre as string, logoUrl: (o.logo_url as string | null) ?? null, activo: (o.activo as boolean | null) ?? true, slug: (o.slug as string | null) ?? null, mensajeBienvenida: (o.mensaje_bienvenida as string | null) ?? null } : null)
+      setOrg(o ? { nombre: o.nombre as string, logoUrl: (o.logo_url as string | null) ?? null, activo: (o.activo as boolean | null) ?? true, slug: (o.slug as string | null) ?? null, mensajeBienvenida: (o.mensaje_bienvenida as string | null) ?? null, afiliadosMax: (o.afiliados_max as number | null) ?? null, plan: (o.plan as string | null) ?? null } : null)
       // Marca de los correos = nombre + logo del sindicato; dirección propia si la tiene.
       setMarca((o?.nombre as string | undefined) || null, (o?.correo_remitente as string | undefined) || null, (o?.logo_url as string | undefined) || null)
       setPlantillaBienvenida((o?.mensaje_bienvenida as string | undefined) || null)

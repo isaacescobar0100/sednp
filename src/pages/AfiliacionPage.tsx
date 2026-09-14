@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState } from 'react'
-import { CameraIcon, ChevronLeftIcon, ChevronRightIcon, LinkIcon, LockIcon, PlusIcon, SearchIcon, XIcon } from 'lucide-react'
+import { AlertTriangleIcon, CameraIcon, ChevronLeftIcon, ChevronRightIcon, LinkIcon, LockIcon, MailIcon, MessageCircleIcon, PlusIcon, SearchIcon, XIcon } from 'lucide-react'
 import { subirFoto, subirSoporte } from '../store/storageApi'
 import { enviarCorreo, plantillaCorreo } from '../store/emailApi'
 import { useDemo } from '../store/DemoStore'
@@ -23,9 +23,22 @@ const PAGE_SIZE = 8
 const filters: Array<'Todos' | AffiliateStatus> = ['Todos', 'Pendiente', 'Activo', 'Suspendido', 'Retirado']
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+// Contacto del proveedor (Sindika) para solicitar ampliación de plan.
+const SINDIKA_WA = '573006387246'
+const SINDIKA_MAIL = 'issac10.es@gmail.com'
+
 export function AfiliacionPage() {
   const { affiliates, stats } = useDemo()
   const { can } = useSession()
+  const { org } = useAuth()
+
+  // Tope del plan (informativo, NO bloquea): si se alcanza, se invita a ampliar.
+  const tope = org?.afiliadosMax ?? null
+  const totalAfi = stats.total
+  const topeAlcanzado = tope != null && totalAfi >= tope
+  const msgUpgrade = `Hola, soy de ${org?.nombre ?? 'mi sindicato'} y alcanzamos el tope de nuestro plan (${totalAfi}/${tope} afiliados). Quiero información para adquirir un plan mayor.`
+  const waUpgrade = `https://wa.me/${SINDIKA_WA}?text=${encodeURIComponent(msgUpgrade)}`
+  const mailUpgrade = `mailto:${SINDIKA_MAIL}?subject=${encodeURIComponent('Ampliar plan · ' + (org?.nombre ?? 'Sindicato'))}&body=${encodeURIComponent(msgUpgrade)}`
   const [query, setQuery] = useState('')
   const [status, setStatus] = useState<'Todos' | AffiliateStatus>('Todos')
   const [page, setPage] = useState(1)
@@ -92,6 +105,29 @@ export function AfiliacionPage() {
         <StatChip label="En revisión" value={stats.pending} tone="warning" />
         <StatChip label="Suspendidos" value={stats.suspended} tone="negative" />
       </div>
+
+      {topeAlcanzado ? (
+        <div className="mb-5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3.5">
+          <div className="flex items-start gap-3">
+            <AlertTriangleIcon className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-amber-900">Tope de tu plan alcanzado ({totalAfi}/{tope} afiliados)</p>
+              <p className="mt-0.5 text-sm text-amber-800/90">
+                Puedes seguir registrando afiliados sin problema. Tu plan actual está pensado para hasta <strong>{tope}</strong>;
+                para ampliar tu capacidad, contacta a tu proveedor Sindika y solicita un plan mayor.
+              </p>
+              <div className="mt-2.5 flex flex-wrap gap-2">
+                <a href={waUpgrade} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-xs font-semibold text-white transition hover:bg-emerald-700">
+                  <MessageCircleIcon className="h-3.5 w-3.5" /> Escribir por WhatsApp
+                </a>
+                <a href={mailUpgrade} className="inline-flex items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-3 py-2 text-xs font-semibold text-amber-800 transition hover:bg-amber-100">
+                  <MailIcon className="h-3.5 w-3.5" /> Enviar correo
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {!can('affiliates.changeStatus') ? (
         <div className="mb-5 flex items-start gap-3 rounded-xl border border-gold/30 bg-gold/[0.08] px-4 py-3 text-sm text-ink/70">
