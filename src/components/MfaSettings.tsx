@@ -8,7 +8,8 @@ type Step = 'loading' | 'none' | 'enrolling' | 'active'
 // Activar/desactivar la verificación en dos pasos (TOTP) de la cuenta.
 // No depende de correo ni SMS: usa una app autenticadora en el celular.
 export function MfaSettings({ onClose }: { onClose: () => void }) {
-  const { refreshMfa } = useAuth()
+  const { refreshMfa, org } = useAuth()
+  const marcaOrg = org?.nombre || 'Sindika'
   const [step, setStep] = useState<Step>('loading')
   const [factorId, setFactorId] = useState('')      // factor en proceso de alta
   const [activeId, setActiveId] = useState('')      // factor ya verificado
@@ -35,7 +36,7 @@ export function MfaSettings({ onClose }: { onClose: () => void }) {
       if (f.status !== 'verified') await supabase.auth.mfa.unenroll({ factorId: f.id })
     }
     // `issuer` es el nombre que muestra la app autenticadora (no depende del dominio).
-    const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: `SERDNP-${Date.now()}`, issuer: 'SERDNP' })
+    const { data, error } = await supabase.auth.mfa.enroll({ factorType: 'totp', friendlyName: `${marcaOrg}-${Date.now()}`, issuer: marcaOrg })
     if (error || !data) { setError('No se pudo iniciar la activación. Inténtalo de nuevo.'); setBusy(false); return }
     setFactorId(data.id)
     setQr(data.totp.qr_code)

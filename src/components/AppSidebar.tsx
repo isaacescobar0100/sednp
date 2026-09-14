@@ -55,7 +55,7 @@ export function MobileMenuButton({ onClick }: { onClick: () => void }) {
 export function AppSidebar({ activeModule, onNavigate, mobileOpen, onMobileOpenChange, onLogout }: AppSidebarProps) {
   const { user, role, canSeeModule } = useSession()
   const { org } = useAuth()
-  const brandName = org?.nombre ?? 'SERDNP'
+  const brandName = org?.nombre ?? 'Sindika'
   // Logo del sindicato si lo tiene; si no, el de Sindika (versión clara para fondo oscuro).
   // Mientras carga la sesión, usa el logo cacheado (evita el parpadeo al recargar).
   const brandLogo = org ? (org.logoUrl || '/sindika-dark.png') : logoCacheado('/logo.png')

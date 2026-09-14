@@ -8,7 +8,6 @@ import { StatusBadge } from '../components/StatusBadge'
 import { Ballot, totalVotes, votePct } from '../store/governance'
 import { Doc, formatFileSize } from '../store/documents'
 import { abrirSoporte } from '../store/storageApi'
-import { Logo } from '../components/Logo'
 import { periodLabel } from '../store/contributions'
 import { formatCop } from '../store/finance'
 
@@ -28,6 +27,7 @@ const statusTone: Record<string, 'positive' | 'warning' | 'negative' | 'neutral'
 
 export function AfiliadoPortal({ affiliateId, onLogout }: { affiliateId: string; onLogout: () => void }) {
   const { affiliates, ballots, comunicados, docs } = useDemo()
+  const { org } = useAuth()
   const me = affiliates.find((a) => a.id === affiliateId)
   const [tab, setTab] = useState<Tab>('perfil')
 
@@ -49,9 +49,9 @@ export function AfiliadoPortal({ affiliateId, onLogout }: { affiliateId: string;
       <header className="border-b border-ink/[0.08] bg-night text-white">
         <div className="mx-auto flex max-w-[1100px] items-center justify-between px-5 py-4 sm:px-8">
           <div className="flex items-center gap-2.5">
-            <Logo size={36} />
+            <img src={org?.logoUrl || '/sindika-dark.png'} alt={org?.nombre ?? 'Sindika'} className="h-9 w-9 object-contain" />
             <div>
-              <p className="font-display text-sm font-semibold leading-tight tracking-[0.14em]">SERDNP</p>
+              <p className="font-display text-sm font-semibold leading-tight tracking-[0.14em]">{org?.nombre ?? 'Sindika'}</p>
               <p className="text-[11px] text-white/55">Portal del afiliado</p>
             </div>
           </div>
