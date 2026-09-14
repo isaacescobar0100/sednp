@@ -3,7 +3,7 @@
 // el flujo si el correo falla o aún no está configurado.
 import { supabase } from '../lib/supabase'
 
-export type CorreoInput = { to: string; subject: string; html?: string; text?: string }
+export type CorreoInput = { to: string; subject: string; html?: string; text?: string; attachments?: { filename: string; content: string }[] }
 
 // --- Marca del sindicato actual (multi-sindicato) ---------------------------
 // El nombre del sindicato de la sesión se usa como (a) nombre del remitente

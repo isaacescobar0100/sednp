@@ -442,16 +442,19 @@ function OrgItem({ org, conteo, onReload }: { org: OrgRow; conteo?: Conteo; onRe
         <p style="margin:0 0 10px;color:#5b6577;font-size:13px">Tu servicio queda activo hasta la fecha indicada. Si necesitas una cuenta de cobro formal, respóndenos.</p>
         <p style="margin:16px 0 0;color:#5b6577;font-size:13px">Equipo de Sindika</p>`
       setMarca(org.nombre, null, null)
-      const r = await enviarCorreoDetallado({ to, subject: `Confirmación de pago · ${org.nombre}`, html: plantillaCorreo('Pago recibido', cuerpo) })
-      setAvisoPago(r.ok ? `Confirmación enviada a ${to}.` : `No se pudo enviar la confirmación: ${r.error || 'error'}`)
+      // Adjunta el recibo PNG al correo.
+      const dataUrl = reciboDataUrl(p)
+      const attachments = dataUrl ? [{ filename: `recibo-${org.slug}-${p.fecha_pago}.png`, content: dataUrl.split(',')[1] }] : undefined
+      const r = await enviarCorreoDetallado({ to, subject: `Confirmación de pago · ${org.nombre}`, html: plantillaCorreo('Pago recibido', cuerpo), attachments })
+      setAvisoPago(r.ok ? `Confirmación + recibo enviados a ${to}.` : `No se pudo enviar la confirmación: ${r.error || 'error'}`)
     } catch (e) { setAvisoPago(`Error al enviar la confirmación: ${e instanceof Error ? e.message : ''}`) }
   }
 
-  // Recibo/comprobante de pago descargable (PNG), estilo Sindika.
-  function descargarRecibo(p: Pago) {
+  // Arma el recibo/comprobante de pago (PNG, estilo Sindika) y devuelve su dataURL.
+  function reciboDataUrl(p: Pago): string {
     const canvas = document.createElement('canvas')
     canvas.width = 1000; canvas.height = 620
-    const ctx = canvas.getContext('2d'); if (!ctx) return
+    const ctx = canvas.getContext('2d'); if (!ctx) return ''
     ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 1000, 620)
     ctx.fillStyle = '#0b2461'; ctx.fillRect(0, 0, 1000, 90)
     ctx.fillStyle = '#ffffff'; ctx.font = 'bold 24px "Segoe UI", Arial'; ctx.fillText('RECIBO DE PAGO', 40, 45)
@@ -473,7 +476,13 @@ function OrgItem({ org, conteo, onReload }: { org: OrgRow; conteo?: Conteo; onRe
     ctx.fillStyle = '#57678a'; ctx.font = '14px "Segoe UI", Arial'; ctx.fillText('VALOR PAGADO', 60, y + 22)
     ctx.fillStyle = '#2456e6'; ctx.font = 'bold 30px "Segoe UI", Arial'; ctx.textAlign = 'right'; ctx.fillText(COP(p.monto), 940, y + 30); ctx.textAlign = 'left'
     ctx.fillStyle = '#99a3b8'; ctx.font = '12px "Segoe UI", Arial'; ctx.fillText('Comprobante generado por Sindika', 40, 600)
-    const a = document.createElement('a'); a.href = canvas.toDataURL('image/png'); a.download = `recibo-${org.slug}-${p.fecha_pago}.png`; a.click()
+    return canvas.toDataURL('image/png')
+  }
+
+  // Descarga el recibo a la carpeta de Descargas.
+  function descargarRecibo(p: Pago) {
+    const url = reciboDataUrl(p); if (!url) return
+    const a = document.createElement('a'); a.href = url; a.download = `recibo-${org.slug}-${p.fecha_pago}.png`; a.click()
   }
 
   // Resetea la contraseña de la cuenta de presidencia (soporte). Genera una
