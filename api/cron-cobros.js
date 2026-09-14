@@ -1,0 +1,109 @@
+// Función serverless (Vercel CRON): revisa las suscripciones de todos los
+// sindicatos una vez al día y:
+//   1) AUTO-SUSPENDE los que llevan vencidos más de GRACE días (activo = false).
+//   2) Envía a la administración un RESUMEN diario con los que están por vencer,
+//      vencidos y los que se acaban de suspender.
+//
+// Variables de entorno en Vercel (Project Settings → Environment Variables):
+//   CRON_SECRET                 (obligatoria) — cadena secreta. Vercel la envía
+//                                sola en la cabecera Authorization de los CRON.
+//   SUPABASE_SERVICE_ROLE_KEY   (obligatoria) — clave "service_role" de Supabase
+//                                (Settings → API). Salta RLS para leer/actualizar
+//                                todos los sindicatos. NO se expone al navegador.
+//   VITE_SUPABASE_URL           (ya existe)
+//   RESEND_API_KEY              (ya existe)
+//   EMAIL_FROM                  (opcional) — remitente del resumen.
+//   EMAIL_ADMIN                 (opcional) — a quién llega el resumen.
+//                                Por defecto issac10.es@gmail.com.
+//
+// Programación: ver "crons" en vercel.json (diario 08:00 hora Colombia).
+
+const GRACE = 10   // días de gracia tras el vencimiento antes de suspender
+const AVISAR = 15  // días antes del vencimiento en que se empieza a avisar
+const ADMIN_DEFAULT = 'issac10.es@gmail.com'
+
+function diasHasta(fecha) {
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
+  const f = new Date(fecha + 'T00:00:00')
+  return Math.round((f.getTime() - hoy.getTime()) / 86400000)
+}
+const COP = (n) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(Number(n) || 0)
+
+export default async function handler(req, res) {
+  // 1) Autorización: solo el CRON de Vercel (o quien tenga el secreto) puede correr esto.
+  const secret = process.env.CRON_SECRET
+  const auth = req.headers.authorization || ''
+  const qsecret = (req.query && req.query.secret) || ''
+  if (!secret) { res.status(500).json({ error: 'Falta CRON_SECRET en el servidor.' }); return }
+  if (auth !== `Bearer ${secret}` && qsecret !== secret) { res.status(401).json({ error: 'No autorizado' }); return }
+
+  const supaUrl = process.env.VITE_SUPABASE_URL
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!supaUrl || !serviceKey) { res.status(500).json({ error: 'Falta VITE_SUPABASE_URL o SUPABASE_SERVICE_ROLE_KEY.' }); return }
+
+  const sHeaders = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, 'Content-Type': 'application/json' }
+
+  // 2) Leer todos los sindicatos con su suscripción.
+  let orgs = []
+  try {
+    const r = await fetch(`${supaUrl}/rest/v1/organizations?select=id,nombre,activo,plan,precio_anual,fecha_proximo_pago&order=fecha_proximo_pago.asc`, { headers: sHeaders })
+    orgs = await r.json()
+    if (!r.ok) { res.status(502).json({ error: 'No se pudieron leer los sindicatos', detail: orgs }); return }
+  } catch {
+    res.status(502).json({ error: 'No se pudo contactar la base de datos' }); return
+  }
+
+  const suspendidos = []   // recién suspendidos en esta corrida
+  const vencidos = []      // activos, vencidos pero dentro de gracia
+  const porVencer = []     // activos, vencen dentro de AVISAR días
+
+  for (const o of orgs) {
+    if (!o.fecha_proximo_pago) continue
+    const dias = diasHasta(o.fecha_proximo_pago)
+    if (!o.activo) continue
+    if (dias < -GRACE) {
+      // Vencido más allá de la gracia → suspender.
+      try {
+        await fetch(`${supaUrl}/rest/v1/organizations?id=eq.${o.id}`, { method: 'PATCH', headers: sHeaders, body: JSON.stringify({ activo: false }) })
+        suspendidos.push(o)
+      } catch { /* si falla, aparecerá como vencido mañana */ }
+    } else if (dias < 0) {
+      vencidos.push({ ...o, dias })
+    } else if (dias <= AVISAR) {
+      porVencer.push({ ...o, dias })
+    }
+  }
+
+  const hayAlgo = suspendidos.length || vencidos.length || porVencer.length
+
+  // 3) Enviar el resumen a la administración (si hay algo y hay Resend).
+  let correo = { enviado: false }
+  const apiKey = process.env.RESEND_API_KEY
+  if (hayAlgo && apiKey) {
+    const fila = (o, extra) => `<tr><td style="padding:6px 10px;border-bottom:1px solid #eee">${o.nombre}</td><td style="padding:6px 10px;border-bottom:1px solid #eee">${o.fecha_proximo_pago}</td><td style="padding:6px 10px;border-bottom:1px solid #eee">${COP(o.precio_anual)}</td><td style="padding:6px 10px;border-bottom:1px solid #eee;color:#666">${extra}</td></tr>`
+    const bloque = (titulo, arr, color, extraFn) => arr.length ? `<h3 style="margin:18px 0 6px;color:${color};font-family:Arial">${titulo} (${arr.length})</h3><table style="border-collapse:collapse;width:100%;font-family:Arial;font-size:13px"><tr style="text-align:left;color:#888"><th style="padding:6px 10px">Sindicato</th><th style="padding:6px 10px">Vence</th><th style="padding:6px 10px">Anual</th><th style="padding:6px 10px"></th></tr>${arr.map((o) => fila(o, extraFn(o))).join('')}</table>` : ''
+    const html = `<div style="max-width:640px;margin:0 auto"><h2 style="font-family:Arial;color:#0b2461">Sindika · Resumen de cobros</h2><p style="font-family:Arial;color:#555;font-size:13px">Revisión automática del ${new Date().toLocaleDateString('es-CO')}.</p>
+      ${bloque('⛔ Suspendidos hoy por falta de pago', suspendidos, '#b3261e', () => 'acceso desactivado')}
+      ${bloque('⚠️ Vencidos (aún activos)', vencidos, '#b45309', (o) => `hace ${Math.abs(o.dias)} día(s)`)}
+      ${bloque('🔔 Por vencer', porVencer, '#0b2461', (o) => `en ${o.dias} día(s)`)}
+      <p style="font-family:Arial;color:#999;font-size:11px;margin-top:20px">Se suspende automáticamente tras ${GRACE} días de vencido. Reactiva desde el panel de administración de Sindika.</p></div>`
+    const from = process.env.EMAIL_FROM || 'Sindika <onboarding@resend.dev>'
+    const to = process.env.EMAIL_ADMIN || ADMIN_DEFAULT
+    try {
+      const r = await fetch('https://api.resend.com/emails', {
+        method: 'POST', headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from, to: [to], subject: `Sindika · Cobros: ${suspendidos.length} suspendido(s), ${vencidos.length} vencido(s), ${porVencer.length} por vencer`, html }),
+      })
+      correo = { enviado: r.ok }
+    } catch { correo = { enviado: false } }
+  }
+
+  res.status(200).json({
+    ok: true,
+    revisados: orgs.length,
+    suspendidos: suspendidos.map((o) => o.nombre),
+    vencidos: vencidos.map((o) => o.nombre),
+    por_vencer: porVencer.map((o) => o.nombre),
+    correo,
+  })
+}
