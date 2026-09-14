@@ -3,6 +3,7 @@ import { AlertCircleIcon, BanknoteIcon, Building2Icon, CalendarClockIcon, CheckC
 import { supabase } from '../lib/supabase'
 import { subirFoto } from '../store/storageApi'
 import { useAuth } from '../store/auth'
+import { esHostPlataforma } from '../store/platform'
 
 type OrgRow = {
   id: string; nombre: string; slug: string; logo_url: string | null; activo: boolean
@@ -11,6 +12,14 @@ type OrgRow = {
 }
 type Conteo = { afiliados: number; activos: number }
 type View = 'resumen' | 'sindicatos' | 'nuevo'
+// Sección activa según la URL. Acepta rutas con o sin prefijo /admin
+// (/sindicatos en el host de plataforma; /admin/sindicatos en otros dominios).
+function viewFromPath(pathname: string): View {
+  const seg = pathname.replace(/^\/admin\/?/, '').replace(/^\//, '').split('/')[0]
+  if (seg === 'sindicatos') return 'sindicatos'
+  if (seg === 'nuevo') return 'nuevo'
+  return 'resumen'
+}
 
 // Planes del tarifario: límite de afiliados y precio anual recurrente sugerido
 // (infraestructura + soporte, "años siguientes"). Editable por sindicato.
@@ -47,7 +56,26 @@ const ESTADO_UI: Record<EstadoPago, { label: string; cls: string }> = {
 // ---------------------------------------------------------------------------
 function SuperAdminContent() {
   const { signOut } = useAuth()
-  const [view, setView] = useState<View>('resumen')
+  // Rutas por sección. En el host de plataforma quedan limpias (/resumen…);
+  // en otros dominios van bajo /admin (/admin/resumen…) para poder recargar.
+  const RUTA_BASE = esHostPlataforma() ? '' : '/admin'
+  const PATHS: Record<View, string> = {
+    resumen: `${RUTA_BASE}/resumen`, sindicatos: `${RUTA_BASE}/sindicatos`, nuevo: `${RUTA_BASE}/nuevo`,
+  }
+  const [view, setView] = useState<View>(() => viewFromPath(window.location.pathname))
+  const irA = (v: View) => { window.history.pushState({}, '', PATHS[v]); setView(v) }
+  // Sincroniza con el botón atrás/adelante del navegador.
+  useEffect(() => {
+    const onPop = () => setView(viewFromPath(window.location.pathname))
+    window.addEventListener('popstate', onPop)
+    return () => window.removeEventListener('popstate', onPop)
+  }, [])
+  // Normaliza la entrada (/, /admin, /ingresar) a /resumen.
+  useEffect(() => {
+    const p = window.location.pathname
+    if (p === '/' || p === '/admin' || p === '/admin/' || p === '/ingresar') window.history.replaceState({}, '', PATHS.resumen)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
   const [orgs, setOrgs] = useState<OrgRow[]>([])
   const [conteos, setConteos] = useState<Record<string, Conteo>>({})
   const [loading, setLoading] = useState(true)
@@ -178,7 +206,7 @@ function SuperAdminContent() {
         </div>
         <nav className="flex-1 space-y-1 p-3">
           {NAV.map((n) => (
-            <button key={n.key} onClick={() => setView(n.key)} className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${view === n.key ? 'bg-white/15 text-white' : 'text-white/60 hover:bg-white/5 hover:text-white'}`}>
+            <button key={n.key} onClick={() => irA(n.key)} className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${view === n.key ? 'bg-white/15 text-white' : 'text-white/60 hover:bg-white/5 hover:text-white'}`}>
               {n.icon}{n.label}
             </button>
           ))}
@@ -197,7 +225,7 @@ function SuperAdminContent() {
           </div>
           {/* Navegación compacta en móvil */}
           <div className="flex items-center gap-2 sm:hidden">
-            <select value={view} onChange={(e) => setView(e.target.value as View)} className="rounded-lg border border-ink/12 bg-white px-2.5 py-1.5 text-sm font-semibold text-ink/70">
+            <select value={view} onChange={(e) => irA(e.target.value as View)} className="rounded-lg border border-ink/12 bg-white px-2.5 py-1.5 text-sm font-semibold text-ink/70">
               {NAV.map((n) => <option key={n.key} value={n.key}>{n.label}</option>)}
             </select>
             <button onClick={signOut} aria-label="Salir" className="rounded-lg border border-ink/12 p-2 text-ink/60"><LogOutIcon className="h-4 w-4" /></button>
@@ -229,7 +257,7 @@ function SuperAdminContent() {
                         const f = new Date(o.fecha_proximo_pago + 'T00:00:00').toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
                         return (
                           <div key={o.id} className="flex items-center justify-between gap-2 py-2 text-sm">
-                            <button onClick={() => setView('sindicatos')} className="truncate font-semibold text-ink hover:text-night hover:underline">{o.nombre}</button>
+                            <button onClick={() => irA('sindicatos')} className="truncate font-semibold text-ink hover:text-night hover:underline">{o.nombre}</button>
                             <span className="flex items-center gap-2 text-xs"><span className="text-ink/50">{f}</span><span className="text-ink/70">{COP(o.precio_anual)}</span><span className={`rounded px-1.5 py-0.5 font-semibold ${eui.cls}`}>{eui.label}</span></span>
                           </div>
                         )
