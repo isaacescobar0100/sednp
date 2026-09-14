@@ -70,7 +70,7 @@ export default async function handler(req, res) {
   let body = req.body
   if (typeof body === 'string') { try { body = JSON.parse(body) } catch { body = {} } }
   body = body || {}
-  const { to, subject, html, text, fromName } = body
+  const { to, subject, html, text, fromName, attachments } = body
   if (!to || !subject || (!html && !text)) {
     res.status(400).json({ error: 'Faltan campos: to, subject y html/text' })
     return
@@ -78,13 +78,17 @@ export default async function handler(req, res) {
 
   const from = componerFrom(process.env.EMAIL_FROM, fromName, body.fromEmail)
   const textoPlano = text || (html ? htmlAtexto(html) : undefined)
+  // Adjuntos opcionales: [{ filename, content }] con content en base64.
+  const adjuntos = Array.isArray(attachments) && attachments.length
+    ? attachments.filter((a) => a && a.filename && a.content).map((a) => ({ filename: String(a.filename), content: String(a.content) }))
+    : undefined
 
   // 3) Enviar con Resend.
   try {
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from, to: Array.isArray(to) ? to : [to], subject, html, text: textoPlano }),
+      body: JSON.stringify({ from, to: Array.isArray(to) ? to : [to], subject, html, text: textoPlano, attachments: adjuntos }),
     })
     const data = await r.json().catch(() => ({}))
     if (!r.ok) {
