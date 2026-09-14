@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { AlertCircleIcon, BanknoteIcon, Building2Icon, CalendarClockIcon, CheckCircle2Icon, CopyIcon, DownloadIcon, ImageIcon, KeyRoundIcon, LogOutIcon, PencilIcon, PlusIcon, Trash2Icon, UsersIcon, WalletIcon, XIcon } from 'lucide-react'
+import { AlertCircleIcon, BanknoteIcon, Building2Icon, CalendarClockIcon, CheckCircle2Icon, CopyIcon, DownloadIcon, ImageIcon, KeyRoundIcon, LayoutDashboardIcon, LogOutIcon, PencilIcon, PlusIcon, Trash2Icon, UsersIcon, WalletIcon, XIcon } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { subirFoto } from '../store/storageApi'
 import { useAuth } from '../store/auth'
@@ -10,6 +10,7 @@ type OrgRow = {
   plan: PlanKey; precio_anual: number; fecha_proximo_pago: string | null; afiliados_max: number | null; notas_cobro: string | null
 }
 type Conteo = { afiliados: number; activos: number }
+type View = 'resumen' | 'sindicatos' | 'nuevo'
 
 // Planes del tarifario: límite de afiliados y precio anual recurrente sugerido
 // (infraestructura + soporte, "años siguientes"). Editable por sindicato.
@@ -45,6 +46,8 @@ const ESTADO_UI: Record<EstadoPago, { label: string; cls: string }> = {
 // Contenido reutilizable: dar de alta sindicatos y gestionar su marca.
 // ---------------------------------------------------------------------------
 function SuperAdminContent() {
+  const { signOut } = useAuth()
+  const [view, setView] = useState<View>('resumen')
   const [orgs, setOrgs] = useState<OrgRow[]>([])
   const [conteos, setConteos] = useState<Record<string, Conteo>>({})
   const [loading, setLoading] = useState(true)
@@ -149,70 +152,152 @@ function SuperAdminContent() {
     const a = document.createElement('a'); a.href = canvas.toDataURL('image/png'); a.download = `credenciales-${cr.slug}.png`; a.click()
   }
 
+  // Sindicatos por vencer / vencidos, ordenados por fecha (para el Resumen).
+  const proximos = orgs
+    .filter((o) => o.activo && o.fecha_proximo_pago && ['por_vencer', 'vencido'].includes(estadoPago(o.fecha_proximo_pago)))
+    .sort((a, b) => (a.fecha_proximo_pago! < b.fecha_proximo_pago! ? -1 : 1))
+
+  const NAV: { key: View; label: string; icon: React.ReactNode }[] = [
+    { key: 'resumen', label: 'Resumen', icon: <LayoutDashboardIcon className="h-4 w-4" /> },
+    { key: 'sindicatos', label: 'Sindicatos', icon: <Building2Icon className="h-4 w-4" /> },
+    { key: 'nuevo', label: 'Nuevo sindicato', icon: <PlusIcon className="h-4 w-4" /> },
+  ]
+  const TITULO: Record<View, { t: string; s: string }> = {
+    resumen: { t: 'Resumen', s: 'Salud del negocio de un vistazo.' },
+    sindicatos: { t: `Sindicatos (${orgs.length})`, s: 'Administra cada organización y sus cobros.' },
+    nuevo: { t: 'Nuevo sindicato', s: 'Da de alta una organización en un paso.' },
+  }
+
   return (
-    <div className="space-y-6">
-      {/* Dashboard de plataforma: salud del negocio de un vistazo. */}
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <Kpi icon={<UsersIcon className="h-4 w-4" />} label="Afiliados en total" value={loading ? '—' : totalAfiliados.toLocaleString('es-CO')} sub={`${orgs.length} sindicato${orgs.length === 1 ? '' : 's'}`} />
-        <Kpi icon={<Building2Icon className="h-4 w-4" />} label="Sindicatos activos" value={loading ? '—' : String(activos)} sub={suspendidos ? `${suspendidos} suspendido${suspendidos === 1 ? '' : 's'}` : 'todos al aire'} tone={suspendidos ? 'warn' : 'ok'} />
-        <Kpi icon={<WalletIcon className="h-4 w-4" />} label="Ingreso anual (ARR)" value={loading ? '—' : COP(arr)} sub="suscripciones activas" tone="ok" />
-        <Kpi icon={<CalendarClockIcon className="h-4 w-4" />} label="Por cobrar pronto" value={loading ? '—' : String(porCobrar)} sub="vencidos o próximos" tone={porCobrar ? 'warn' : 'ok'} />
-      </div>
-
-      {error ? <div className="flex items-start gap-2 rounded-xl border border-brick/25 bg-red-50 px-3 py-2.5 text-sm text-brick"><AlertCircleIcon className="mt-0.5 h-4 w-4 shrink-0" /><span>{error}</span></div> : null}
-      {ok ? <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800"><CheckCircle2Icon className="mt-0.5 h-4 w-4 shrink-0" /><span>{ok}</span></div> : null}
-
-      {creado ? (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <p className="flex items-center gap-1.5 text-sm font-semibold text-emerald-800"><CheckCircle2Icon className="h-4 w-4" />Sindicato "{creado.nombre}" creado</p>
-              <p className="mt-1 text-xs text-ink/60">Entrega estas credenciales a la presidencia. La contraseña solo se muestra ahora.</p>
-            </div>
-            <button onClick={() => setCreado(null)} aria-label="Cerrar" className="rounded-lg p-1.5 text-ink/40 transition hover:bg-white"><XIcon className="h-4 w-4" /></button>
-          </div>
-          <div className="mt-3 grid gap-1.5 text-xs">
-            <div><span className="text-ink/45">Página: </span><a href={webUrl} target="_blank" rel="noreferrer" className="font-semibold text-night underline">{webUrl}</a></div>
-            <div><span className="text-ink/45">Ingresar: </span><a href={loginUrl} target="_blank" rel="noreferrer" className="font-semibold text-night underline">{loginUrl}</a></div>
-            <div><span className="text-ink/45">Correo: </span><span className="font-semibold text-ink">{creado.email}</span></div>
-            <div><span className="text-ink/45">Contraseña: </span><span className="font-semibold text-ink">{creado.password}</span></div>
-          </div>
-          <button onClick={() => descargarCredenciales(creado)} className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep"><DownloadIcon className="h-4 w-4" />Descargar credenciales</button>
-          {creado.dominio ? <p className="mt-2 text-[11px] text-amber-700">Recuerda agregar el dominio <strong>{creado.dominio}</strong> en Vercel para que su página cargue.</p> : null}
+    <div className="flex min-h-screen bg-canvas">
+      {/* Sidebar (escritorio) */}
+      <aside className="hidden w-56 shrink-0 flex-col bg-night text-white sm:flex">
+        <div className="flex items-center gap-2.5 border-b border-white/10 px-5 py-4">
+          <img src="/sindika-dark.png" alt="Sindika" className="h-8 w-8 object-contain" />
+          <div><p className="font-display text-sm font-semibold tracking-[0.14em]">SINDIKA</p><p className="text-[10px] text-white/50">Administración</p></div>
         </div>
-      ) : null}
+        <nav className="flex-1 space-y-1 p-3">
+          {NAV.map((n) => (
+            <button key={n.key} onClick={() => setView(n.key)} className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${view === n.key ? 'bg-white/15 text-white' : 'text-white/60 hover:bg-white/5 hover:text-white'}`}>
+              {n.icon}{n.label}
+            </button>
+          ))}
+        </nav>
+        <div className="border-t border-white/10 p-3">
+          <button onClick={signOut} className="flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold text-white/60 transition hover:bg-white/5 hover:text-white"><LogOutIcon className="h-4 w-4" />Salir</button>
+        </div>
+      </aside>
 
-      <form onSubmit={crear} className="rounded-xl border border-ink/10 bg-canvas/40 p-4">
-        <h4 className="font-display text-sm font-semibold text-ink">Nuevo sindicato</h4>
-        <p className="mt-1 text-xs text-ink/50">Se crea todo automáticamente, incluida la cuenta de presidencia con su contraseña.</p>
-        <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-          <Field label="Nombre del sindicato"><input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Sindicato de la Gobernación…" className={inputC} /></Field>
-          <Field label="Identificador (slug)"><input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="gob-atlantico" className={inputC} /></Field>
-          <Field label="Nombre del presidente"><input value={presiNombre} onChange={(e) => setPresiNombre(e.target.value)} placeholder="Nombre y apellido" className={inputC} /></Field>
-          <Field label="Correo de presidencia"><input value={presiEmail} onChange={(e) => setPresiEmail(e.target.value)} placeholder="presidencia@…" className={inputC} /></Field>
-          <Field label="Contraseña inicial"><input value={presiPassword} onChange={(e) => setPresiPassword(e.target.value)} placeholder="Clave para la presidencia" className={inputC} /></Field>
-          <Field label="Dominio propio (opcional)"><input value={dominio} onChange={(e) => setDominio(e.target.value)} placeholder="ej. serdnp.sindika.com" className={inputC} /></Field>
-          <Field label="Plan">
-            <select value={plan} onChange={(e) => setPlan(e.target.value as PlanKey)} className={inputC}>
-              {(Object.keys(PLANES) as PlanKey[]).map((k) => (
-                <option key={k} value={k}>{PLANES[k].label} · {PLANES[k].max ? `hasta ${PLANES[k].max}` : '800+'} · {COP(PLANES[k].precio)}/año</option>
-              ))}
+      {/* Contenido */}
+      <div className="flex min-h-screen flex-1 flex-col">
+        <header className="flex items-center justify-between gap-3 border-b border-ink/[0.08] bg-white px-5 py-3.5">
+          <div>
+            <h1 className="font-display text-lg font-semibold text-ink">{TITULO[view].t}</h1>
+            <p className="text-xs text-ink/50">{TITULO[view].s}</p>
+          </div>
+          {/* Navegación compacta en móvil */}
+          <div className="flex items-center gap-2 sm:hidden">
+            <select value={view} onChange={(e) => setView(e.target.value as View)} className="rounded-lg border border-ink/12 bg-white px-2.5 py-1.5 text-sm font-semibold text-ink/70">
+              {NAV.map((n) => <option key={n.key} value={n.key}>{n.label}</option>)}
             </select>
-          </Field>
-        </div>
-        <p className="mt-2 text-[11px] text-ink/45">El plan fija el precio anual y el límite de afiliados sugeridos, y agenda el primer pago a 1 año. Todo es editable luego por sindicato.</p>
-        <button type="submit" disabled={busy || !nombre.trim() || !slug.trim() || !presiEmail.trim() || !presiPassword.trim() || !presiNombre.trim()} className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">
-          <PlusIcon className="h-4 w-4" />{busy ? 'Creando…' : 'Crear sindicato'}
-        </button>
-      </form>
-
-      <div>
-        <h4 className="mb-2 font-display text-sm font-semibold text-ink">Sindicatos ({orgs.length})</h4>
-        {loading ? <p className="py-6 text-center text-sm text-ink/50">Cargando…</p> : (
-          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {orgs.map((o) => <OrgItem key={o.id} org={o} conteo={conteos[o.id]} onReload={() => void load()} />)}
+            <button onClick={signOut} aria-label="Salir" className="rounded-lg border border-ink/12 p-2 text-ink/60"><LogOutIcon className="h-4 w-4" /></button>
           </div>
-        )}
+        </header>
+
+        <main className="flex-1 overflow-y-auto p-5 lg:p-7">
+          <div className="mx-auto max-w-5xl space-y-5">
+            {error ? <div className="flex items-start gap-2 rounded-xl border border-brick/25 bg-red-50 px-3 py-2.5 text-sm text-brick"><AlertCircleIcon className="mt-0.5 h-4 w-4 shrink-0" /><span>{error}</span></div> : null}
+            {ok ? <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800"><CheckCircle2Icon className="mt-0.5 h-4 w-4 shrink-0" /><span>{ok}</span></div> : null}
+
+            {/* RESUMEN */}
+            {view === 'resumen' ? (
+              <>
+                <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+                  <Kpi icon={<UsersIcon className="h-4 w-4" />} label="Afiliados en total" value={loading ? '—' : totalAfiliados.toLocaleString('es-CO')} sub={`${orgs.length} sindicato${orgs.length === 1 ? '' : 's'}`} />
+                  <Kpi icon={<Building2Icon className="h-4 w-4" />} label="Sindicatos activos" value={loading ? '—' : String(activos)} sub={suspendidos ? `${suspendidos} suspendido${suspendidos === 1 ? '' : 's'}` : 'todos al aire'} tone={suspendidos ? 'warn' : 'ok'} />
+                  <Kpi icon={<WalletIcon className="h-4 w-4" />} label="Ingreso anual (ARR)" value={loading ? '—' : COP(arr)} sub="suscripciones activas" tone="ok" />
+                  <Kpi icon={<CalendarClockIcon className="h-4 w-4" />} label="Por cobrar pronto" value={loading ? '—' : String(porCobrar)} sub="vencidos o próximos" tone={porCobrar ? 'warn' : 'ok'} />
+                </div>
+                <div className="rounded-xl border border-ink/[0.08] bg-white p-4">
+                  <h4 className="mb-2 font-display text-sm font-semibold text-ink">Próximos vencimientos</h4>
+                  {loading ? <p className="py-4 text-center text-sm text-ink/40">Cargando…</p> : proximos.length === 0 ? (
+                    <p className="py-4 text-center text-sm text-ink/40">Todo al día. No hay cobros pendientes.</p>
+                  ) : (
+                    <div className="divide-y divide-ink/[0.06]">
+                      {proximos.map((o) => {
+                        const eui = ESTADO_UI[estadoPago(o.fecha_proximo_pago)]
+                        const f = new Date(o.fecha_proximo_pago + 'T00:00:00').toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })
+                        return (
+                          <div key={o.id} className="flex items-center justify-between gap-2 py-2 text-sm">
+                            <button onClick={() => setView('sindicatos')} className="truncate font-semibold text-ink hover:text-night hover:underline">{o.nombre}</button>
+                            <span className="flex items-center gap-2 text-xs"><span className="text-ink/50">{f}</span><span className="text-ink/70">{COP(o.precio_anual)}</span><span className={`rounded px-1.5 py-0.5 font-semibold ${eui.cls}`}>{eui.label}</span></span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              </>
+            ) : null}
+
+            {/* SINDICATOS */}
+            {view === 'sindicatos' ? (
+              loading ? <p className="py-6 text-center text-sm text-ink/50">Cargando…</p> : (
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                  {orgs.map((o) => <OrgItem key={o.id} org={o} conteo={conteos[o.id]} onReload={() => void load()} />)}
+                </div>
+              )
+            ) : null}
+
+            {/* NUEVO */}
+            {view === 'nuevo' ? (
+              <>
+                {creado ? (
+                  <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <p className="flex items-center gap-1.5 text-sm font-semibold text-emerald-800"><CheckCircle2Icon className="h-4 w-4" />Sindicato "{creado.nombre}" creado</p>
+                        <p className="mt-1 text-xs text-ink/60">Entrega estas credenciales a la presidencia. La contraseña solo se muestra ahora.</p>
+                      </div>
+                      <button onClick={() => setCreado(null)} aria-label="Cerrar" className="rounded-lg p-1.5 text-ink/40 transition hover:bg-white"><XIcon className="h-4 w-4" /></button>
+                    </div>
+                    <div className="mt-3 grid gap-1.5 text-xs">
+                      <div><span className="text-ink/45">Página: </span><a href={webUrl} target="_blank" rel="noreferrer" className="font-semibold text-night underline">{webUrl}</a></div>
+                      <div><span className="text-ink/45">Ingresar: </span><a href={loginUrl} target="_blank" rel="noreferrer" className="font-semibold text-night underline">{loginUrl}</a></div>
+                      <div><span className="text-ink/45">Correo: </span><span className="font-semibold text-ink">{creado.email}</span></div>
+                      <div><span className="text-ink/45">Contraseña: </span><span className="font-semibold text-ink">{creado.password}</span></div>
+                    </div>
+                    <button onClick={() => descargarCredenciales(creado)} className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep"><DownloadIcon className="h-4 w-4" />Descargar credenciales</button>
+                    {creado.dominio ? <p className="mt-2 text-[11px] text-amber-700">Recuerda agregar el dominio <strong>{creado.dominio}</strong> en Vercel para que su página cargue.</p> : null}
+                  </div>
+                ) : null}
+
+                <form onSubmit={crear} className="rounded-xl border border-ink/10 bg-white p-5">
+                  <p className="text-xs text-ink/50">Se crea todo automáticamente, incluida la cuenta de presidencia con su contraseña.</p>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                    <Field label="Nombre del sindicato"><input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Sindicato de la Gobernación…" className={inputC} /></Field>
+                    <Field label="Identificador (slug)"><input value={slug} onChange={(e) => setSlug(e.target.value)} placeholder="gob-atlantico" className={inputC} /></Field>
+                    <Field label="Nombre del presidente"><input value={presiNombre} onChange={(e) => setPresiNombre(e.target.value)} placeholder="Nombre y apellido" className={inputC} /></Field>
+                    <Field label="Correo de presidencia"><input value={presiEmail} onChange={(e) => setPresiEmail(e.target.value)} placeholder="presidencia@…" className={inputC} /></Field>
+                    <Field label="Contraseña inicial"><input value={presiPassword} onChange={(e) => setPresiPassword(e.target.value)} placeholder="Clave para la presidencia" className={inputC} /></Field>
+                    <Field label="Dominio propio (opcional)"><input value={dominio} onChange={(e) => setDominio(e.target.value)} placeholder="ej. serdnp.sindika.com" className={inputC} /></Field>
+                    <Field label="Plan">
+                      <select value={plan} onChange={(e) => setPlan(e.target.value as PlanKey)} className={inputC}>
+                        {(Object.keys(PLANES) as PlanKey[]).map((k) => (
+                          <option key={k} value={k}>{PLANES[k].label} · {PLANES[k].max ? `hasta ${PLANES[k].max}` : '800+'} · {COP(PLANES[k].precio)}/año</option>
+                        ))}
+                      </select>
+                    </Field>
+                  </div>
+                  <p className="mt-2 text-[11px] text-ink/45">El plan fija el precio anual y el límite de afiliados sugeridos, y agenda el primer pago a 1 año. Todo es editable luego por sindicato.</p>
+                  <button type="submit" disabled={busy || !nombre.trim() || !slug.trim() || !presiEmail.trim() || !presiPassword.trim() || !presiNombre.trim()} className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">
+                    <PlusIcon className="h-4 w-4" />{busy ? 'Creando…' : 'Crear sindicato'}
+                  </button>
+                </form>
+              </>
+            ) : null}
+          </div>
+        </main>
       </div>
     </div>
   )
@@ -223,64 +308,13 @@ function SuperAdminContent() {
 // Aquí aterriza platform_admin — no tiene rol de sindicato ni pertenece a uno.
 // ---------------------------------------------------------------------------
 export function SuperAdminScreen() {
-  const { signOut } = useAuth()
   // El panel de admin no usa rutas de módulo: quita el /app/<modulo> sobrante.
   // (No toca el dominio pelado de plataforma, que queda sin ruta.)
   useEffect(() => {
     const p = window.location.pathname
     if (p.startsWith('/app') || p === '/ingresar') window.history.replaceState({}, '', '/')
   }, [])
-  return (
-    <div className="min-h-screen bg-canvas">
-      <header className="border-b border-ink/[0.08] bg-night text-white">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-6 py-4">
-          <div className="flex items-center gap-2.5">
-            <img src="/sindika-dark.png" alt="Sindika" className="h-9 w-9 object-contain" />
-            <div>
-              <p className="font-display text-sm font-semibold tracking-[0.14em]">SINDIKA</p>
-              <p className="text-[11px] text-white/55">Administración de la plataforma</p>
-            </div>
-          </div>
-          <button onClick={signOut} className="inline-flex items-center gap-1.5 rounded-xl border border-white/15 px-3 py-2 text-xs font-semibold text-white/75 transition hover:border-white/30 hover:text-white">
-            <LogOutIcon className="h-3.5 w-3.5" /> Salir
-          </button>
-        </div>
-      </header>
-      <main className="mx-auto max-w-6xl px-6 py-8">
-        <div className="mb-6 flex items-center gap-3">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-night/5 text-night"><Building2Icon className="h-5 w-5" /></div>
-          <div>
-            <h1 className="font-display text-xl font-semibold text-ink">Sindicatos</h1>
-            <p className="text-sm text-ink/55">Da de alta y administra los sindicatos de la plataforma.</p>
-          </div>
-        </div>
-        <SuperAdminContent />
-      </main>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Versión modal (por si se usa embebido dentro de la app en el futuro).
-// ---------------------------------------------------------------------------
-export function SuperAdminPanel({ onClose }: { onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-night/45 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div className="flex max-h-[88vh] w-full max-w-2xl flex-col rounded-2xl border border-ink/10 bg-white shadow-2xl shadow-night/25" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-ink/[0.08] px-6 py-4">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-night/5 text-night"><Building2Icon className="h-5 w-5" /></div>
-            <div>
-              <h3 className="font-display text-base font-semibold text-ink">Administración de Sindika</h3>
-              <p className="text-xs text-ink/50">Dar de alta sindicatos y gestionar su marca</p>
-            </div>
-          </div>
-          <button onClick={onClose} aria-label="Cerrar" className="rounded-lg p-2 text-ink/40 transition hover:bg-canvas hover:text-ink"><XIcon className="h-4 w-4" /></button>
-        </div>
-        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5"><SuperAdminContent /></div>
-      </div>
-    </div>
-  )
+  return <SuperAdminContent />
 }
 
 function OrgItem({ org, conteo, onReload }: { org: OrgRow; conteo?: Conteo; onReload: () => void }) {
@@ -454,8 +488,8 @@ function EditOrgModal({ org, onClose, onSaved }: { org: OrgRow; onClose: () => v
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-night/45 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-sm rounded-2xl border border-ink/10 bg-white p-6 shadow-2xl shadow-night/25" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-4 flex items-start justify-between">
+      <div className="flex max-h-[90vh] w-full max-w-2xl flex-col rounded-2xl border border-ink/10 bg-white shadow-2xl shadow-night/25" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between border-b border-ink/[0.08] px-6 py-4">
           <div>
             <h3 className="font-display text-base font-semibold text-ink">Editar sindicato</h3>
             <p className="text-xs text-ink/50">{org.slug}</p>
@@ -463,71 +497,74 @@ function EditOrgModal({ org, onClose, onSaved }: { org: OrgRow; onClose: () => v
           <button onClick={onClose} aria-label="Cerrar" className="rounded-lg p-1.5 text-ink/40 transition hover:bg-canvas hover:text-ink"><XIcon className="h-4 w-4" /></button>
         </div>
 
-        <div className="space-y-4">
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-ink/70">Nombre del sindicato</span>
-            <input value={nombre} onChange={(e) => setNombre(e.target.value)} className={inputC} />
-          </label>
-
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-ink/70">Dominio propio de la web (opcional)</span>
-            <input value={dominio} onChange={(e) => setDominio(e.target.value)} placeholder="ej. acordemusic.com" className={inputC} />
-            <span className="mt-1 block text-[11px] text-ink/45">Si lo dejas vacío, su web abre con el dominio por defecto. El dominio también debe agregarse al proyecto en Vercel.</span>
-          </label>
-
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-ink/70">Correo remitente propio (opcional)</span>
-            <input value={correo} onChange={(e) => setCorreo(e.target.value)} placeholder="ej. notificaciones@sudominio.com" className={inputC} />
-            <span className="mt-1 block text-[11px] text-ink/45">Dirección desde la que salen SUS correos. Requiere tener ese dominio verificado en Resend. Si lo dejas vacío, envía con la dirección del sistema pero con el nombre del sindicato.</span>
-          </label>
-
-          <div className="rounded-xl border border-ink/10 bg-canvas/50 p-3">
-            <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-ink/70"><WalletIcon className="h-3.5 w-3.5" />Suscripción y cobro</p>
-            <div className="grid grid-cols-2 gap-3">
-              <label className="col-span-2 block">
-                <span className="mb-1 block text-[11px] font-medium text-ink/60">Plan</span>
-                <select value={plan} onChange={(e) => cambiarPlan(e.target.value as PlanKey)} className={inputC}>
-                  {(Object.keys(PLANES) as PlanKey[]).map((k) => <option key={k} value={k}>{PLANES[k].label}</option>)}
-                </select>
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+          <div className="grid gap-5 sm:grid-cols-2">
+            {/* Columna 1: identidad y marca */}
+            <div className="space-y-4">
+              <label className="block">
+                <span className="mb-1 block text-xs font-medium text-ink/70">Nombre del sindicato</span>
+                <input value={nombre} onChange={(e) => setNombre(e.target.value)} className={inputC} />
               </label>
               <label className="block">
-                <span className="mb-1 block text-[11px] font-medium text-ink/60">Precio anual (COP)</span>
-                <input value={precio} onChange={(e) => setPrecio(e.target.value.replace(/[^\d]/g, ''))} inputMode="numeric" className={inputC} />
+                <span className="mb-1 block text-xs font-medium text-ink/70">Dominio propio de la web (opcional)</span>
+                <input value={dominio} onChange={(e) => setDominio(e.target.value)} placeholder="ej. acordemusic.com" className={inputC} />
+                <span className="mt-1 block text-[11px] text-ink/45">Si lo dejas vacío, abre con el dominio por defecto. También debe agregarse al proyecto en Vercel.</span>
               </label>
               <label className="block">
-                <span className="mb-1 block text-[11px] font-medium text-ink/60">Límite afiliados</span>
-                <input value={afiMax} onChange={(e) => setAfiMax(e.target.value.replace(/[^\d]/g, ''))} inputMode="numeric" placeholder="sin límite" className={inputC} />
+                <span className="mb-1 block text-xs font-medium text-ink/70">Correo remitente propio (opcional)</span>
+                <input value={correo} onChange={(e) => setCorreo(e.target.value)} placeholder="ej. notificaciones@sudominio.com" className={inputC} />
+                <span className="mt-1 block text-[11px] text-ink/45">Requiere ese dominio verificado en Resend. Vacío = envía con la dirección del sistema y el nombre del sindicato.</span>
               </label>
-              <label className="col-span-2 block">
-                <span className="mb-1 block text-[11px] font-medium text-ink/60">Próximo pago</span>
-                <input type="date" value={fechaPago} onChange={(e) => setFechaPago(e.target.value)} className={inputC} />
-              </label>
-              <label className="col-span-2 block">
-                <span className="mb-1 block text-[11px] font-medium text-ink/60">Nota de cobro (interna)</span>
-                <input value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="ej. paga por transferencia el día 5" className={inputC} />
-              </label>
-            </div>
-          </div>
-
-          <div>
-            <span className="mb-1.5 block text-xs font-medium text-ink/70">Logo</span>
-            <div className="flex items-center gap-3">
-              <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-ink/10 bg-canvas">
-                <img src={logoUrl || '/sindika.png'} alt="Logo" className="h-full w-full object-contain" />
+              <div>
+                <span className="mb-1.5 block text-xs font-medium text-ink/70">Logo</span>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-ink/10 bg-canvas">
+                    <img src={logoUrl || '/sindika.png'} alt="Logo" className="h-full w-full object-contain" />
+                  </div>
+                  <input ref={fileRef} type="file" accept="image/*" onChange={handleFoto} className="hidden" />
+                  <button onClick={() => fileRef.current?.click()} disabled={subiendo} className="inline-flex items-center gap-1.5 rounded-xl border border-ink/12 px-3 py-2 text-sm font-semibold text-ink/70 transition hover:border-night hover:text-night disabled:opacity-50">
+                    <ImageIcon className="h-4 w-4" />{subiendo ? 'Subiendo…' : 'Elegir archivo'}
+                  </button>
+                </div>
               </div>
-              <input ref={fileRef} type="file" accept="image/*" onChange={handleFoto} className="hidden" />
-              <button onClick={() => fileRef.current?.click()} disabled={subiendo} className="inline-flex items-center gap-1.5 rounded-xl border border-ink/12 px-3 py-2 text-sm font-semibold text-ink/70 transition hover:border-night hover:text-night disabled:opacity-50">
-                <ImageIcon className="h-4 w-4" />{subiendo ? 'Subiendo…' : 'Elegir archivo'}
-              </button>
+            </div>
+
+            {/* Columna 2: suscripción y cobro */}
+            <div className="rounded-xl border border-ink/10 bg-canvas/50 p-3">
+              <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-ink/70"><WalletIcon className="h-3.5 w-3.5" />Suscripción y cobro</p>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="col-span-2 block">
+                  <span className="mb-1 block text-[11px] font-medium text-ink/60">Plan</span>
+                  <select value={plan} onChange={(e) => cambiarPlan(e.target.value as PlanKey)} className={inputC}>
+                    {(Object.keys(PLANES) as PlanKey[]).map((k) => <option key={k} value={k}>{PLANES[k].label}</option>)}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-[11px] font-medium text-ink/60">Precio anual (COP)</span>
+                  <input value={precio} onChange={(e) => setPrecio(e.target.value.replace(/[^\d]/g, ''))} inputMode="numeric" className={inputC} />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-[11px] font-medium text-ink/60">Límite afiliados</span>
+                  <input value={afiMax} onChange={(e) => setAfiMax(e.target.value.replace(/[^\d]/g, ''))} inputMode="numeric" placeholder="sin límite" className={inputC} />
+                </label>
+                <label className="col-span-2 block">
+                  <span className="mb-1 block text-[11px] font-medium text-ink/60">Próximo pago</span>
+                  <input type="date" value={fechaPago} onChange={(e) => setFechaPago(e.target.value)} className={inputC} />
+                </label>
+                <label className="col-span-2 block">
+                  <span className="mb-1 block text-[11px] font-medium text-ink/60">Nota de cobro (interna)</span>
+                  <input value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="ej. paga por transferencia el día 5" className={inputC} />
+                </label>
+              </div>
             </div>
           </div>
 
-          {error ? <p className="text-xs text-brick">{error}</p> : null}
+          {error ? <p className="mt-3 text-xs text-brick">{error}</p> : null}
+        </div>
 
-          <div className="flex gap-2 pt-1">
-            <button onClick={onClose} className="flex-1 rounded-xl border border-ink/12 py-2.5 text-sm font-semibold text-ink/60 transition hover:bg-canvas">Cancelar</button>
-            <button onClick={guardar} disabled={busy || subiendo} className="flex-1 rounded-xl bg-night py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-50">{busy ? 'Guardando…' : 'Guardar'}</button>
-          </div>
+        <div className="flex gap-2 border-t border-ink/[0.08] px-6 py-4">
+          <button onClick={onClose} className="flex-1 rounded-xl border border-ink/12 py-2.5 text-sm font-semibold text-ink/60 transition hover:bg-canvas">Cancelar</button>
+          <button onClick={guardar} disabled={busy || subiendo} className="flex-1 rounded-xl bg-night py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-50">{busy ? 'Guardando…' : 'Guardar'}</button>
         </div>
       </div>
     </div>
