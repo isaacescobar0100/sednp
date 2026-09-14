@@ -3,7 +3,7 @@ import { AlertCircleIcon, BanknoteIcon, Building2Icon, CalendarClockIcon, CheckC
 import { supabase } from '../lib/supabase'
 import { subirFoto } from '../store/storageApi'
 import { useAuth } from '../store/auth'
-import { esHostPlataforma } from '../store/platform'
+import { esHostPlataforma, baseDominioTenants } from '../store/platform'
 import { enviarCorreoDetallado, plantillaCorreo, setMarca } from '../store/emailApi'
 
 type OrgRow = {
@@ -35,6 +35,16 @@ const PLANES: Record<PlanKey, { label: string; max: number | null; precio: numbe
 }
 
 const COP = (n: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n || 0)
+
+// URLs de un sindicato: su dominio propio si lo tiene; si no, su subdominio
+// <slug>.<base> (comodín); y como último recurso ?org=slug. NUNCA usa el host de
+// plataforma pelado, que llevaría al login de administración.
+function urlsSindicato(slug: string, dominio: string): { web: string; login: string } {
+  if (dominio) return { web: `https://${dominio}`, login: `https://${dominio}/ingresar` }
+  const base = baseDominioTenants()
+  if (base) return { web: `https://${slug}.${base}`, login: `https://${slug}.${base}/ingresar` }
+  return { web: `${window.location.origin}/?org=${slug}`, login: `${window.location.origin}/ingresar` }
+}
 
 // Estado de cobro DERIVADO de la fecha de próximo pago (no se almacena).
 type EstadoPago = 'sin' | 'al_dia' | 'por_vencer' | 'vencido'
@@ -154,8 +164,7 @@ function SuperAdminContent() {
   // Envía al presidente sus datos de acceso y un mensaje de bienvenida.
   async function enviarCredenciales(cr: NonNullable<typeof creado>) {
     setAvisoCorreo('Enviando accesos por correo…')
-    const web = cr.dominio ? `https://${cr.dominio}` : `${window.location.origin}/?org=${cr.slug}`
-    const login = cr.dominio ? `https://${cr.dominio}/ingresar` : `${window.location.origin}/ingresar`
+    const { web, login } = urlsSindicato(cr.slug, cr.dominio)
     const dato = (k: string, v: string) => `<tr><td style="padding:7px 12px;background:#f4f6fb;border:1px solid #e4e6ec;color:#5b6577;font-size:13px;width:130px">${k}</td><td style="padding:7px 12px;border:1px solid #e4e6ec;font-size:13px"><strong>${v}</strong></td></tr>`
     const cuerpo = `
       <p style="margin:0 0 10px">Hola <strong>${cr.presi}</strong>,</p>
@@ -182,8 +191,8 @@ function SuperAdminContent() {
   const arr = orgs.filter((o) => o.activo).reduce((a, o) => a + (o.precio_anual || 0), 0)
   const porCobrar = orgs.filter((o) => o.activo && ['por_vencer', 'vencido'].includes(estadoPago(o.fecha_proximo_pago))).length
 
-  const webUrl = creado ? (creado.dominio ? `https://${creado.dominio}` : `${window.location.origin}/?org=${creado.slug}`) : ''
-  const loginUrl = creado ? (creado.dominio ? `https://${creado.dominio}/ingresar` : `${window.location.origin}/ingresar`) : ''
+  const webUrl = creado ? urlsSindicato(creado.slug, creado.dominio).web : ''
+  const loginUrl = creado ? urlsSindicato(creado.slug, creado.dominio).login : ''
 
   async function descargarCredenciales(cr: NonNullable<typeof creado>) {
     const canvas = document.createElement('canvas')
@@ -202,8 +211,7 @@ function SuperAdminContent() {
     campo('PRESIDENCIA', cr.presi)
     campo('CORREO (USUARIO)', cr.email)
     campo('CONTRASEÑA', cr.password)
-    const web = cr.dominio ? `https://${cr.dominio}` : `${window.location.origin}/?org=${cr.slug}`
-    const login = cr.dominio ? `https://${cr.dominio}/ingresar` : `${window.location.origin}/ingresar`
+    const { web, login } = urlsSindicato(cr.slug, cr.dominio)
     ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = '14px "Segoe UI", Arial'; ctx.fillText('PÁGINA WEB', 60, y)
     ctx.fillStyle = '#C9973B'; ctx.font = '18px "Segoe UI", Arial'; ctx.fillText(web, 60, y + 28); y += 64
     ctx.fillStyle = 'rgba(255,255,255,.55)'; ctx.font = '14px "Segoe UI", Arial'; ctx.fillText('INGRESAR', 60, y)
