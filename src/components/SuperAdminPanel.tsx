@@ -385,6 +385,7 @@ function OrgItem({ org, conteo, onReload }: { org: OrgRow; conteo?: Conteo; onRe
   const [recibo, setRecibo] = useState<Pago | null>(null)
   const [avisoPago, setAvisoPago] = useState('')
   const [resetInfo, setResetInfo] = useState<null | { email: string; password: string }>(null)
+  const [dialogo, setDialogo] = useState<Dialogo | null>(null)
   const esPrincipal = org.slug === 'serdnp'
   const est = estadoPago(org.fecha_proximo_pago)
   const eui = ESTADO_UI[est]
@@ -400,8 +401,15 @@ function OrgItem({ org, conteo, onReload }: { org: OrgRow; conteo?: Conteo; onRe
   // Registrar pago: guarda el pago en el historial, adelanta el próximo
   // vencimiento un año (desde hoy, o desde el vencimiento vigente si es futuro)
   // y deja disponible el recibo para descargar.
-  async function registrarPago() {
-    if (!window.confirm(`¿Registrar el pago anual de "${org.nombre}" por ${COP(org.precio_anual)}?\n\nSe guardará en el historial y el próximo vencimiento se moverá un año hacia adelante.`)) return
+  function registrarPago() {
+    setDialogo({
+      titulo: 'Registrar pago anual',
+      mensaje: `¿Registrar el pago anual de "${org.nombre}" por ${COP(org.precio_anual)}?\n\nSe guardará en el historial y el próximo vencimiento se moverá un año hacia adelante.`,
+      confirmar: 'Registrar pago',
+      onOk: () => { void ejecutarPago() },
+    })
+  }
+  async function ejecutarPago() {
     setPagando(true)
     const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
     const base = org.fecha_proximo_pago ? new Date(org.fecha_proximo_pago + 'T00:00:00') : hoy
@@ -413,7 +421,7 @@ function OrgItem({ org, conteo, onReload }: { org: OrgRow; conteo?: Conteo; onRe
       org_id: org.id, monto: org.precio_anual, periodo, metodo: 'Transferencia',
       fecha_pago: hoy.toISOString().slice(0, 10), vence_nuevo: venceNuevo,
     }).select().single()
-    if (error) { setPagando(false); window.alert('No se pudo registrar el pago: ' + error.message); return }
+    if (error) { setPagando(false); setDialogo({ titulo: 'No se pudo registrar el pago', mensaje: error.message }); return }
     await supabase.from('organizations').update({ fecha_proximo_pago: venceNuevo }).eq('id', org.id)
     setRecibo(data as Pago)
     // Confirmación de pago por correo al presidente del sindicato.
@@ -487,22 +495,36 @@ function OrgItem({ org, conteo, onReload }: { org: OrgRow; conteo?: Conteo; onRe
 
   // Resetea la contraseña de la cuenta de presidencia (soporte). Genera una
   // contraseña nueva, la aplica en el servidor y la muestra una sola vez.
-  async function resetearPassword() {
-    if (!window.confirm(`¿Generar una NUEVA contraseña para la presidencia de "${org.nombre}"?\n\nLa contraseña anterior dejará de funcionar. Deberás entregarle la nueva.`)) return
+  function resetearPassword() {
+    setDialogo({
+      titulo: 'Resetear contraseña',
+      mensaje: `¿Generar una NUEVA contraseña para la presidencia de "${org.nombre}"?\n\nLa contraseña anterior dejará de funcionar. Deberás entregarle la nueva.`,
+      confirmar: 'Generar nueva',
+      tono: 'peligro',
+      onOk: () => { void ejecutarReset() },
+    })
+  }
+  async function ejecutarReset() {
     const nueva = 'S' + Math.random().toString(36).slice(2, 8) + Math.floor(10 + Math.random() * 89) + '*'
     const { data, error } = await supabase.rpc('resetear_password', { p_org: org.id, p_nueva: nueva })
-    if (error) { window.alert('No se pudo resetear: ' + error.message); return }
+    if (error) { setDialogo({ titulo: 'No se pudo resetear', mensaje: error.message }); return }
     setResetInfo({ email: String(data || ''), password: nueva })
   }
 
-  async function borrar() {
-    if (esPrincipal) { window.alert('No se puede eliminar el sindicato principal (SERDNP).'); return }
-    const ok = window.confirm(`⚠️ Vas a ELIMINAR "${org.nombre}" y TODOS sus datos (afiliados, finanzas, publicaciones…) y las CUENTAS de acceso de esa gente, de forma permanente.\n\nEsto NO se puede deshacer. ¿Continuar?`)
-    if (!ok) return
+  function borrar() {
+    setDialogo({
+      titulo: `Eliminar "${org.nombre}"`,
+      mensaje: `Vas a ELIMINAR "${org.nombre}" y TODOS sus datos (afiliados, finanzas, publicaciones…) y las cuentas de acceso, de forma permanente.\n\nEsto NO se puede deshacer.`,
+      confirmar: 'Eliminar definitivamente',
+      tono: 'peligro',
+      onOk: () => { void ejecutarBorrar() },
+    })
+  }
+  async function ejecutarBorrar() {
     setBorrando(true)
     const { error } = await supabase.rpc('eliminar_sindicato', { p_org: org.id })
     setBorrando(false)
-    if (error) { window.alert('No se pudo eliminar: ' + error.message); return }
+    if (error) { setDialogo({ titulo: 'No se pudo eliminar', mensaje: error.message }); return }
     onReload()
   }
 
@@ -581,6 +603,7 @@ function OrgItem({ org, conteo, onReload }: { org: OrgRow; conteo?: Conteo; onRe
         ) : null}
       </div>
       {editing ? <EditOrgModal org={org} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); onReload() }} /> : null}
+      {dialogo ? <PanelDialog d={dialogo} onClose={() => setDialogo(null)} /> : null}
     </div>
   )
 }
@@ -766,6 +789,33 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="mb-1 block text-xs font-medium text-ink/70">{label}</span>
       {children}
     </label>
+  )
+}
+
+// Modal propio del panel: confirmación (con onOk) o alerta (sin onOk).
+type Dialogo = { titulo: string; mensaje: string; confirmar?: string; tono?: 'peligro' | 'normal'; onOk?: () => void }
+function PanelDialog({ d, onClose }: { d: Dialogo; onClose: () => void }) {
+  const peligro = d.tono === 'peligro'
+  return (
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-night/45 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-sm rounded-2xl border border-ink/10 bg-white p-5 shadow-2xl shadow-night/25" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start gap-3">
+          <div className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${peligro ? 'bg-brick/10 text-brick' : 'bg-night/5 text-night'}`}>
+            <AlertCircleIcon className="h-5 w-5" />
+          </div>
+          <div>
+            <h3 className="font-display text-base font-semibold text-ink">{d.titulo}</h3>
+            <p className="mt-1 whitespace-pre-line text-sm leading-relaxed text-ink/60">{d.mensaje}</p>
+          </div>
+        </div>
+        <div className="mt-4 flex justify-end gap-2">
+          {d.onOk ? <button onClick={onClose} className="rounded-xl border border-ink/12 px-4 py-2 text-sm font-semibold text-ink/60 transition hover:bg-canvas">Cancelar</button> : null}
+          <button onClick={() => { const f = d.onOk; onClose(); f?.() }} className={`rounded-xl px-4 py-2 text-sm font-semibold text-white transition ${peligro ? 'bg-brick hover:bg-brick/90' : 'bg-night hover:bg-night-deep'}`}>
+            {d.confirmar || (d.onOk ? 'Confirmar' : 'Entendido')}
+          </button>
+        </div>
+      </div>
+    </div>
   )
 }
 
