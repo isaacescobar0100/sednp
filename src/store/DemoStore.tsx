@@ -8,7 +8,7 @@ import { Params, clearCajaGastos, deletePresupuesto as deletePresupuestoRow, fet
 import { deleteCaseRow, fetchCases, insertCase, patchCase } from './casesApi'
 import { CaseEvent, fetchCaseEvents, insertCaseEvent } from './caseEventsApi'
 import { Acto, fetchActos, insertActo, nextActoNumero } from './actosApi'
-import { enviarCorreo, correoAportePagado, correoAfiliacionAprobada } from './emailApi'
+import { enviarCorreo, correoAportePagado, correoAfiliacionAprobada, marca } from './emailApi'
 import { enviarPush } from './pushApi'
 import { cerrarVencidas, deleteBallotRow, deleteSessionRow, emitirVoto, fetchBallots, fetchMyVotes, fetchSessions, insertBallot, insertSession, patchBallot, patchSession } from './governanceApi'
 import { deleteComunicadoRow, fetchComunicados, insertComunicado } from './commsApi'
@@ -994,7 +994,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     if (target?.email) {
       void enviarCorreo({
         to: target.email,
-        subject: 'Tu afiliación fue aprobada — SERDNP',
+        subject: `Tu afiliación fue aprobada — ${marca()}`,
         html: correoAfiliacionAprobada(target.name, acta),
       })
     }
@@ -1356,7 +1356,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       if (afiliado?.email) {
         void enviarCorreo({
           to: afiliado.email,
-          subject: 'Confirmación de aporte sindical — SERDNP',
+          subject: `Confirmación de aporte sindical — ${marca()}`,
           html: correoAportePagado(afiliado.name, periodLabel(aporte.period), formatCop(aporte.amount)),
         })
       }
