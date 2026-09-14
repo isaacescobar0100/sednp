@@ -58,9 +58,6 @@ export function dayMonthFromISO(iso: string): { day: string; month: string } {
   return { day: match[3], month: MONTHS[monthIndex] ?? '---' }
 }
 
-// Lugares frecuentes de sesión (selector, para evitar texto libre).
-export const meetingPlaces = ['Sala 4B', 'Sala 3A', 'Auditorio DNP', 'Sala de medios', 'Laboratorio de proyectos', 'Virtual']
-
 const MONTHS_FULL = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
 
 // Convierte 'YYYY-MM-DD' en fecha larga: '30 de abril'.

@@ -4,7 +4,7 @@ import { SectionTitle } from '../components/SectionTitle'
 import { StatusBadge } from '../components/StatusBadge'
 import { useDemo } from '../store/DemoStore'
 import { juntaDirectiva, useSession } from '../store/session'
-import { Ballot, GovSession, UMBRAL_DELEGADOS, actoLabel, dayMonthFromISO, formatTime, longDateLabel, meetingPlaces, quorumMinimo, totalVotes, votePct } from '../store/governance'
+import { Ballot, GovSession, UMBRAL_DELEGADOS, actoLabel, dayMonthFromISO, formatTime, longDateLabel, quorumMinimo, totalVotes, votePct } from '../store/governance'
 
 type VoteChoice = 'favor' | 'contra' | 'abstencion'
 
@@ -260,7 +260,7 @@ function ScheduleModal({ onClose }: { onClose: () => void }) {
   const [organ, setOrgan] = useState('Junta Directiva')
   const [date, setDate] = useState('')
   const [time, setTime] = useState('09:00')
-  const [place, setPlace] = useState(meetingPlaces[0])
+  const [place, setPlace] = useState('')
 
   const valid = title.trim() !== '' && /^\d{4}-\d{2}-\d{2}$/.test(date)
 
@@ -286,9 +286,7 @@ function ScheduleModal({ onClose }: { onClose: () => void }) {
           <ModalField label="Hora"><input type="time" value={time} onChange={(e) => setTime(e.target.value)} className={inputClass} /></ModalField>
         </div>
         <ModalField label="Lugar">
-          <select value={place} onChange={(e) => setPlace(e.target.value)} className={inputClass}>
-            {meetingPlaces.map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
+          <input value={place} onChange={(e) => setPlace(e.target.value)} placeholder="Ej. Sede sindical, salón comunal, virtual…" className={inputClass} />
         </ModalField>
       </div>
       <ModalActions onClose={onClose} onSubmit={submit} disabled={!valid} label="Agendar sesión" />
