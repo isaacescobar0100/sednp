@@ -19,7 +19,8 @@
 // Programación: ver "crons" en vercel.json (diario 08:00 hora Colombia).
 
 const GRACE = 10   // días de gracia tras el vencimiento antes de suspender
-const AVISAR = 15  // días antes del vencimiento en que se empieza a avisar
+const AVISAR = 15  // días antes del vencimiento en que se empieza a avisar (resumen admin)
+const CHECKPOINTS = [15, 7, 3, 1] // días antes en que se avisa AL PRESIDENTE (no diario)
 const ADMIN_DEFAULT = 'issac10.es@gmail.com'
 
 function diasHasta(fecha) {
@@ -53,9 +54,10 @@ export default async function handler(req, res) {
     res.status(502).json({ error: 'No se pudo contactar la base de datos' }); return
   }
 
-  const suspendidos = []   // recién suspendidos en esta corrida
-  const vencidos = []      // activos, vencidos pero dentro de gracia
-  const porVencer = []     // activos, vencen dentro de AVISAR días
+  const suspendidos = []    // recién suspendidos en esta corrida
+  const vencidos = []       // activos, vencidos pero dentro de gracia
+  const porVencer = []      // activos, vencen dentro de AVISAR días
+  const recordatorios = []  // orgs a las que hoy toca avisar AL PRESIDENTE
 
   for (const o of orgs) {
     if (!o.fecha_proximo_pago) continue
@@ -71,6 +73,44 @@ export default async function handler(req, res) {
       vencidos.push({ ...o, dias })
     } else if (dias <= AVISAR) {
       porVencer.push({ ...o, dias })
+      // Recordatorio al presidente solo en checkpoints (no todos los días).
+      if (CHECKPOINTS.includes(dias)) recordatorios.push({ ...o, dias })
+    }
+  }
+
+  // Enviar el recordatorio "por vencer" a cada PRESIDENTE (checkpoints).
+  const apiKey0 = process.env.RESEND_API_KEY
+  let avisadosPresidente = []
+  if (recordatorios.length && apiKey0) {
+    // Correo de presidencia por sindicato.
+    let mapa = {}
+    try {
+      const r = await fetch(`${supaUrl}/rest/v1/rpc/correos_presidencia`, { method: 'POST', headers: sHeaders, body: '{}' })
+      const filas = await r.json()
+      if (Array.isArray(filas)) for (const f of filas) mapa[f.org_id] = f.email
+    } catch { /* sin correos: no se envían recordatorios */ }
+    const from0 = process.env.EMAIL_FROM || 'Sindika <onboarding@resend.dev>'
+    for (const o of recordatorios) {
+      const to = mapa[o.id]
+      if (!to) continue
+      const fechaLinda = new Date(o.fecha_proximo_pago + 'T00:00:00').toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })
+      const html = `<div style="max-width:560px;margin:0 auto;font-family:Arial,sans-serif;color:#0e1a34">
+        <h2 style="color:#0b2461;margin:0 0 6px">Tu suscripción está por vencer</h2>
+        <p style="color:#57678a;font-size:14px;line-height:1.6">Hola, te recordamos que la suscripción de <b>${o.nombre}</b> a la plataforma vence el <b>${fechaLinda}</b> (en ${o.dias} día${o.dias === 1 ? '' : 's'}).</p>
+        <div style="border:1px solid #e2e8f2;border-radius:10px;padding:14px 16px;margin:14px 0">
+          <p style="margin:0;font-size:13px;color:#57678a">Valor de la renovación anual</p>
+          <p style="margin:4px 0 0;font-size:20px;font-weight:800;color:#2456e6">${COP(o.precio_anual)}</p>
+        </div>
+        <p style="color:#57678a;font-size:14px;line-height:1.6">Para renovar y mantener el acceso activo, responde este correo o escríbenos. ¡Gracias por confiar en nosotros!</p>
+        <p style="color:#99a3b8;font-size:12px;margin-top:18px">Este es un recordatorio automático de tu plataforma de gestión sindical.</p>
+      </div>`
+      try {
+        const rr = await fetch('https://api.resend.com/emails', {
+          method: 'POST', headers: { Authorization: `Bearer ${apiKey0}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ from: from0, to: [to], subject: `Tu suscripción vence el ${fechaLinda}`, html }),
+        })
+        if (rr.ok) avisadosPresidente.push(o.nombre)
+      } catch { /* continúa con el siguiente */ }
     }
   }
 
@@ -104,6 +144,7 @@ export default async function handler(req, res) {
     suspendidos: suspendidos.map((o) => o.nombre),
     vencidos: vencidos.map((o) => o.nombre),
     por_vencer: porVencer.map((o) => o.nombre),
+    avisados_presidente: avisadosPresidente,
     correo,
   })
 }
