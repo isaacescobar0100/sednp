@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { subirFoto } from '../store/storageApi'
 import { useAuth } from '../store/auth'
 import { esHostPlataforma } from '../store/platform'
+import { enviarCorreoDetallado, plantillaCorreo, setMarca } from '../store/emailApi'
 
 type OrgRow = {
   id: string; nombre: string; slug: string; logo_url: string | null; activo: boolean
@@ -91,6 +92,7 @@ function SuperAdminContent() {
   const [plan, setPlan] = useState<PlanKey>('basico')
   const [busy, setBusy] = useState(false)
   const [creado, setCreado] = useState<null | { nombre: string; slug: string; dominio: string; email: string; password: string; presi: string }>(null)
+  const [avisoCorreo, setAvisoCorreo] = useState('')
 
   async function load() {
     setLoading(true)
@@ -136,11 +138,39 @@ function SuperAdminContent() {
       }).eq('slug', s)
       // Guardamos los datos (incl. contraseña) para la tarjeta de credenciales,
       // ANTES de limpiar el formulario. La contraseña solo se conoce ahora.
-      setCreado({ nombre: nombre.trim(), slug: s, dominio: dom, email: presiEmail.trim().toLowerCase(), password: presiPassword, presi: presiNombre.trim() })
+      const cred = { nombre: nombre.trim(), slug: s, dominio: dom, email: presiEmail.trim().toLowerCase(), password: presiPassword, presi: presiNombre.trim() }
+      setCreado(cred)
       setNombre(''); setSlug(''); setPresiEmail(''); setPresiPassword(''); setPresiNombre(''); setDominio(''); setPlan('basico')
       void load()
+      // Correo automático al presidente con sus accesos + bienvenida (mismo
+      // camino que el correo de afiliación, que sí entra a Principal).
+      void enviarCredenciales(cred)
     }
     setBusy(false)
+  }
+
+  // Envía al presidente sus datos de acceso y un mensaje de bienvenida.
+  async function enviarCredenciales(cr: NonNullable<typeof creado>) {
+    setAvisoCorreo('Enviando accesos por correo…')
+    const web = cr.dominio ? `https://${cr.dominio}` : `${window.location.origin}/?org=${cr.slug}`
+    const login = cr.dominio ? `https://${cr.dominio}/ingresar` : `${window.location.origin}/ingresar`
+    const dato = (k: string, v: string) => `<tr><td style="padding:7px 12px;background:#f4f6fb;border:1px solid #e4e6ec;color:#5b6577;font-size:13px;width:130px">${k}</td><td style="padding:7px 12px;border:1px solid #e4e6ec;font-size:13px"><strong>${v}</strong></td></tr>`
+    const cuerpo = `
+      <p style="margin:0 0 10px">Hola <strong>${cr.presi}</strong>,</p>
+      <p style="margin:0 0 12px">El sindicato <strong>${cr.nombre}</strong> ya está activo en la plataforma. Estos son los accesos de la presidencia:</p>
+      <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;margin:0 0 14px">
+        ${dato('Página web', `<a href="${web}" style="color:#2456e6">${web}</a>`)}
+        ${dato('Ingresar', `<a href="${login}" style="color:#2456e6">${login}</a>`)}
+        ${dato('Usuario (correo)', cr.email)}
+        ${dato('Contraseña', cr.password)}
+      </table>
+      <p style="margin:0 0 10px;color:#5b6577;font-size:13px">Por seguridad, te recomendamos cambiar la contraseña al ingresar por primera vez.</p>
+      <p style="margin:0 0 10px">Desde el sistema podrás gestionar afiliados, finanzas, gobernanza, comunicados y tu página web, todo en un solo lugar.</p>
+      <p style="margin:16px 0 0;color:#5b6577;font-size:13px">Equipo de Sindika</p>`
+    // La marca del correo (remitente y encabezado) es la del NUEVO sindicato.
+    setMarca(cr.nombre, null, null)
+    const r = await enviarCorreoDetallado({ to: cr.email, subject: `Tus accesos a ${cr.nombre}`, html: plantillaCorreo(`¡Bienvenido a ${cr.nombre}!`, cuerpo) })
+    setAvisoCorreo(r.ok ? `Accesos enviados por correo a ${cr.email}.` : `No se pudo enviar el correo (${r.error || 'error'}). Entrega las credenciales manualmente.`)
   }
 
   // KPIs de plataforma (dashboard de negocio).
@@ -287,7 +317,7 @@ function SuperAdminContent() {
                         <p className="flex items-center gap-1.5 text-sm font-semibold text-emerald-800"><CheckCircle2Icon className="h-4 w-4" />Sindicato "{creado.nombre}" creado</p>
                         <p className="mt-1 text-xs text-ink/60">Entrega estas credenciales a la presidencia. La contraseña solo se muestra ahora.</p>
                       </div>
-                      <button onClick={() => setCreado(null)} aria-label="Cerrar" className="rounded-lg p-1.5 text-ink/40 transition hover:bg-white"><XIcon className="h-4 w-4" /></button>
+                      <button onClick={() => { setCreado(null); setAvisoCorreo('') }} aria-label="Cerrar" className="rounded-lg p-1.5 text-ink/40 transition hover:bg-white"><XIcon className="h-4 w-4" /></button>
                     </div>
                     <div className="mt-3 grid gap-1.5 text-xs">
                       <div><span className="text-ink/45">Página: </span><a href={webUrl} target="_blank" rel="noreferrer" className="font-semibold text-night underline">{webUrl}</a></div>
@@ -296,6 +326,7 @@ function SuperAdminContent() {
                       <div><span className="text-ink/45">Contraseña: </span><span className="font-semibold text-ink">{creado.password}</span></div>
                     </div>
                     <button onClick={() => descargarCredenciales(creado)} className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep"><DownloadIcon className="h-4 w-4" />Descargar credenciales</button>
+                    {avisoCorreo ? <p className="mt-2 text-[11px] font-medium text-night">{avisoCorreo}</p> : null}
                     {creado.dominio ? <p className="mt-2 text-[11px] text-amber-700">Recuerda agregar el dominio <strong>{creado.dominio}</strong> en Vercel para que su página cargue.</p> : null}
                   </div>
                 ) : null}
