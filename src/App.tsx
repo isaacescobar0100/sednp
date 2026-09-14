@@ -9,6 +9,7 @@ import { SuperAdminScreen } from './components/SuperAdminPanel'
 import { PublicRegistroPage } from './pages/PublicRegistroPage'
 import { PublicSite } from './components/PublicSite'
 import { logoCacheado, marcaCacheada } from './store/brandCache'
+import { esEntradaAdmin } from './store/platform'
 import { ModuleKey, ModuleMeta } from './types/navigation'
 
 // Carga diferida por módulo (code-splitting): cada página se descarga solo
@@ -52,14 +53,8 @@ export function App() {
 
 // La cara pública (sitio web) es lo primero que se ve. "Ingresar" (o
 // .../?app=1 / #app) entra al sistema (login o, si hay sesión, al panel).
-// Hosts que son la ENTRADA de la plataforma (no la web pública de un sindicato):
-// abrir el dominio pelado (sin /app) lleva directo al login/admin. Configurable
-// por VITE_PLATFORM_HOSTS (separado por comas). Por defecto, el subdominio actual.
-const PLATFORM_HOSTS = ((import.meta.env.VITE_PLATFORM_HOSTS as string | undefined) || 'sindika.acordemusic.com')
-  .split(',').map((s) => s.trim().toLowerCase()).filter(Boolean)
-function isPlatformHost() {
-  return typeof window !== 'undefined' && PLATFORM_HOSTS.includes(window.location.hostname.toLowerCase())
-}
+// La ENTRADA DE PLATAFORMA (host de plataforma o /admin) lleva directo al login
+// de administración de Sindika. Ver store/platform.ts.
 
 // ¿Hay una sesión de Supabase guardada? (token en localStorage). Sirve para que,
 // en el dominio pelado, un usuario ya autenticado entre directo al sistema y la
@@ -91,7 +86,7 @@ function RootSwitcher() {
   const appMode = !forcePublic && (
     path === '/ingresar' || path === '/app' || path.startsWith('/app/') ||
     params.get('app') === '1' || window.location.hash === '#app' ||
-    isPlatformHost() ||
+    esEntradaAdmin() ||
     (tieneSesionGuardada() && (path === '/' || esModulo))
   )
   const enter = () => { window.history.pushState({}, '', '/ingresar'); setPath('/ingresar') }

@@ -3,39 +3,35 @@ import { UsersIcon } from 'lucide-react'
 import { AndesRange } from './AndesRange'
 import { supabase } from '../lib/supabase'
 import { marcaCacheada, guardarMarca } from '../store/brandCache'
+import { esEntradaAdmin } from '../store/platform'
 
 export function BrandPanel() {
+  // ¿Entrada de administración de Sindika? (host de plataforma o /admin)
+  const admin = esEntradaAdmin()
   // Conteo público de afiliados activos (RPC), visible sin iniciar sesión.
   const [activos, setActivos] = useState(0)
   // Logo del sindicato del dominio actual (co-marca con Sindika). Si el sindicato
   // no tiene logo, se muestra SOLO Sindika.
   // Inicia con la marca cacheada (evita el parpadeo del logo al recargar el login).
-  const [tenantLogo, setTenantLogo] = useState(() => marcaCacheada()?.logo || '')
-  const [tenantNombre, setTenantNombre] = useState(() => marcaCacheada()?.nombre || '')
+  const [tenantLogo, setTenantLogo] = useState(() => (admin ? '' : marcaCacheada()?.logo || ''))
+  const [tenantNombre, setTenantNombre] = useState(() => (admin ? '' : marcaCacheada()?.nombre || ''))
   useEffect(() => {
     let on = true
+    // En la administración NO se consulta ni muestra marca de sindicato.
+    if (admin) { setTenantLogo(''); setTenantNombre(''); return () => { on = false } }
     supabase.rpc('contar_afiliados_activos').then(({ data, error }) => {
       if (on && !error && typeof data === 'number') setActivos(data)
     })
-    // En un host de plataforma se muestra SOLO Sindika (no un sindicato).
-    const platformHosts = (((import.meta.env.VITE_PLATFORM_HOSTS as string | undefined) || 'sindika.acordemusic.com')
-      .split(',').map((s) => s.trim().toLowerCase()).filter(Boolean))
-    if (!platformHosts.includes(window.location.hostname.toLowerCase())) {
-      const paramOrg = new URLSearchParams(window.location.search).get('org') || null
-      supabase.rpc('sitio_publico', { p_host: window.location.hostname, p_slug: paramOrg }).then(({ data }) => {
-        if (!on) return
-        const d = (data || {}) as { nombre?: string; logoUrl?: string }
-        setTenantLogo(d.logoUrl || '')
-        setTenantNombre(d.nombre || '')
-        guardarMarca(d.nombre || '', d.logoUrl || '')
-      })
-    } else {
-      // Host de plataforma: solo Sindika (ignora cualquier marca cacheada).
-      setTenantLogo('')
-      setTenantNombre('')
-    }
+    const paramOrg = new URLSearchParams(window.location.search).get('org') || null
+    supabase.rpc('sitio_publico', { p_host: window.location.hostname, p_slug: paramOrg }).then(({ data }) => {
+      if (!on) return
+      const d = (data || {}) as { nombre?: string; logoUrl?: string }
+      setTenantLogo(d.logoUrl || '')
+      setTenantNombre(d.nombre || '')
+      guardarMarca(d.nombre || '', d.logoUrl || '')
+    })
     return () => { on = false }
-  }, [])
+  }, [admin])
   return (
     <section className="relative hidden overflow-hidden bg-night text-white lg:flex lg:w-[46%] xl:w-[42%]">
       <div
@@ -66,10 +62,12 @@ export function BrandPanel() {
 
         <div className="max-w-md">
           <h1 className="font-display text-3xl font-600 leading-tight text-white xl:text-4xl">
-            La plataforma para tu sindicato
+            {admin ? 'Administración de la plataforma' : 'La plataforma para tu sindicato'}
           </h1>
           <p className="mt-4 text-sm leading-relaxed text-white/70">
-            Afiliados, finanzas, gobernanza y disciplina — en un solo lugar, seguro y fácil de usar.
+            {admin
+              ? 'Gestiona los sindicatos, sus cobros y sus accesos desde un solo panel.'
+              : 'Afiliados, finanzas, gobernanza y disciplina — en un solo lugar, seguro y fácil de usar.'}
           </p>
         </div>
 
@@ -78,8 +76,14 @@ export function BrandPanel() {
             <UsersIcon className="h-4.5 w-4.5 text-gold" strokeWidth={2} />
           </div>
           <p className="text-sm text-white/85">
-            <span className="font-display font-600 text-gold">{activos.toLocaleString('es-CO')} afiliado{activos === 1 ? '' : 's'}</span>{' '}
-            gestionado{activos === 1 ? '' : 's'} en Sindika
+            {admin ? (
+              <span className="font-display font-600 text-gold">Panel de control de Sindika</span>
+            ) : (
+              <>
+                <span className="font-display font-600 text-gold">{activos.toLocaleString('es-CO')} afiliado{activos === 1 ? '' : 's'}</span>{' '}
+                gestionado{activos === 1 ? '' : 's'} en Sindika
+              </>
+            )}
           </p>
         </div>
       </div>
