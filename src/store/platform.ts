@@ -16,3 +16,14 @@ export function esEntradaAdmin(): boolean {
   const p = window.location.pathname.toLowerCase()
   return esHostPlataforma() || p === '/admin' || p.startsWith('/admin/')
 }
+
+// Dominio base para los subdominios de los sindicatos. Se deriva del host de
+// plataforma quitando su primera etiqueta: sindika.acordemusic.com → acordemusic.com.
+// Así, un sindicato con slug X vive en X.acordemusic.com (comodín *.acordemusic.com).
+// Devuelve null si el host de plataforma no es un subdominio (ej. localhost).
+export function baseDominioTenants(): string | null {
+  const h = HOSTS[0]
+  if (!h) return null
+  const partes = h.split('.')
+  return partes.length >= 3 ? partes.slice(1).join('.') : null
+}
