@@ -73,18 +73,18 @@ function csvCell(v: string): string {
 }
 
 // Exportación mensual con asientos de partida doble para SIIGO (sección 6).
-export function movementsToCsv(movements: Movement[]): string {
+export function movementsToCsv(movements: Movement[], tercero = ''): string {
   const header = ['Fecha', 'Cuenta PUC', 'Tercero', 'Debito', 'Credito', 'Concepto']
   const rows: string[][] = [header]
   for (const m of movements) {
     const cuenta = CATEGORIA_A_PUC[m.category] ?? ''
     const monto = String(m.amount)
     if (m.kind === 'Ingreso') {
-      rows.push([m.date, '1110', 'SERDNP', monto, '', m.concept])
-      rows.push([m.date, cuenta, 'SERDNP', '', monto, m.concept])
+      rows.push([m.date, '1110', tercero, monto, '', m.concept])
+      rows.push([m.date, cuenta, tercero, '', monto, m.concept])
     } else {
-      rows.push([m.date, cuenta, 'SERDNP', monto, '', m.concept])
-      rows.push([m.date, '1110', 'SERDNP', '', monto, m.concept])
+      rows.push([m.date, cuenta, tercero, monto, '', m.concept])
+      rows.push([m.date, '1110', tercero, '', monto, m.concept])
     }
   }
   return rows.map((r) => r.map(csvCell).join(',')).join('\r\n')

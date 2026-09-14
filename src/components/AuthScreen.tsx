@@ -75,7 +75,7 @@ export function AuthScreen() {
           ) : null}
 
           <Field id="email" label="Correo electrónico" icon={MailIcon}>
-            <input id="email" type="email" autoComplete="email" value={email} onChange={(e) => { setEmail(e.target.value); setError('') }} placeholder="tu-correo@dnp.gov.co" className={inputClass} />
+            <input id="email" type="email" autoComplete="email" value={email} onChange={(e) => { setEmail(e.target.value); setError('') }} placeholder="tu-correo@correo.com" className={inputClass} />
           </Field>
 
           <Field id="password" label="Contraseña" icon={LockIcon}>

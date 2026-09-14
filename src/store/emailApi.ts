@@ -10,7 +10,7 @@ export type CorreoInput = { to: string; subject: string; html?: string; text?: s
 // ("De: Sindicato XYZ <...>") y (b) marca dentro de la plantilla. Así cada
 // sindicato envía con SU nombre aunque compartan el mismo dominio verificado.
 // La dirección de correo (@dominio) la fija EMAIL_FROM en el servidor.
-let marcaActual = 'SERDNP'
+let marcaActual = 'Sindika'
 let remitenteActual = '' // dirección propia del sindicato (si compró dominio); vacío = usa la global
 let logoActual = ''      // URL pública del logo del sindicato para el encabezado del correo
 let plantillaBienvenida = '' // texto configurable del correo de bienvenida (por sindicato)
@@ -20,7 +20,7 @@ export function setPlantillaBienvenida(texto?: string | null): void {
   plantillaBienvenida = (texto || '').trim()
 }
 export function setMarca(nombre?: string | null, correoRemitente?: string | null, logoUrl?: string | null): void {
-  marcaActual = (nombre || '').trim() || 'SERDNP'
+  marcaActual = (nombre || '').trim() || 'Sindika'
   remitenteActual = (correoRemitente || '').trim()
   logoActual = (logoUrl || '').trim()
 }

@@ -101,7 +101,7 @@ function buildEmail(name: string): string {
     .replace(/[^a-z ]/g, '')
     .split(' ')
     .filter(Boolean)
-  return `${clean[0]}.${clean[clean.length - 1]}@dnp.gov.co`
+  return `${clean[0]}.${clean[clean.length - 1]}@correo.com`
 }
 
 function buildPhone(i: number): string {

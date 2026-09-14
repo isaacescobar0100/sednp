@@ -8,6 +8,7 @@ import { useDemo } from '../store/DemoStore'
 import { useSession } from '../store/session'
 import { RowMenu, RowAction } from '../components/RowMenu'
 import { FirmaKey, Movement, MovementKind, MovementStatus, TOPE_CAJA_SMMLV, ejecucionPorRubro, ejecutadoRubro, pendienteRubro, expenseCategories, firmaLabel, firmasCount, formatCop, formatCopShort, incomeCategories, isoToLabel, monthlyFlow, movementsToCsv, nivelGasto, nivelLabel, requiereActaAsamblea, todayISO } from '../store/finance'
+import { marca } from '../store/emailApi'
 import { TOPE_EXTRAORDINARIA, mesesVencidos, periodLabel, recentPeriods } from '../store/contributions'
 import { abrirSoporte, nombreSoporte, subirSoporte } from '../store/storageApi'
 import { Pagination, paginate } from '../components/Pagination'
@@ -179,7 +180,7 @@ function CaucionExportBar() {
   const caucionAlerta = dias !== null && dias <= 30
 
   function exportar() {
-    const csv = movementsToCsv(movements)
+    const csv = movementsToCsv(movements, marca())
     const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
