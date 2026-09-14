@@ -426,9 +426,10 @@ function OrgItem({ org, conteo, onReload }: { org: OrgRow; conteo?: Conteo; onRe
   async function confirmarPagoPorCorreo(p: Pago) {
     setAvisoPago('Enviando confirmación por correo…')
     try {
-      const { data: cs } = await supabase.rpc('correos_presidencia')
+      const { data: cs, error: rpcErr } = await supabase.rpc('correos_presidencia')
+      if (rpcErr) { setAvisoPago(`No se pudo obtener el correo del presidente (¿falta correr el SQL stage11?): ${rpcErr.message}`); return }
       const to = (cs as { org_id: string; email: string }[] | null)?.find((c) => c.org_id === org.id)?.email
-      if (!to) { setAvisoPago(''); return }
+      if (!to) { setAvisoPago('Este sindicato no tiene correo de presidencia registrado; no se envió confirmación.'); return }
       const f = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })
       const cuerpo = `
         <p style="margin:0 0 10px">Hola,</p>
@@ -442,8 +443,8 @@ function OrgItem({ org, conteo, onReload }: { org: OrgRow; conteo?: Conteo; onRe
         <p style="margin:16px 0 0;color:#5b6577;font-size:13px">Equipo de Sindika</p>`
       setMarca(org.nombre, null, null)
       const r = await enviarCorreoDetallado({ to, subject: `Confirmación de pago · ${org.nombre}`, html: plantillaCorreo('Pago recibido', cuerpo) })
-      setAvisoPago(r.ok ? `Confirmación enviada a ${to}.` : 'No se pudo enviar la confirmación por correo.')
-    } catch { setAvisoPago('') }
+      setAvisoPago(r.ok ? `Confirmación enviada a ${to}.` : `No se pudo enviar la confirmación: ${r.error || 'error'}`)
+    } catch (e) { setAvisoPago(`Error al enviar la confirmación: ${e instanceof Error ? e.message : ''}`) }
   }
 
   // Recibo/comprobante de pago descargable (PNG), estilo Sindika.
