@@ -693,12 +693,12 @@ function EnrollmentModal({ onClose }: { onClose: () => void }) {
             ) : step === 2 ? (
               <div>
                 <h3 className="font-display text-lg font-semibold">Información laboral</h3>
-                <p className="mt-1 text-sm text-ink/50">Datos de vinculación en el Departamento.</p>
+                <p className="mt-1 text-sm text-ink/50">Datos de vinculación laboral.</p>
                 <div className="mt-5 grid gap-4 sm:grid-cols-2">
                   <ChoiceField label="Tipo de vinculación" value={form.type} onChange={(v) => set('type', v)} options={vinculaciones.map((t) => t.name)} placeholder="Seleccionar tipo" />
                   <ChoiceField label="Dependencia" value={form.dependency} onChange={(v) => set('dependency', v)} options={dependencias} placeholder="Seleccionar dependencia" />
-                  <ChoiceField label="Cargo titular en el DNP" value={form.cargoTitular} onChange={(v) => set('cargoTitular', v)} options={cargos} placeholder="Seleccionar cargo titular" />
-                  <ChoiceField label="Cargo que ocupa en el DNP" value={form.role} onChange={(v) => set('role', v)} options={cargos} placeholder="Seleccionar cargo" />
+                  <ChoiceField label="Cargo titular" value={form.cargoTitular} onChange={(v) => set('cargoTitular', v)} options={cargos} placeholder="Seleccionar cargo titular" />
+                  <ChoiceField label="Cargo que ocupa" value={form.role} onChange={(v) => set('role', v)} options={cargos} placeholder="Seleccionar cargo" />
                   {escalas.length > 0 ? (
                     <ChoiceField
                       label="Escala salarial (autocompleta)"
@@ -824,8 +824,8 @@ function EditAffiliateModal({ affiliate, onClose }: { affiliate: Affiliate; onCl
           <Field label="Teléfono" placeholder="300 000 0000" value={form.phone} onChange={(v) => set('phone', v)} />
           <Field label="Dirección de domicilio" placeholder="Dirección" value={form.address} onChange={(v) => set('address', v)} />
           <Field label="Contraseña de acceso" placeholder="Contraseña del afiliado" value={form.password} onChange={(v) => set('password', v)} required />
-          <ChoiceField label="Cargo titular en el DNP" value={form.cargoTitular} onChange={(v) => set('cargoTitular', v)} options={cargos} placeholder="Seleccionar cargo titular" />
-          <ChoiceField label="Cargo que ocupa en el DNP" value={form.role} onChange={(v) => set('role', v)} options={cargos} placeholder="Seleccionar cargo" />
+          <ChoiceField label="Cargo titular" value={form.cargoTitular} onChange={(v) => set('cargoTitular', v)} options={cargos} placeholder="Seleccionar cargo titular" />
+          <ChoiceField label="Cargo que ocupa" value={form.role} onChange={(v) => set('role', v)} options={cargos} placeholder="Seleccionar cargo" />
           <ChoiceField label="Dependencia" value={form.dependency} onChange={(v) => set('dependency', v)} options={dependencias} placeholder="Seleccionar dependencia" />
           <ChoiceField label="Tipo de vinculación" value={form.type} onChange={(v) => set('type', v)} options={vinculaciones.map((t) => t.name)} placeholder="Seleccionar tipo" />
           <DateField label="Fecha de vinculación" value={form.joinDate} onChange={(v) => set('joinDate', v)} />
