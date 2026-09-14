@@ -383,6 +383,7 @@ function OrgItem({ org, conteo, onReload }: { org: OrgRow; conteo?: Conteo; onRe
   const [borrando, setBorrando] = useState(false)
   const [pagando, setPagando] = useState(false)
   const [recibo, setRecibo] = useState<Pago | null>(null)
+  const [avisoPago, setAvisoPago] = useState('')
   const [resetInfo, setResetInfo] = useState<null | { email: string; password: string }>(null)
   const esPrincipal = org.slug === 'serdnp'
   const est = estadoPago(org.fecha_proximo_pago)
@@ -415,8 +416,34 @@ function OrgItem({ org, conteo, onReload }: { org: OrgRow; conteo?: Conteo; onRe
     if (error) { setPagando(false); window.alert('No se pudo registrar el pago: ' + error.message); return }
     await supabase.from('organizations').update({ fecha_proximo_pago: venceNuevo }).eq('id', org.id)
     setRecibo(data as Pago)
+    // Confirmación de pago por correo al presidente del sindicato.
+    void confirmarPagoPorCorreo(data as Pago)
     setPagando(false)
     onReload()
+  }
+
+  // Envía al presidente la confirmación de la renovación pagada.
+  async function confirmarPagoPorCorreo(p: Pago) {
+    setAvisoPago('Enviando confirmación por correo…')
+    try {
+      const { data: cs } = await supabase.rpc('correos_presidencia')
+      const to = (cs as { org_id: string; email: string }[] | null)?.find((c) => c.org_id === org.id)?.email
+      if (!to) { setAvisoPago(''); return }
+      const f = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })
+      const cuerpo = `
+        <p style="margin:0 0 10px">Hola,</p>
+        <p style="margin:0 0 12px">Confirmamos el pago de la <strong>renovación anual</strong> de <strong>${org.nombre}</strong>. ¡Gracias!</p>
+        <table role="presentation" cellpadding="0" cellspacing="0" style="border-collapse:collapse;width:100%;margin:0 0 12px">
+          <tr><td style="padding:7px 12px;background:#f4f6fb;border:1px solid #e4e6ec;color:#5b6577;font-size:13px;width:150px">Valor pagado</td><td style="padding:7px 12px;border:1px solid #e4e6ec;font-size:13px"><strong>${COP(p.monto)}</strong></td></tr>
+          <tr><td style="padding:7px 12px;background:#f4f6fb;border:1px solid #e4e6ec;color:#5b6577;font-size:13px">Fecha de pago</td><td style="padding:7px 12px;border:1px solid #e4e6ec;font-size:13px">${f(p.fecha_pago)}</td></tr>
+          <tr><td style="padding:7px 12px;background:#f4f6fb;border:1px solid #e4e6ec;color:#5b6577;font-size:13px">Próximo vencimiento</td><td style="padding:7px 12px;border:1px solid #e4e6ec;font-size:13px"><strong>${p.vence_nuevo ? f(p.vence_nuevo) : '—'}</strong></td></tr>
+        </table>
+        <p style="margin:0 0 10px;color:#5b6577;font-size:13px">Tu servicio queda activo hasta la fecha indicada. Si necesitas una cuenta de cobro formal, respóndenos.</p>
+        <p style="margin:16px 0 0;color:#5b6577;font-size:13px">Equipo de Sindika</p>`
+      setMarca(org.nombre, null, null)
+      const r = await enviarCorreoDetallado({ to, subject: `Confirmación de pago · ${org.nombre}`, html: plantillaCorreo('Pago recibido', cuerpo) })
+      setAvisoPago(r.ok ? `Confirmación enviada a ${to}.` : 'No se pudo enviar la confirmación por correo.')
+    } catch { setAvisoPago('') }
   }
 
   // Recibo/comprobante de pago descargable (PNG), estilo Sindika.
@@ -507,9 +534,10 @@ function OrgItem({ org, conteo, onReload }: { org: OrgRow; conteo?: Conteo; onRe
         <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 text-[11px]">
           <p className="font-semibold text-emerald-800">Pago registrado · {COP(recibo.monto)}</p>
           <p className="mt-0.5 text-ink/60">Próximo vencimiento: {recibo.vence_nuevo ? new Date(recibo.vence_nuevo + 'T00:00:00').toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</p>
+          {avisoPago ? <p className="mt-0.5 text-emerald-700">{avisoPago}</p> : null}
           <div className="mt-1.5 flex gap-2">
             <button onClick={() => descargarRecibo(recibo)} className="inline-flex items-center gap-1 rounded border border-ink/12 px-2 py-1 font-semibold text-ink/70 hover:border-night hover:text-night"><DownloadIcon className="h-3 w-3" />Descargar recibo</button>
-            <button onClick={() => setRecibo(null)} className="rounded px-2 py-1 font-semibold text-ink/50 hover:text-ink">Cerrar</button>
+            <button onClick={() => { setRecibo(null); setAvisoPago('') }} className="rounded px-2 py-1 font-semibold text-ink/50 hover:text-ink">Cerrar</button>
           </div>
         </div>
       ) : null}
