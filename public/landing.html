@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Sindika — La plataforma para tu sindicato</title>
 <meta name="description" content="Sindika: la plataforma empresarial para gestionar tu sindicato — afiliados, finanzas, gobernanza, disciplina y tu página web, en un solo lugar.">
-<link rel="icon" type="image/svg+xml" href="/sindika-logo.svg">
+<link rel="icon" type="image/png" href="/sindika.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@500;600;700;800;900&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
@@ -49,8 +49,8 @@
   svg.i{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
 
   .brand{display:inline-flex;align-items:center;gap:10px;font-family:var(--disp);font-weight:800;font-size:22px;letter-spacing:-.03em;color:var(--ink)}
-  .brand .mk{width:30px;height:30px;border-radius:8px;flex:none;display:block}
-  .brand .mk img{width:100%;height:100%;display:block}
+  .brand .mk{height:40px;width:auto;flex:none;display:block}
+  .brand .mk img{height:100%;width:auto;display:block;object-fit:contain}
 
   /* NAV */
   header.nav{position:sticky;top:0;z-index:50;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:blur(12px);border-bottom:1px solid var(--line)}
@@ -233,7 +233,7 @@
 
 <header class="nav">
   <div class="wrap row">
-    <a href="#top" class="brand"><span class="mk"><img src="/sindika-logo.svg" alt="Sindika"></span>Sindika</a>
+    <a href="#top" class="brand" aria-label="Sindika"><span class="mk"><img src="/sindika.png" alt="Sindika"></span></a>
     <nav>
       <a href="#modulos">Módulos</a>
       <a href="#como">Cómo funciona</a>
@@ -473,7 +473,7 @@
 
 <footer>
   <div class="wrap row">
-    <a href="#top" class="brand" style="font-size:19px"><span class="mk"><img src="/sindika-logo.svg" alt="Sindika"></span>Sindika</a>
+    <a href="#top" class="brand" aria-label="Sindika"><span class="mk"><img src="/sindika.png" alt="Sindika"></span></a>
     <span>La plataforma para tu sindicato · Colombia · © 2026 Isaac Escobar Vega</span>
   </div>
 </footer>
