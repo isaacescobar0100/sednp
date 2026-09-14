@@ -102,7 +102,7 @@ export function PublicRegistroPage({ slug }: { slug: string }) {
 
   return (
     <div className="min-h-screen bg-canvas px-4 py-10">
-      <div className="mx-auto max-w-2xl">
+      <div className="mx-auto max-w-4xl">
         <div className="mb-6 flex items-center gap-3">
           <img src={orgLogo || '/sindika.png'} alt={orgNombre || 'Sindicato'} className="h-12 w-12 object-contain" />
           <div>
