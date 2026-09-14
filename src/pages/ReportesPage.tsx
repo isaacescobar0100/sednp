@@ -7,9 +7,11 @@ import { useDemo } from '../store/DemoStore'
 import { formatCopShort } from '../store/finance'
 import { CaseStatus } from '../store/discipline'
 import { memberCount } from '../store/committees'
+import { useAuth } from '../store/auth'
 
 export function ReportesPage() {
   const { stats, financeStats, disciplineStats, cases, ballots, docs, comunicados, committees } = useDemo()
+  const { org } = useAuth()
 
   const affiliatesByStatus = [
     { name: 'Activos', value: stats.active, color: '#0F1B3D' },
@@ -56,7 +58,7 @@ export function ReportesPage() {
     const url = URL.createObjectURL(new Blob([`﻿${csv}`], { type: 'text/csv;charset=utf-8' }))
     const a = document.createElement('a')
     a.href = url
-    a.download = 'reporte-consolidado-serdnp.csv'
+    a.download = `reporte-consolidado-${org?.slug ?? 'sindicato'}.csv`
     a.click()
     URL.revokeObjectURL(url)
   }

@@ -74,7 +74,7 @@ export function ParametrosPage() {
             onDelete={(v) => setDependencias(dependencias.filter((d) => d !== v))}
             exists={(v) => dependencias.some((d) => d.toLowerCase() === v.toLowerCase())}
             notify={notify}
-            placeholder="Ej. Oficina de Planeación"
+            placeholder="Ej. Recursos Humanos"
           />
 
           <div className="min-w-0 xl:col-span-2">

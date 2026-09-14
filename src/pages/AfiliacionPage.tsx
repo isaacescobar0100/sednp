@@ -669,7 +669,7 @@ function EnrollmentModal({ onClose }: { onClose: () => void }) {
                   <Field label="Nombres" placeholder="Nombres del afiliado" value={form.nombres} onChange={(v) => set('nombres', v)} required />
                   <Field label="Apellidos" placeholder="Apellidos del afiliado" value={form.apellidos} onChange={(v) => set('apellidos', v)} required />
                   <Field label="Documento de identidad" placeholder="Número de documento" value={form.doc} onChange={(v) => set('doc', v)} required error={docDup ? 'Ya existe un afiliado con este documento.' : undefined} />
-                  <Field label="Correo (usuario de acceso)" placeholder="nombre@dnp.gov.co" value={form.email} onChange={(v) => set('email', v)} required error={emailDup ? 'Ya existe un afiliado con este correo.' : emailInvalid ? 'Correo no válido.' : undefined} />
+                  <Field label="Correo (usuario de acceso)" placeholder="nombre@correo.com" value={form.email} onChange={(v) => set('email', v)} required error={emailDup ? 'Ya existe un afiliado con este correo.' : emailInvalid ? 'Correo no válido.' : undefined} />
                   <Field label="Dirección de domicilio" placeholder="Dirección" value={form.address} onChange={(v) => set('address', v)} />
                   <Field label="Teléfono de contacto" placeholder="300 000 0000" value={form.phone} onChange={(v) => set('phone', v)} />
                   <Field label="Contraseña de acceso" placeholder="Contraseña del afiliado" value={form.password} onChange={(v) => set('password', v)} required />
@@ -820,7 +820,7 @@ function EditAffiliateModal({ affiliate, onClose }: { affiliate: Affiliate; onCl
         <div className="grid gap-4 sm:grid-cols-2">
           <Field label="Nombres y apellidos" placeholder="Nombre completo" value={form.name} onChange={(v) => set('name', v)} required />
           <Field label="Documento de identidad" placeholder="Número de documento" value={form.doc} onChange={(v) => set('doc', v)} required error={docDup ? 'Ya existe un afiliado con este documento.' : undefined} />
-          <Field label="Correo (usuario de acceso)" placeholder="nombre@dnp.gov.co" value={form.email} onChange={(v) => set('email', v)} required error={emailDup ? 'Ya existe un afiliado con este correo.' : emailInvalid ? 'Correo no válido.' : undefined} />
+          <Field label="Correo (usuario de acceso)" placeholder="nombre@correo.com" value={form.email} onChange={(v) => set('email', v)} required error={emailDup ? 'Ya existe un afiliado con este correo.' : emailInvalid ? 'Correo no válido.' : undefined} />
           <Field label="Teléfono" placeholder="300 000 0000" value={form.phone} onChange={(v) => set('phone', v)} />
           <Field label="Dirección de domicilio" placeholder="Dirección" value={form.address} onChange={(v) => set('address', v)} />
           <Field label="Contraseña de acceso" placeholder="Contraseña del afiliado" value={form.password} onChange={(v) => set('password', v)} required />

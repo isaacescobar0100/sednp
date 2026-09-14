@@ -349,7 +349,7 @@ function SuperAdminContent() {
                     <Field label="Nombre del presidente"><input value={presiNombre} onChange={(e) => setPresiNombre(e.target.value)} placeholder="Nombre y apellido" className={inputC} /></Field>
                     <Field label="Correo de presidencia"><input value={presiEmail} onChange={(e) => setPresiEmail(e.target.value)} placeholder="presidencia@…" className={inputC} /></Field>
                     <Field label="Contraseña inicial"><input value={presiPassword} onChange={(e) => setPresiPassword(e.target.value)} placeholder="Clave para la presidencia" className={inputC} /></Field>
-                    <Field label="Dominio propio (opcional)"><input value={dominio} onChange={(e) => setDominio(e.target.value)} placeholder="ej. serdnp.sindika.com" className={inputC} /></Field>
+                    <Field label="Dominio propio (opcional)"><input value={dominio} onChange={(e) => setDominio(e.target.value)} placeholder="ej. misindicato.com" className={inputC} /></Field>
                     <Field label="Plan">
                       <select value={plan} onChange={(e) => setPlan(e.target.value as PlanKey)} className={inputC}>
                         {(Object.keys(PLANES) as PlanKey[]).map((k) => (
