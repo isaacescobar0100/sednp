@@ -3,6 +3,7 @@ import HCaptcha from '@hcaptcha/react-hcaptcha'
 import { AlertCircleIcon, ArrowRightIcon, EyeIcon, EyeOffIcon, GlobeIcon, LockIcon, MailIcon } from 'lucide-react'
 import { BrandPanel } from './BrandPanel'
 import { useAuth } from '../store/auth'
+import { esEntradaAdmin } from '../store/platform'
 
 // Sitekey pública de hCaptcha (protección contra bots/fuerza bruta). Es pública
 // por diseño; el secret vive en Supabase. Configurable por variable de entorno.
@@ -12,11 +13,15 @@ const HCAPTCHA_SITEKEY = import.meta.env.VITE_HCAPTCHA_SITEKEY || 'e794b07e-8a8a
 // administración. No hay auto-registro.
 export function AuthScreen() {
   const { signIn } = useAuth()
-  // Deja la URL del login limpia en /ingresar (p. ej. al cerrar sesión desde
-  // un módulo, para que no quede /comites u otra ruta en la barra).
+  // ¿Es la entrada de ADMINISTRACIÓN de Sindika (host de plataforma o /admin)?
+  // El login de admin es visualmente distinto al de los sindicatos.
+  const admin = esEntradaAdmin()
+  // Deja la URL del login limpia: /admin para la administración, /ingresar para
+  // los sindicatos (evita que quede /comites u otra ruta al cerrar sesión).
   useEffect(() => {
-    if (window.location.pathname !== '/ingresar') window.history.replaceState({}, '', '/ingresar')
-  }, [])
+    const destino = admin ? '/admin' : '/ingresar'
+    if (window.location.pathname !== destino) window.history.replaceState({}, '', destino)
+  }, [admin])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -58,8 +63,9 @@ export function AuthScreen() {
           </div>
 
           <div className="mb-6">
-            <h2 className="font-display text-2xl font-semibold text-ink">Iniciar sesión</h2>
-            <p className="mt-2 text-sm leading-relaxed text-ink/55">Ingresa con tu correo y contraseña.</p>
+            {admin ? <p className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-night/60">Administración de la plataforma</p> : null}
+            <h2 className="font-display text-2xl font-semibold text-ink">{admin ? 'Acceso de administración' : 'Iniciar sesión'}</h2>
+            <p className="mt-2 text-sm leading-relaxed text-ink/55">{admin ? 'Acceso exclusivo del equipo de Sindika.' : 'Ingresa con tu correo y contraseña.'}</p>
           </div>
 
           {idleNotice ? (
@@ -101,14 +107,18 @@ export function AuthScreen() {
           </button>
 
           <p className="mt-5 text-center text-xs text-ink/45">
-            Las cuentas las habilita la administración del sindicato. Si no puedes entrar, contacta a la Secretaría.
+            {admin
+              ? 'Acceso restringido al administrador de Sindika.'
+              : 'Las cuentas las habilita la administración del sindicato. Si no puedes entrar, contacta a la Secretaría.'}
           </p>
 
-          <div className="mt-4 text-center">
-            <a href="/?web=1" className="inline-flex items-center gap-1.5 rounded-xl border border-ink/12 px-4 py-2 text-xs font-semibold text-ink/70 transition hover:border-night hover:text-night">
-              <GlobeIcon className="h-3.5 w-3.5" />Ver la página web
-            </a>
-          </div>
+          {!admin ? (
+            <div className="mt-4 text-center">
+              <a href="/?web=1" className="inline-flex items-center gap-1.5 rounded-xl border border-ink/12 px-4 py-2 text-xs font-semibold text-ink/70 transition hover:border-night hover:text-night">
+                <GlobeIcon className="h-3.5 w-3.5" />Ver la página web
+              </a>
+            </div>
+          ) : null}
         </form>
       </section>
     </main>
