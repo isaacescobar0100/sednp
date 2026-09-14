@@ -10,7 +10,9 @@ type OrgRow = {
   id: string; nombre: string; slug: string; logo_url: string | null; activo: boolean
   dominio: string | null; correo_remitente: string | null
   plan: PlanKey; precio_anual: number; fecha_proximo_pago: string | null; afiliados_max: number | null; notas_cobro: string | null
+  contacto_nombre: string | null; contacto_telefono: string | null
 }
+type Pago = { id: string; monto: number; periodo: string | null; metodo: string | null; fecha_pago: string; vence_nuevo: string | null; nota: string | null }
 type Conteo = { afiliados: number; activos: number }
 type View = 'resumen' | 'sindicatos' | 'nuevo'
 // Sección activa según la URL. Acepta rutas con o sin prefijo /admin
@@ -97,7 +99,7 @@ function SuperAdminContent() {
   async function load() {
     setLoading(true)
     const [orgsRes, resumenRes] = await Promise.all([
-      supabase.from('organizations').select('id, nombre, slug, logo_url, activo, dominio, correo_remitente, plan, precio_anual, fecha_proximo_pago, afiliados_max, notas_cobro').order('created_at'),
+      supabase.from('organizations').select('id, nombre, slug, logo_url, activo, dominio, correo_remitente, plan, precio_anual, fecha_proximo_pago, afiliados_max, notas_cobro, contacto_nombre, contacto_telefono').order('created_at'),
       supabase.rpc('resumen_plataforma'),
     ])
     if (orgsRes.error) setError('No se pudieron cargar los sindicatos.')
@@ -380,6 +382,7 @@ function OrgItem({ org, conteo, onReload }: { org: OrgRow; conteo?: Conteo; onRe
   const [editing, setEditing] = useState(false)
   const [borrando, setBorrando] = useState(false)
   const [pagando, setPagando] = useState(false)
+  const [recibo, setRecibo] = useState<Pago | null>(null)
   const [resetInfo, setResetInfo] = useState<null | { email: string; password: string }>(null)
   const esPrincipal = org.slug === 'serdnp'
   const est = estadoPago(org.fecha_proximo_pago)
@@ -393,18 +396,56 @@ function OrgItem({ org, conteo, onReload }: { org: OrgRow; conteo?: Conteo; onRe
     onReload()
   }
 
-  // Registrar pago: adelanta el próximo vencimiento un año desde hoy (o desde el
-  // vencimiento vigente si aún es futuro), y deja el estado "al día".
+  // Registrar pago: guarda el pago en el historial, adelanta el próximo
+  // vencimiento un año (desde hoy, o desde el vencimiento vigente si es futuro)
+  // y deja disponible el recibo para descargar.
   async function registrarPago() {
-    if (!window.confirm(`¿Registrar el pago anual de "${org.nombre}"?\n\nEl próximo vencimiento se moverá un año hacia adelante.`)) return
+    if (!window.confirm(`¿Registrar el pago anual de "${org.nombre}" por ${COP(org.precio_anual)}?\n\nSe guardará en el historial y el próximo vencimiento se moverá un año hacia adelante.`)) return
     setPagando(true)
     const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
     const base = org.fecha_proximo_pago ? new Date(org.fecha_proximo_pago + 'T00:00:00') : hoy
     const desde = base.getTime() > hoy.getTime() ? base : hoy
     desde.setFullYear(desde.getFullYear() + 1)
-    await supabase.from('organizations').update({ fecha_proximo_pago: desde.toISOString().slice(0, 10) }).eq('id', org.id)
+    const venceNuevo = desde.toISOString().slice(0, 10)
+    const periodo = `${hoy.getFullYear()} → ${desde.getFullYear()}`
+    const { data, error } = await supabase.from('pagos').insert({
+      org_id: org.id, monto: org.precio_anual, periodo, metodo: 'Transferencia',
+      fecha_pago: hoy.toISOString().slice(0, 10), vence_nuevo: venceNuevo,
+    }).select().single()
+    if (error) { setPagando(false); window.alert('No se pudo registrar el pago: ' + error.message); return }
+    await supabase.from('organizations').update({ fecha_proximo_pago: venceNuevo }).eq('id', org.id)
+    setRecibo(data as Pago)
     setPagando(false)
     onReload()
+  }
+
+  // Recibo/comprobante de pago descargable (PNG), estilo Sindika.
+  function descargarRecibo(p: Pago) {
+    const canvas = document.createElement('canvas')
+    canvas.width = 1000; canvas.height = 620
+    const ctx = canvas.getContext('2d'); if (!ctx) return
+    ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, 1000, 620)
+    ctx.fillStyle = '#0b2461'; ctx.fillRect(0, 0, 1000, 90)
+    ctx.fillStyle = '#ffffff'; ctx.font = 'bold 24px "Segoe UI", Arial'; ctx.fillText('RECIBO DE PAGO', 40, 45)
+    ctx.font = '14px "Segoe UI", Arial'; ctx.fillStyle = 'rgba(255,255,255,.8)'; ctx.fillText('Plataforma Sindika', 40, 70)
+    ctx.textAlign = 'right'; ctx.fillStyle = '#ffffff'; ctx.font = '13px "Segoe UI", Arial'
+    ctx.fillText(`Recibo ${p.id.slice(0, 8).toUpperCase()}`, 960, 55); ctx.textAlign = 'left'
+    ctx.fillStyle = '#0e1a34'; ctx.font = 'bold 22px "Segoe UI", Arial'; ctx.fillText(org.nombre, 40, 150)
+    let y = 220
+    const linea = (k: string, v: string) => {
+      ctx.fillStyle = '#57678a'; ctx.font = '14px "Segoe UI", Arial'; ctx.fillText(k, 40, y)
+      ctx.fillStyle = '#0e1a34'; ctx.font = 'bold 18px "Segoe UI", Arial'; ctx.fillText(v, 40, y + 26); y += 74
+    }
+    const f = (d: string) => new Date(d + 'T00:00:00').toLocaleDateString('es-CO', { day: '2-digit', month: 'long', year: 'numeric' })
+    linea('FECHA DE PAGO', f(p.fecha_pago))
+    linea('CONCEPTO', `Suscripción anual · periodo ${p.periodo || '—'}`)
+    linea('MEDIO DE PAGO', p.metodo || 'Transferencia')
+    linea('PRÓXIMO VENCIMIENTO', p.vence_nuevo ? f(p.vence_nuevo) : '—')
+    ctx.fillStyle = '#f2f6fd'; ctx.fillRect(40, y - 4, 920, 66)
+    ctx.fillStyle = '#57678a'; ctx.font = '14px "Segoe UI", Arial'; ctx.fillText('VALOR PAGADO', 60, y + 22)
+    ctx.fillStyle = '#2456e6'; ctx.font = 'bold 30px "Segoe UI", Arial'; ctx.textAlign = 'right'; ctx.fillText(COP(p.monto), 940, y + 30); ctx.textAlign = 'left'
+    ctx.fillStyle = '#99a3b8'; ctx.font = '12px "Segoe UI", Arial'; ctx.fillText('Comprobante generado por Sindika', 40, 600)
+    const a = document.createElement('a'); a.href = canvas.toDataURL('image/png'); a.download = `recibo-${org.slug}-${p.fecha_pago}.png`; a.click()
   }
 
   // Resetea la contraseña de la cuenta de presidencia (soporte). Genera una
@@ -462,6 +503,17 @@ function OrgItem({ org, conteo, onReload }: { org: OrgRow; conteo?: Conteo; onRe
         <BanknoteIcon className="h-3.5 w-3.5" />{pagando ? 'Registrando…' : 'Registrar pago anual'}
       </button>
 
+      {recibo ? (
+        <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 p-2.5 text-[11px]">
+          <p className="font-semibold text-emerald-800">Pago registrado · {COP(recibo.monto)}</p>
+          <p className="mt-0.5 text-ink/60">Próximo vencimiento: {recibo.vence_nuevo ? new Date(recibo.vence_nuevo + 'T00:00:00').toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</p>
+          <div className="mt-1.5 flex gap-2">
+            <button onClick={() => descargarRecibo(recibo)} className="inline-flex items-center gap-1 rounded border border-ink/12 px-2 py-1 font-semibold text-ink/70 hover:border-night hover:text-night"><DownloadIcon className="h-3 w-3" />Descargar recibo</button>
+            <button onClick={() => setRecibo(null)} className="rounded px-2 py-1 font-semibold text-ink/50 hover:text-ink">Cerrar</button>
+          </div>
+        </div>
+      ) : null}
+
       {resetInfo ? (
         <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-[11px]">
           <p className="font-semibold text-amber-800">Nueva contraseña de presidencia</p>
@@ -505,10 +557,19 @@ function EditOrgModal({ org, onClose, onSaved }: { org: OrgRow; onClose: () => v
   const [fechaPago, setFechaPago] = useState(org.fecha_proximo_pago ?? '')
   const [afiMax, setAfiMax] = useState(org.afiliados_max != null ? String(org.afiliados_max) : '')
   const [notas, setNotas] = useState(org.notas_cobro ?? '')
+  const [contactoNombre, setContactoNombre] = useState(org.contacto_nombre ?? '')
+  const [contactoTel, setContactoTel] = useState(org.contacto_telefono ?? '')
+  const [pagos, setPagos] = useState<Pago[]>([])
   const [busy, setBusy] = useState(false)
   const [subiendo, setSubiendo] = useState(false)
   const [error, setError] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
+
+  // Historial de pagos del sindicato (Opción A: registrados a mano).
+  useEffect(() => {
+    supabase.from('pagos').select('id,monto,periodo,metodo,fecha_pago,vence_nuevo,nota').eq('org_id', org.id).order('fecha_pago', { ascending: false })
+      .then(({ data }) => setPagos((data as Pago[]) ?? []))
+  }, [org.id])
 
   // Al cambiar de plan, propone su precio y límite (el usuario puede sobreescribir).
   function cambiarPlan(k: PlanKey) {
@@ -538,6 +599,8 @@ function EditOrgModal({ org, onClose, onSaved }: { org: OrgRow; onClose: () => v
         fecha_proximo_pago: fechaPago || null,
         afiliados_max: afiMax.trim() === '' ? null : Math.max(0, Math.round(Number(afiMax) || 0)),
         notas_cobro: notas.trim() || null,
+        contacto_nombre: contactoNombre.trim() || null,
+        contacto_telefono: contactoTel.trim() || null,
       })
       .eq('id', org.id)
     setBusy(false)
@@ -574,6 +637,16 @@ function EditOrgModal({ org, onClose, onSaved }: { org: OrgRow; onClose: () => v
                 <input value={correo} onChange={(e) => setCorreo(e.target.value)} placeholder="ej. notificaciones@sudominio.com" className={inputC} />
                 <span className="mt-1 block text-[11px] text-ink/45">Requiere ese dominio verificado en Resend. Vacío = envía con la dirección del sistema y el nombre del sindicato.</span>
               </label>
+              <div className="grid grid-cols-2 gap-3">
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-ink/70">Contacto</span>
+                  <input value={contactoNombre} onChange={(e) => setContactoNombre(e.target.value)} placeholder="Persona de contacto" className={inputC} />
+                </label>
+                <label className="block">
+                  <span className="mb-1 block text-xs font-medium text-ink/70">Teléfono / WhatsApp</span>
+                  <input value={contactoTel} onChange={(e) => setContactoTel(e.target.value)} placeholder="300 000 0000" className={inputC} />
+                </label>
+              </div>
               <div>
                 <span className="mb-1.5 block text-xs font-medium text-ink/70">Logo</span>
                 <div className="flex items-center gap-3">
@@ -616,6 +689,23 @@ function EditOrgModal({ org, onClose, onSaved }: { org: OrgRow; onClose: () => v
                 </label>
               </div>
             </div>
+          </div>
+
+          <div className="mt-5 rounded-xl border border-ink/10 p-3">
+            <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-ink/70"><BanknoteIcon className="h-3.5 w-3.5" />Historial de pagos</p>
+            {pagos.length === 0 ? (
+              <p className="py-2 text-center text-[11px] text-ink/40">Aún no hay pagos registrados. Usa "Registrar pago anual" en la tarjeta del sindicato.</p>
+            ) : (
+              <div className="divide-y divide-ink/[0.06] text-[11px]">
+                {pagos.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between gap-2 py-1.5">
+                    <span className="text-ink/60">{new Date(p.fecha_pago + 'T00:00:00').toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' })} · {p.metodo || '—'}</span>
+                    <span className="text-ink/45">{p.periodo || ''}</span>
+                    <span className="font-semibold text-ink">{COP(p.monto)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {error ? <p className="mt-3 text-xs text-brick">{error}</p> : null}
