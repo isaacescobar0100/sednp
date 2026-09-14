@@ -1,16 +1,52 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { AlertCircleIcon, Building2Icon, CheckCircle2Icon, DownloadIcon, ImageIcon, LogOutIcon, PencilIcon, PlusIcon, Trash2Icon, XIcon } from 'lucide-react'
+import { AlertCircleIcon, BanknoteIcon, Building2Icon, CalendarClockIcon, CheckCircle2Icon, CopyIcon, DownloadIcon, ImageIcon, KeyRoundIcon, LogOutIcon, PencilIcon, PlusIcon, Trash2Icon, UsersIcon, WalletIcon, XIcon } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { subirFoto } from '../store/storageApi'
 import { useAuth } from '../store/auth'
 
-type OrgRow = { id: string; nombre: string; slug: string; logo_url: string | null; activo: boolean; dominio: string | null; correo_remitente: string | null }
+type OrgRow = {
+  id: string; nombre: string; slug: string; logo_url: string | null; activo: boolean
+  dominio: string | null; correo_remitente: string | null
+  plan: PlanKey; precio_anual: number; fecha_proximo_pago: string | null; afiliados_max: number | null; notas_cobro: string | null
+}
+type Conteo = { afiliados: number; activos: number }
+
+// Planes del tarifario: límite de afiliados y precio anual recurrente sugerido
+// (infraestructura + soporte, "años siguientes"). Editable por sindicato.
+type PlanKey = 'basico' | 'profesional' | 'empresarial' | 'corporativo'
+const PLANES: Record<PlanKey, { label: string; max: number | null; precio: number }> = {
+  basico:      { label: 'Básico',      max: 100,  precio: 4800000 },
+  profesional: { label: 'Profesional', max: 300,  precio: 8500000 },
+  empresarial: { label: 'Empresarial', max: 800,  precio: 14800000 },
+  corporativo: { label: 'Corporativo', max: null, precio: 22800000 },
+}
+
+const COP = (n: number) => new Intl.NumberFormat('es-CO', { style: 'currency', currency: 'COP', maximumFractionDigits: 0 }).format(n || 0)
+
+// Estado de cobro DERIVADO de la fecha de próximo pago (no se almacena).
+type EstadoPago = 'sin' | 'al_dia' | 'por_vencer' | 'vencido'
+function estadoPago(fecha: string | null): EstadoPago {
+  if (!fecha) return 'sin'
+  const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
+  const f = new Date(fecha + 'T00:00:00')
+  const dias = Math.round((f.getTime() - hoy.getTime()) / 86400000)
+  if (dias < 0) return 'vencido'
+  if (dias <= 30) return 'por_vencer'
+  return 'al_dia'
+}
+const ESTADO_UI: Record<EstadoPago, { label: string; cls: string }> = {
+  sin:       { label: 'Sin fecha',  cls: 'bg-ink/5 text-ink/50' },
+  al_dia:    { label: 'Al día',     cls: 'bg-emerald-100 text-emerald-700' },
+  por_vencer:{ label: 'Por vencer', cls: 'bg-amber-100 text-amber-700' },
+  vencido:   { label: 'Vencido',    cls: 'bg-brick/10 text-brick' },
+}
 
 // ---------------------------------------------------------------------------
 // Contenido reutilizable: dar de alta sindicatos y gestionar su marca.
 // ---------------------------------------------------------------------------
 function SuperAdminContent() {
   const [orgs, setOrgs] = useState<OrgRow[]>([])
+  const [conteos, setConteos] = useState<Record<string, Conteo>>({})
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [ok, setOk] = useState('')
@@ -21,14 +57,23 @@ function SuperAdminContent() {
   const [presiPassword, setPresiPassword] = useState('')
   const [presiNombre, setPresiNombre] = useState('')
   const [dominio, setDominio] = useState('')
+  const [plan, setPlan] = useState<PlanKey>('basico')
   const [busy, setBusy] = useState(false)
   const [creado, setCreado] = useState<null | { nombre: string; slug: string; dominio: string; email: string; password: string; presi: string }>(null)
 
   async function load() {
     setLoading(true)
-    const { data, error } = await supabase.from('organizations').select('id, nombre, slug, logo_url, activo, dominio, correo_remitente').order('created_at')
-    if (error) setError('No se pudieron cargar los sindicatos.')
-    else setOrgs((data as OrgRow[]) ?? [])
+    const [orgsRes, resumenRes] = await Promise.all([
+      supabase.from('organizations').select('id, nombre, slug, logo_url, activo, dominio, correo_remitente, plan, precio_anual, fecha_proximo_pago, afiliados_max, notas_cobro').order('created_at'),
+      supabase.rpc('resumen_plataforma'),
+    ])
+    if (orgsRes.error) setError('No se pudieron cargar los sindicatos.')
+    else setOrgs((orgsRes.data as OrgRow[]) ?? [])
+    const mapa: Record<string, Conteo> = {}
+    for (const r of (resumenRes.data as { org_id: string; afiliados: number; afiliados_activos: number }[]) ?? []) {
+      mapa[r.org_id] = { afiliados: Number(r.afiliados) || 0, activos: Number(r.afiliados_activos) || 0 }
+    }
+    setConteos(mapa)
     setLoading(false)
   }
   useEffect(() => { void load() }, [])
@@ -47,17 +92,32 @@ function SuperAdminContent() {
     if (error) {
       setError(error.message)
     } else {
-      // Si se indicó dominio, se asigna al sindicato recién creado.
+      // Se asigna dominio (si se indicó) y la suscripción inicial según el plan.
       const dom = dominio.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '')
-      if (dom) await supabase.from('organizations').update({ dominio: dom }).eq('slug', s)
+      const p = PLANES[plan]
+      const proximo = new Date(); proximo.setFullYear(proximo.getFullYear() + 1)
+      await supabase.from('organizations').update({
+        dominio: dom || null,
+        plan,
+        precio_anual: p.precio,
+        afiliados_max: p.max,
+        fecha_proximo_pago: proximo.toISOString().slice(0, 10),
+      }).eq('slug', s)
       // Guardamos los datos (incl. contraseña) para la tarjeta de credenciales,
       // ANTES de limpiar el formulario. La contraseña solo se conoce ahora.
       setCreado({ nombre: nombre.trim(), slug: s, dominio: dom, email: presiEmail.trim().toLowerCase(), password: presiPassword, presi: presiNombre.trim() })
-      setNombre(''); setSlug(''); setPresiEmail(''); setPresiPassword(''); setPresiNombre(''); setDominio('')
+      setNombre(''); setSlug(''); setPresiEmail(''); setPresiPassword(''); setPresiNombre(''); setDominio(''); setPlan('basico')
       void load()
     }
     setBusy(false)
   }
+
+  // KPIs de plataforma (dashboard de negocio).
+  const totalAfiliados = Object.values(conteos).reduce((a, c) => a + c.afiliados, 0)
+  const activos = orgs.filter((o) => o.activo).length
+  const suspendidos = orgs.length - activos
+  const arr = orgs.filter((o) => o.activo).reduce((a, o) => a + (o.precio_anual || 0), 0)
+  const porCobrar = orgs.filter((o) => o.activo && ['por_vencer', 'vencido'].includes(estadoPago(o.fecha_proximo_pago))).length
 
   const webUrl = creado ? (creado.dominio ? `https://${creado.dominio}` : `${window.location.origin}/?org=${creado.slug}`) : ''
   const loginUrl = creado ? (creado.dominio ? `https://${creado.dominio}/ingresar` : `${window.location.origin}/ingresar`) : ''
@@ -91,6 +151,14 @@ function SuperAdminContent() {
 
   return (
     <div className="space-y-6">
+      {/* Dashboard de plataforma: salud del negocio de un vistazo. */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Kpi icon={<UsersIcon className="h-4 w-4" />} label="Afiliados en total" value={loading ? '—' : totalAfiliados.toLocaleString('es-CO')} sub={`${orgs.length} sindicato${orgs.length === 1 ? '' : 's'}`} />
+        <Kpi icon={<Building2Icon className="h-4 w-4" />} label="Sindicatos activos" value={loading ? '—' : String(activos)} sub={suspendidos ? `${suspendidos} suspendido${suspendidos === 1 ? '' : 's'}` : 'todos al aire'} tone={suspendidos ? 'warn' : 'ok'} />
+        <Kpi icon={<WalletIcon className="h-4 w-4" />} label="Ingreso anual (ARR)" value={loading ? '—' : COP(arr)} sub="suscripciones activas" tone="ok" />
+        <Kpi icon={<CalendarClockIcon className="h-4 w-4" />} label="Por cobrar pronto" value={loading ? '—' : String(porCobrar)} sub="vencidos o próximos" tone={porCobrar ? 'warn' : 'ok'} />
+      </div>
+
       {error ? <div className="flex items-start gap-2 rounded-xl border border-brick/25 bg-red-50 px-3 py-2.5 text-sm text-brick"><AlertCircleIcon className="mt-0.5 h-4 w-4 shrink-0" /><span>{error}</span></div> : null}
       {ok ? <div className="flex items-start gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm text-emerald-800"><CheckCircle2Icon className="mt-0.5 h-4 w-4 shrink-0" /><span>{ok}</span></div> : null}
 
@@ -124,7 +192,15 @@ function SuperAdminContent() {
           <Field label="Correo de presidencia"><input value={presiEmail} onChange={(e) => setPresiEmail(e.target.value)} placeholder="presidencia@…" className={inputC} /></Field>
           <Field label="Contraseña inicial"><input value={presiPassword} onChange={(e) => setPresiPassword(e.target.value)} placeholder="Clave para la presidencia" className={inputC} /></Field>
           <Field label="Dominio propio (opcional)"><input value={dominio} onChange={(e) => setDominio(e.target.value)} placeholder="ej. serdnp.sindika.com" className={inputC} /></Field>
+          <Field label="Plan">
+            <select value={plan} onChange={(e) => setPlan(e.target.value as PlanKey)} className={inputC}>
+              {(Object.keys(PLANES) as PlanKey[]).map((k) => (
+                <option key={k} value={k}>{PLANES[k].label} · {PLANES[k].max ? `hasta ${PLANES[k].max}` : '800+'} · {COP(PLANES[k].precio)}/año</option>
+              ))}
+            </select>
+          </Field>
         </div>
+        <p className="mt-2 text-[11px] text-ink/45">El plan fija el precio anual y el límite de afiliados sugeridos, y agenda el primer pago a 1 año. Todo es editable luego por sindicato.</p>
         <button type="submit" disabled={busy || !nombre.trim() || !slug.trim() || !presiEmail.trim() || !presiPassword.trim() || !presiNombre.trim()} className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">
           <PlusIcon className="h-4 w-4" />{busy ? 'Creando…' : 'Crear sindicato'}
         </button>
@@ -134,7 +210,7 @@ function SuperAdminContent() {
         <h4 className="mb-2 font-display text-sm font-semibold text-ink">Sindicatos ({orgs.length})</h4>
         {loading ? <p className="py-6 text-center text-sm text-ink/50">Cargando…</p> : (
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-            {orgs.map((o) => <OrgItem key={o.id} org={o} onReload={() => void load()} />)}
+            {orgs.map((o) => <OrgItem key={o.id} org={o} conteo={conteos[o.id]} onReload={() => void load()} />)}
           </div>
         )}
       </div>
@@ -207,14 +283,45 @@ export function SuperAdminPanel({ onClose }: { onClose: () => void }) {
   )
 }
 
-function OrgItem({ org, onReload }: { org: OrgRow; onReload: () => void }) {
+function OrgItem({ org, conteo, onReload }: { org: OrgRow; conteo?: Conteo; onReload: () => void }) {
   const [editing, setEditing] = useState(false)
   const [borrando, setBorrando] = useState(false)
+  const [pagando, setPagando] = useState(false)
+  const [resetInfo, setResetInfo] = useState<null | { email: string; password: string }>(null)
   const esPrincipal = org.slug === 'serdnp'
+  const est = estadoPago(org.fecha_proximo_pago)
+  const eui = ESTADO_UI[est]
+  const nAfi = conteo?.afiliados ?? 0
+  const excede = org.afiliados_max != null && nAfi > org.afiliados_max
+  const fechaFmt = org.fecha_proximo_pago ? new Date(org.fecha_proximo_pago + 'T00:00:00').toLocaleDateString('es-CO', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'
 
   async function toggleActivo() {
     await supabase.from('organizations').update({ activo: !org.activo }).eq('id', org.id)
     onReload()
+  }
+
+  // Registrar pago: adelanta el próximo vencimiento un año desde hoy (o desde el
+  // vencimiento vigente si aún es futuro), y deja el estado "al día".
+  async function registrarPago() {
+    if (!window.confirm(`¿Registrar el pago anual de "${org.nombre}"?\n\nEl próximo vencimiento se moverá un año hacia adelante.`)) return
+    setPagando(true)
+    const hoy = new Date(); hoy.setHours(0, 0, 0, 0)
+    const base = org.fecha_proximo_pago ? new Date(org.fecha_proximo_pago + 'T00:00:00') : hoy
+    const desde = base.getTime() > hoy.getTime() ? base : hoy
+    desde.setFullYear(desde.getFullYear() + 1)
+    await supabase.from('organizations').update({ fecha_proximo_pago: desde.toISOString().slice(0, 10) }).eq('id', org.id)
+    setPagando(false)
+    onReload()
+  }
+
+  // Resetea la contraseña de la cuenta de presidencia (soporte). Genera una
+  // contraseña nueva, la aplica en el servidor y la muestra una sola vez.
+  async function resetearPassword() {
+    if (!window.confirm(`¿Generar una NUEVA contraseña para la presidencia de "${org.nombre}"?\n\nLa contraseña anterior dejará de funcionar. Deberás entregarle la nueva.`)) return
+    const nueva = 'S' + Math.random().toString(36).slice(2, 8) + Math.floor(10 + Math.random() * 89) + '*'
+    const { data, error } = await supabase.rpc('resetear_password', { p_org: org.id, p_nueva: nueva })
+    if (error) { window.alert('No se pudo resetear: ' + error.message); return }
+    setResetInfo({ email: String(data || ''), password: nueva })
   }
 
   async function borrar() {
@@ -240,9 +347,49 @@ function OrgItem({ org, onReload }: { org: OrgRow; onReload: () => void }) {
           {org.activo ? 'Activo' : 'Suspendido'}
         </button>
       </div>
-      <div className="mt-2.5 flex gap-2">
+
+      {/* Suscripción y cobro */}
+      <div className="mt-2.5 space-y-1.5 rounded-lg bg-canvas/60 p-2.5 text-[11px]">
+        <div className="flex items-center justify-between">
+          <span className="text-ink/45">Plan</span>
+          <span className="font-semibold text-ink">{PLANES[org.plan]?.label ?? org.plan} · {COP(org.precio_anual)}/año</span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-ink/45">Próximo pago</span>
+          <span className="flex items-center gap-1.5"><span className="text-ink/70">{fechaFmt}</span><span className={`rounded px-1.5 py-0.5 font-semibold ${eui.cls}`}>{eui.label}</span></span>
+        </div>
+        <div className="flex items-center justify-between">
+          <span className="text-ink/45">Afiliados</span>
+          <span className={`font-semibold ${excede ? 'text-brick' : 'text-ink'}`}>{nAfi.toLocaleString('es-CO')}{org.afiliados_max != null ? ` / ${org.afiliados_max}` : ''}{excede ? ' ⚠' : ''}</span>
+        </div>
+        {excede ? <p className="text-brick">Supera el límite del plan — oportunidad de upgrade.</p> : null}
+      </div>
+
+      <button onClick={registrarPago} disabled={pagando} className="mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 py-2 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-50">
+        <BanknoteIcon className="h-3.5 w-3.5" />{pagando ? 'Registrando…' : 'Registrar pago anual'}
+      </button>
+
+      {resetInfo ? (
+        <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 p-2.5 text-[11px]">
+          <p className="font-semibold text-amber-800">Nueva contraseña de presidencia</p>
+          <p className="mt-1 text-ink/60">Cópiala y entrégala ahora; no se vuelve a mostrar.</p>
+          <div className="mt-1.5 flex items-center justify-between gap-2 rounded bg-white px-2 py-1.5">
+            <span className="truncate text-ink/70">{resetInfo.email}</span>
+            <code className="font-mono font-semibold text-ink">{resetInfo.password}</code>
+          </div>
+          <div className="mt-1.5 flex gap-2">
+            <button onClick={() => { void navigator.clipboard?.writeText(`Correo: ${resetInfo.email}\nContraseña: ${resetInfo.password}`) }} className="inline-flex items-center gap-1 rounded border border-ink/12 px-2 py-1 font-semibold text-ink/70 hover:border-night hover:text-night"><CopyIcon className="h-3 w-3" />Copiar</button>
+            <button onClick={() => setResetInfo(null)} className="rounded px-2 py-1 font-semibold text-ink/50 hover:text-ink">Cerrar</button>
+          </div>
+        </div>
+      ) : null}
+
+      <div className="mt-2 flex gap-2">
         <button onClick={() => setEditing(true)} className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-lg border border-ink/12 py-2 text-xs font-semibold text-ink/70 transition hover:border-night hover:text-night">
           <PencilIcon className="h-3.5 w-3.5" /> Editar
+        </button>
+        <button onClick={resetearPassword} title="Resetear contraseña de presidencia" className="inline-flex shrink-0 items-center justify-center rounded-lg border border-ink/12 px-3 py-2 text-xs font-semibold text-ink/70 transition hover:border-night hover:text-night">
+          <KeyRoundIcon className="h-3.5 w-3.5" />
         </button>
         {!esPrincipal ? (
           <button onClick={borrar} disabled={borrando} title="Eliminar sindicato" className="inline-flex shrink-0 items-center justify-center rounded-lg border border-brick/25 px-3 py-2 text-xs font-semibold text-brick transition hover:bg-brick/10 disabled:opacity-50">
@@ -260,10 +407,22 @@ function EditOrgModal({ org, onClose, onSaved }: { org: OrgRow; onClose: () => v
   const [logoUrl, setLogoUrl] = useState(org.logo_url ?? '')
   const [dominio, setDominio] = useState(org.dominio ?? '')
   const [correo, setCorreo] = useState(org.correo_remitente ?? '')
+  const [plan, setPlan] = useState<PlanKey>(org.plan)
+  const [precio, setPrecio] = useState(String(org.precio_anual ?? 0))
+  const [fechaPago, setFechaPago] = useState(org.fecha_proximo_pago ?? '')
+  const [afiMax, setAfiMax] = useState(org.afiliados_max != null ? String(org.afiliados_max) : '')
+  const [notas, setNotas] = useState(org.notas_cobro ?? '')
   const [busy, setBusy] = useState(false)
   const [subiendo, setSubiendo] = useState(false)
   const [error, setError] = useState('')
   const fileRef = useRef<HTMLInputElement>(null)
+
+  // Al cambiar de plan, propone su precio y límite (el usuario puede sobreescribir).
+  function cambiarPlan(k: PlanKey) {
+    setPlan(k)
+    setPrecio(String(PLANES[k].precio))
+    setAfiMax(PLANES[k].max != null ? String(PLANES[k].max) : '')
+  }
 
   async function handleFoto(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -280,7 +439,13 @@ function EditOrgModal({ org, onClose, onSaved }: { org: OrgRow; onClose: () => v
     const rem = correo.trim().toLowerCase()
     if (rem && !/^[^@\s<>"]+@[^@\s<>"]+\.[^@\s<>"]+$/.test(rem)) { setBusy(false); setError('El correo remitente no es válido (ej. notificaciones@sudominio.com).'); return }
     const { error } = await supabase.from('organizations')
-      .update({ nombre: nombre.trim() || org.nombre, logo_url: logoUrl || null, dominio: dom || null, correo_remitente: rem || null })
+      .update({
+        nombre: nombre.trim() || org.nombre, logo_url: logoUrl || null, dominio: dom || null, correo_remitente: rem || null,
+        plan, precio_anual: Math.max(0, Math.round(Number(precio) || 0)),
+        fecha_proximo_pago: fechaPago || null,
+        afiliados_max: afiMax.trim() === '' ? null : Math.max(0, Math.round(Number(afiMax) || 0)),
+        notas_cobro: notas.trim() || null,
+      })
       .eq('id', org.id)
     setBusy(false)
     if (error) setError(error.message)
@@ -316,6 +481,34 @@ function EditOrgModal({ org, onClose, onSaved }: { org: OrgRow; onClose: () => v
             <span className="mt-1 block text-[11px] text-ink/45">Dirección desde la que salen SUS correos. Requiere tener ese dominio verificado en Resend. Si lo dejas vacío, envía con la dirección del sistema pero con el nombre del sindicato.</span>
           </label>
 
+          <div className="rounded-xl border border-ink/10 bg-canvas/50 p-3">
+            <p className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-ink/70"><WalletIcon className="h-3.5 w-3.5" />Suscripción y cobro</p>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="col-span-2 block">
+                <span className="mb-1 block text-[11px] font-medium text-ink/60">Plan</span>
+                <select value={plan} onChange={(e) => cambiarPlan(e.target.value as PlanKey)} className={inputC}>
+                  {(Object.keys(PLANES) as PlanKey[]).map((k) => <option key={k} value={k}>{PLANES[k].label}</option>)}
+                </select>
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-[11px] font-medium text-ink/60">Precio anual (COP)</span>
+                <input value={precio} onChange={(e) => setPrecio(e.target.value.replace(/[^\d]/g, ''))} inputMode="numeric" className={inputC} />
+              </label>
+              <label className="block">
+                <span className="mb-1 block text-[11px] font-medium text-ink/60">Límite afiliados</span>
+                <input value={afiMax} onChange={(e) => setAfiMax(e.target.value.replace(/[^\d]/g, ''))} inputMode="numeric" placeholder="sin límite" className={inputC} />
+              </label>
+              <label className="col-span-2 block">
+                <span className="mb-1 block text-[11px] font-medium text-ink/60">Próximo pago</span>
+                <input type="date" value={fechaPago} onChange={(e) => setFechaPago(e.target.value)} className={inputC} />
+              </label>
+              <label className="col-span-2 block">
+                <span className="mb-1 block text-[11px] font-medium text-ink/60">Nota de cobro (interna)</span>
+                <input value={notas} onChange={(e) => setNotas(e.target.value)} placeholder="ej. paga por transferencia el día 5" className={inputC} />
+              </label>
+            </div>
+          </div>
+
           <div>
             <span className="mb-1.5 block text-xs font-medium text-ink/70">Logo</span>
             <div className="flex items-center gap-3">
@@ -349,5 +542,16 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="mb-1 block text-xs font-medium text-ink/70">{label}</span>
       {children}
     </label>
+  )
+}
+
+function Kpi({ icon, label, value, sub, tone = 'neutral' }: { icon: React.ReactNode; label: string; value: string; sub?: string; tone?: 'neutral' | 'ok' | 'warn' }) {
+  const toneCls = tone === 'ok' ? 'text-emerald-600' : tone === 'warn' ? 'text-amber-600' : 'text-night'
+  return (
+    <div className="rounded-xl border border-ink/[0.08] bg-white p-3.5 shadow-sm">
+      <div className="flex items-center gap-1.5 text-xs text-ink/50"><span className={toneCls}>{icon}</span>{label}</div>
+      <p className="mt-1.5 font-display text-xl font-semibold text-ink">{value}</p>
+      {sub ? <p className="mt-0.5 text-[11px] text-ink/40">{sub}</p> : null}
+    </div>
   )
 }
