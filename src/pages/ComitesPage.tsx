@@ -4,7 +4,7 @@ import { SectionTitle } from '../components/SectionTitle'
 import { useDemo } from '../store/DemoStore'
 import { useSession } from '../store/session'
 import { Committee, memberCount } from '../store/committees'
-import { dayMonthFromISO, meetingPlaces } from '../store/governance'
+import { dayMonthFromISO } from '../store/governance'
 
 export function ComitesPage() {
   const { committees, stats } = useDemo()
@@ -113,7 +113,7 @@ function CommitteeForm({ committee, onClose }: { committee?: Committee; onClose:
   const [members, setMembers] = useState<string[]>(Array.isArray(committee?.members) ? committee!.members : [])
   const [pick, setPick] = useState('')
   const [date, setDate] = useState('')
-  const [place, setPlace] = useState(meetingPlaces[0])
+  const [place, setPlace] = useState('')
 
   const valid = name.trim() !== ''
   const available = affiliates.filter((a) => a.name !== lead && !members.includes(a.name))
@@ -196,9 +196,7 @@ function CommitteeForm({ committee, onClose }: { committee?: Committee; onClose:
             </label>
             <label className="block">
               <span className="mb-1.5 block text-xs font-semibold text-ink/70">Lugar</span>
-              <select value={place} onChange={(e) => setPlace(e.target.value)} className={inputClass}>
-                {meetingPlaces.map((p) => <option key={p} value={p}>{p}</option>)}
-              </select>
+              <input value={place} onChange={(e) => setPlace(e.target.value)} placeholder="Ej. Sede sindical, salón comunal, virtual…" className={inputClass} />
             </label>
           </div>
         </div>
