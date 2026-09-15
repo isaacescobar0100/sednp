@@ -18,6 +18,9 @@
     <script>
       (function () {
         try {
+          // En el host de plataforma / entrada de admin, la pestaña es Sindika:
+          // no se aplica ninguna marca de sindicato cacheada.
+          if (/^(sindika|admin)\./i.test(location.hostname) || location.pathname === '/admin' || location.pathname.indexOf('/admin/') === 0) return
           var raw = localStorage.getItem('tenantBrand:' + location.hostname)
           if (!raw) return
           var b = JSON.parse(raw)

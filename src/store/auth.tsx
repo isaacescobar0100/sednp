@@ -5,7 +5,8 @@ import { Role } from './session'
 import { setMarca, setPlantillaBienvenida } from './emailApi'
 import { setReferencias } from './referencias'
 import { setOrgActual } from './storageApi'
-import { guardarMarca } from './brandCache'
+import { guardarMarca, limpiarMarca } from './brandCache'
+import { esHostPlataforma } from './platform'
 
 // Autenticación real con Supabase. El rol de la persona vive en la tabla
 // `profiles` (creada por un trigger al registrarse). 'afiliado' usa el portal;
@@ -74,8 +75,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setMarca((o?.nombre as string | undefined) || null, (o?.correo_remitente as string | undefined) || null, (o?.logo_url as string | undefined) || null)
       setPlantillaBienvenida((o?.mensaje_bienvenida as string | undefined) || null)
       setReferencias(refs)
-      // Recuerda la marca (evita el parpadeo del logo al recargar).
-      if (o?.nombre) guardarMarca(o.nombre as string, (o.logo_url as string | null) ?? '')
+      // Recuerda la marca (evita el parpadeo del logo al recargar), PERO nunca en
+      // el host de plataforma (ahí manda Sindika; guardar el org del admin haría
+      // que la pestaña mostrara ese sindicato). Ahí se limpia cualquier marca vieja.
+      if (esHostPlataforma()) limpiarMarca()
+      else if (o?.nombre) guardarMarca(o.nombre as string, (o.logo_url as string | null) ?? '')
     } catch {
       // Si la consulta falla (red/RLS), no dejamos la app colgada: perfil mínimo.
       setProfile({ id: s.user.id, full_name: meta, role: 'afiliado', initials: initialsOf(meta, s.user.email ?? ''), platformAdmin: false, fotoUrl: '' })
