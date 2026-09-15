@@ -18,7 +18,9 @@ jobs:
           node-version: 20
           cache: npm
       - name: Instalar dependencias
-        run: npm ci
+        # --legacy-peer-deps: vitest 2.x declara un peer de vite distinto al 5.3.x
+        # del proyecto; sin la bandera, la instalación falla por ERESOLVE.
+        run: npm install --legacy-peer-deps --no-audit --no-fund
       - name: Type-check (TypeScript)
         run: npx tsc --noEmit -p tsconfig.json
       - name: Tests (Vitest)
