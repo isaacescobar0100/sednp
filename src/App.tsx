@@ -131,12 +131,15 @@ function Root() {
 
   // Pestaña del navegador (título + favicon) según el sindicato; si no, Sindika.
   useEffect(() => {
-    document.title = org?.nombre || marcaCacheada()?.nombre || 'Sindika'
-    const href = org?.logoUrl || logoCacheado()
+    // El administrador de la plataforma SIEMPRE ve la marca Sindika en la pestaña,
+    // aunque su cuenta pertenezca a un sindicato. Los demás ven la de su sindicato.
+    const esAdmin = Boolean(profile?.platformAdmin)
+    document.title = esAdmin ? 'Sindika' : (org?.nombre || marcaCacheada()?.nombre || 'Sindika')
+    const href = esAdmin ? '/sindika.png' : (org?.logoUrl || logoCacheado())
     let link = document.querySelector<HTMLLinkElement>("link[rel='icon']")
     if (!link) { link = document.createElement('link'); link.rel = 'icon'; document.head.appendChild(link) }
     link.href = href
-  }, [org])
+  }, [org, profile?.platformAdmin])
 
   if (loading) return <Splash />
   if (!session) return <AuthScreen />
