@@ -46,6 +46,7 @@ const KNOWN_ROOTS = ['inicio', 'blog', 'anuncios', 'documentos', 'contacto']
 
 export function PublicSite({ onEnter }: { onEnter: () => void }) {
   const [slug, setSlug] = useState('')
+  const [noEncontrado, setNoEncontrado] = useState(false)
   // Inicia con la marca cacheada (si existe) para no parpadear el logo al recargar.
   const [org, setOrg] = useState<{ nombre: string; logo: string }>(() => {
     const c = marcaCacheada()

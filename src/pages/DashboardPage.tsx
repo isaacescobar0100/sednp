@@ -1,5 +1,5 @@
 import React from 'react'
-import { ArrowDownLeftIcon, ArrowUpRightIcon, CalendarDaysIcon, CircleDollarSignIcon, LucideIcon, ScaleIcon, UsersRoundIcon, VoteIcon, WalletCardsIcon } from 'lucide-react'
+import { ArrowDownLeftIcon, ArrowUpRightIcon, CalendarDaysIcon, CircleDollarSignIcon, LucideIcon, RocketIcon, ScaleIcon, UsersRoundIcon, VoteIcon, WalletCardsIcon } from 'lucide-react'
 import { Area, AreaChart, Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { MetricCard } from '../components/MetricCard'
 import { SectionTitle } from '../components/SectionTitle'
@@ -18,6 +18,9 @@ export function DashboardPage() {
   const hora = new Date().getHours()
   const saludo = hora < 12 ? 'Buenos días' : hora < 19 ? 'Buenas tardes' : 'Buenas noches'
   const openBallots = ballots.filter((b) => b.status === 'En curso').length
+  // Sindicato recién creado (sin afiliados): muestra la guía de primeros pasos
+  // a quien puede configurarlo (directiva con acceso a Parámetros).
+  const esNuevo = affiliates.length === 0 && canSeeModule('parametros')
   const showVoteAlert = canSeeModule('gobernanza') && openBallots > 0
   const upcomingSessions = sessions.filter((s) => s.status === 'Programada').slice(0, 4)
   const revenue = monthlyFlow(movements)
@@ -58,6 +61,32 @@ export function DashboardPage() {
   return (
     <div className="mx-auto max-w-[1440px]">
       <SectionTitle eyebrow="Resumen institucional" title={`${saludo}, ${firstName}`} description="Resumen en tiempo real de la organización." />
+
+      {esNuevo ? (
+        <div className="mb-6 rounded-2xl border border-night/15 bg-night/[0.03] p-5">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-night/10 text-night"><RocketIcon className="h-5 w-5" /></div>
+            <div>
+              <h2 className="font-display text-base font-semibold text-ink">¡Bienvenido! Primeros pasos</h2>
+              <p className="mt-0.5 text-xs text-ink/55">Tu sistema está listo y vacío. Te sugerimos configurarlo en este orden:</p>
+            </div>
+          </div>
+          <ol className="mt-4 grid gap-2 sm:grid-cols-2">
+            {[
+              'Sube tu logo y datos en Parámetros',
+              'Configura la cuota, el SMMLV y las referencias de tus estatutos',
+              'Ajusta los catálogos: cargos, dependencias y escalas salariales',
+              'Crea las cuentas de la directiva (Secretaría, Tesorería, Fiscal…)',
+              'Registra tus afiliados o comparte el link de auto-afiliación',
+            ].map((t, i) => (
+              <li key={t} className="flex items-start gap-2.5 rounded-xl bg-white px-3 py-2.5 text-sm">
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-night text-[11px] font-bold text-white">{i + 1}</span>
+                <span className="text-ink/70">{t}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      ) : null}
 
       {showVoteAlert ? (
         <div className="mb-6 flex items-center gap-3 rounded-2xl border border-gold/30 bg-gold/[0.08] px-5 py-4">
