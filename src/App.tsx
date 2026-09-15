@@ -9,7 +9,7 @@ import { SuperAdminScreen } from './components/SuperAdminPanel'
 import { PublicRegistroPage } from './pages/PublicRegistroPage'
 import { PublicSite } from './components/PublicSite'
 import { logoCacheado, marcaCacheada } from './store/brandCache'
-import { esEntradaAdmin, hostPerteneceASindicato, urlDeSindicato } from './store/platform'
+import { esEntradaAdmin, esHostPlataforma, hostPerteneceASindicato, urlDeSindicato } from './store/platform'
 import { ModuleKey, ModuleMeta } from './types/navigation'
 
 // Carga diferida por módulo (code-splitting): cada página se descarga solo
@@ -133,7 +133,9 @@ function Root() {
   useEffect(() => {
     // El administrador de la plataforma SIEMPRE ve la marca Sindika en la pestaña,
     // aunque su cuenta pertenezca a un sindicato. Los demás ven la de su sindicato.
-    const esAdmin = Boolean(profile?.platformAdmin)
+    // Marca Sindika si eres admin O estás en el host de plataforma (aunque el
+    // perfil aún no cargue), para que la pestaña nunca muestre un sindicato ahí.
+    const esAdmin = Boolean(profile?.platformAdmin) || esHostPlataforma()
     document.title = esAdmin ? 'Sindika' : (org?.nombre || marcaCacheada()?.nombre || 'Sindika')
     const href = esAdmin ? '/sindika.png' : (org?.logoUrl || logoCacheado())
     let link = document.querySelector<HTMLLinkElement>("link[rel='icon']")

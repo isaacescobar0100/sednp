@@ -32,3 +32,9 @@ export function guardarMarca(nombre?: string | null, logo?: string | null): void
     localStorage.setItem(clave(), JSON.stringify({ nombre: (nombre || '').trim(), logo: (logo || '').trim() }))
   } catch { /* sin storage */ }
 }
+
+// Borra la marca cacheada de este dominio (p. ej. en el host de plataforma, para
+// que la pestaña no muestre un sindicato).
+export function limpiarMarca(): void {
+  try { localStorage.removeItem(clave()) } catch { /* sin storage */ }
+}
