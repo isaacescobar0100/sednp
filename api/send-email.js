@@ -61,6 +61,10 @@ export default async function handler(req, res) {
       headers: { apikey: supaKey, Authorization: `Bearer ${token}` },
     })
     if (!u.ok) { res.status(401).json({ error: 'Sesión inválida' }); return }
+    // Nota: /api/send-email queda abierto a cualquier sesión válida porque el
+    // afiliado dispara legítimamente un correo (agradecimiento al pagar su aporte
+    // desde el portal). Es 1 correo por llamada; el envío masivo (boletin) sí
+    // exige rol directivo. El abuso de 1-a-1 se limita con rate-limit de Resend.
   } catch {
     res.status(401).json({ error: 'No se pudo validar la sesión' })
     return

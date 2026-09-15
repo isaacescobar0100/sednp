@@ -62,6 +62,11 @@ export default async function handler(req, res) {
   try {
     const u = await fetch(`${supaUrl}/auth/v1/user`, { headers: { apikey: supaKey, Authorization: `Bearer ${token}` } })
     if (!u.ok) { res.status(401).json({ error: 'Sesión inválida' }); return }
+    // Solo la directiva (no afiliados) puede enviar boletines masivos.
+    const uid = (await u.json())?.id
+    const p = await fetch(`${supaUrl}/rest/v1/profiles?select=role,platform_admin&id=eq.${uid}`, { headers: { apikey: supaKey, Authorization: `Bearer ${token}` } })
+    const prof = (await p.json().catch(() => []))?.[0]
+    if (!prof || (prof.role === 'afiliado' && !prof.platform_admin)) { res.status(403).json({ error: 'No tienes permiso para enviar boletines.' }); return }
   } catch { res.status(401).json({ error: 'No se pudo validar la sesión' }); return }
 
   let body = req.body
