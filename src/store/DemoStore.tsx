@@ -861,6 +861,9 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     // que serializar todo el estado era trabajo perdido y arriesgaba el cupo de
     // localStorage con un padrón grande. Además se hace con retardo (debounce)
     // para no serializar en cada pulsación.
+    // Al cerrar sesión se LIMPIA la caché local (higiene en equipos compartidos):
+    // no dejamos catálogos/caja del sindicato anterior para el siguiente usuario.
+    if (!session) { try { localStorage.removeItem(STORAGE_KEY) } catch { /* sin storage */ } return }
     const id = window.setTimeout(() => {
       try {
         const persisted = {
@@ -883,7 +886,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       }
     }, 400)
     return () => window.clearTimeout(id)
-  }, [state])
+  }, [state, session])
 
   const notify = useCallback((message: string, tone: Toast['tone'] = 'success') => {
     setToastSeq((seq) => {
