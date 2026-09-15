@@ -16,6 +16,8 @@
 // Si EMAIL_FROM no está, cae al remitente de prueba de Resend.
 // Deriva una versión de texto plano del HTML (mejora la entrega a Principal y
 // las notificaciones: Gmail prefiere correos con parte de texto + HTML).
+import { rateLimited, clientIp } from './_rateLimit.js'
+
 function htmlAtexto(html) {
   return String(html || '')
     .replace(/<style[\s\S]*?<\/style>/gi, '')
@@ -38,6 +40,10 @@ function componerFrom(base, fromName, fromEmail) {
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     res.status(405).json({ error: 'Método no permitido' })
+    return
+  }
+  if (rateLimited(`send-email:${clientIp(req)}`, 20, 60_000)) {
+    res.status(429).json({ error: 'Demasiadas solicitudes. Intenta en un momento.' })
     return
   }
 
