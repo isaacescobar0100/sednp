@@ -86,33 +86,37 @@ export function ReportesPage() {
 
       <div className="mt-6 grid gap-6 xl:grid-cols-2">
         <ReportCard title="Afiliados por estado" detail="Distribución actual del padrón">
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={affiliatesByStatus} margin={{ top: 8, right: 5, bottom: 0, left: -20 }}>
-                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#768094' }} axisLine={false} tickLine={false} />
-                <YAxis tick={{ fontSize: 11, fill: '#768094' }} axisLine={false} tickLine={false} allowDecimals={false} />
-                <Tooltip formatter={(v: number) => [`${v} afiliados`, '']} contentStyle={{ borderRadius: 12, border: '1px solid #e8e7e2', fontSize: 12 }} cursor={{ fill: '#F7F6F2' }} />
-                <Bar dataKey="value" radius={[5, 5, 0, 0]} barSize={40}>
-                  {affiliatesByStatus.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          {stats.total > 0 ? (
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={affiliatesByStatus} margin={{ top: 8, right: 5, bottom: 0, left: -20 }}>
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#768094' }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fontSize: 11, fill: '#768094' }} axisLine={false} tickLine={false} allowDecimals={false} />
+                  <Tooltip formatter={(v: number) => [`${v} afiliados`, '']} contentStyle={{ borderRadius: 12, border: '1px solid #e8e7e2', fontSize: 12 }} cursor={{ fill: '#F7F6F2' }} />
+                  <Bar dataKey="value" radius={[5, 5, 0, 0]} barSize={40}>
+                    {affiliatesByStatus.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : <GraficoVacio>Aún no hay afiliados registrados.</GraficoVacio>}
         </ReportCard>
 
         <ReportCard title="Comparativo financiero" detail="Millones COP · en tiempo real">
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={financeCompare} margin={{ top: 8, right: 5, bottom: 0, left: -20 }}>
-                <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#768094' }} axisLine={false} tickLine={false} />
-                <YAxis tickFormatter={(v) => `$${v}M`} tick={{ fontSize: 11, fill: '#768094' }} axisLine={false} tickLine={false} />
-                <Tooltip formatter={(v: number) => [`$${v} M`, '']} contentStyle={{ borderRadius: 12, border: '1px solid #e8e7e2', fontSize: 12 }} cursor={{ fill: '#F7F6F2' }} />
-                <Bar dataKey="value" radius={[5, 5, 0, 0]} barSize={40}>
-                  {financeCompare.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+          {(financeStats.income || financeStats.expensesPaid || financeStats.pendingAmount) ? (
+            <div className="h-64">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={financeCompare} margin={{ top: 8, right: 5, bottom: 0, left: -20 }}>
+                  <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#768094' }} axisLine={false} tickLine={false} />
+                  <YAxis tickFormatter={(v) => `$${v}M`} tick={{ fontSize: 11, fill: '#768094' }} axisLine={false} tickLine={false} />
+                  <Tooltip formatter={(v: number) => [`$${v} M`, '']} contentStyle={{ borderRadius: 12, border: '1px solid #e8e7e2', fontSize: 12 }} cursor={{ fill: '#F7F6F2' }} />
+                  <Bar dataKey="value" radius={[5, 5, 0, 0]} barSize={40}>
+                    {financeCompare.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : <GraficoVacio>Aún no hay movimientos financieros.</GraficoVacio>}
         </ReportCard>
       </div>
 
@@ -138,6 +142,16 @@ function ReportCard({ title, detail, children }: { title: string; detail: string
       <p className="mt-1 text-xs text-ink/50">{detail}</p>
       <div className="mt-4">{children}</div>
     </section>
+  )
+}
+
+// Estado vacío para los gráficos cuando el sindicato aún no tiene datos.
+function GraficoVacio({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex h-64 flex-col items-center justify-center gap-1 rounded-xl bg-canvas/50 text-center">
+      <p className="text-sm text-ink/45">{children}</p>
+      <p className="text-[11px] text-ink/35">Aquí verás el gráfico cuando haya información.</p>
+    </div>
   )
 }
 
