@@ -359,16 +359,25 @@ function RecaudoCard() {
   const { org, refreshProfile } = useAuth()
   const [modo, setModo] = useState(org?.modoRecaudo ?? 'nomina')
   const [instrucciones, setInstrucciones] = useState(org?.instruccionesPago ?? '')
+  const [wPublic, setWPublic] = useState('')
+  const [wIntegrity, setWIntegrity] = useState('')
   const [busy, setBusy] = useState(false)
   const [estado, setEstado] = useState<{ ok: boolean; msg: string } | null>(null)
 
   async function guardar() {
     setBusy(true); setEstado(null)
     const { error } = await supabase.rpc('set_recaudo', { p_modo: modo, p_instrucciones: modo === 'nomina' ? null : instrucciones })
+    if (error) { setBusy(false); setEstado({ ok: false, msg: error.message }); return }
+    // Si eligió PSE y escribió llaves de Wompi, las guarda (el secreto queda solo
+    // en el servidor; si lo deja vacío, se conserva el que ya estuviera guardado).
+    if (modo === 'pse' && (wPublic.trim() || wIntegrity.trim())) {
+      const { error: e2 } = await supabase.rpc('set_wompi', { p_public: wPublic.trim(), p_integrity: wIntegrity.trim() })
+      if (e2) { setBusy(false); setEstado({ ok: false, msg: e2.message }); return }
+    }
     setBusy(false)
-    if (error) { setEstado({ ok: false, msg: error.message }); return }
+    setWIntegrity('')
     await refreshProfile()
-    setEstado({ ok: true, msg: 'Modo de recaudo guardado.' })
+    setEstado({ ok: true, msg: 'Recaudo guardado.' })
   }
 
   return (
@@ -391,6 +400,21 @@ function RecaudoCard() {
       ) : (
         <p className="mt-3 rounded-lg bg-canvas/60 px-3 py-2 text-[11px] text-ink/55">Con <b>nómina</b>, el afiliado solo ve su estado de cuenta; no paga desde la app. La Tesorería registra los descuentos (concilia el reporte de la pagaduría) desde el módulo Financiero.</p>
       )}
+      {modo === 'pse' ? (
+        <div className="mt-3 rounded-xl border border-night/15 bg-night/[0.03] p-3">
+          <p className="text-xs font-semibold text-night">Pasarela Wompi (pago con PSE / tarjeta)</p>
+          <p className="mt-0.5 text-[11px] text-ink/55">Conecta la cuenta Wompi <b>del sindicato</b>: el dinero llega a esa cuenta. Copia las llaves desde tu panel de Wompi → Desarrolladores. {org?.wompiActiva ? <span className="text-emerald-700">Ya hay una pasarela configurada.</span> : null}</p>
+          <label className="mt-2.5 block">
+            <span className="mb-1 block text-[11px] font-medium text-ink/70">Llave pública (pub_test_… o pub_prod_…)</span>
+            <input value={wPublic} onChange={(e) => setWPublic(e.target.value)} placeholder="pub_test_XXXXXXXX" className="w-full rounded-xl border border-ink/12 bg-white px-3 py-2 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
+          </label>
+          <label className="mt-2 block">
+            <span className="mb-1 block text-[11px] font-medium text-ink/70">Secreto de integridad (queda solo en el servidor)</span>
+            <input value={wIntegrity} onChange={(e) => setWIntegrity(e.target.value)} type="password" placeholder={org?.wompiActiva ? 'Déjalo vacío para conservar el actual' : 'test_integrity_XXXX / prod_integrity_XXXX'} className="w-full rounded-xl border border-ink/12 bg-white px-3 py-2 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
+          </label>
+          <p className="mt-2 text-[11px] text-ink/45">Sugerencia: prueba primero con las llaves <b>de pruebas</b> (pub_test_ / test_integrity_) antes de poner las de producción.</p>
+        </div>
+      ) : null}
       {estado ? <p className={`mt-2 text-xs ${estado.ok ? 'text-emerald-700' : 'text-brick'}`}>{estado.msg}</p> : null}
       <div className="mt-3 flex justify-end">
         <button onClick={guardar} disabled={busy} className="inline-flex items-center gap-1.5 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-50">{busy ? 'Guardando…' : 'Guardar recaudo'}</button>

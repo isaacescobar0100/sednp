@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { BadgeCheckIcon, Building2Icon, BriefcaseIcon, CalendarDaysIcon, CameraIcon, CheckCircle2Icon, CircleDollarSignIcon, DownloadIcon, FileTextIcon, HashIcon, IdCardIcon, LogOutIcon, MailIcon, MapPinIcon, PhoneIcon, TagIcon, UserRoundIcon, VoteIcon, WalletIcon } from 'lucide-react'
 import { useDemo } from '../store/DemoStore'
 import { useAuth } from '../store/auth'
@@ -10,6 +10,7 @@ import { Doc, formatFileSize } from '../store/documents'
 import { abrirSoporte } from '../store/storageApi'
 import { periodLabel } from '../store/contributions'
 import { formatCop } from '../store/finance'
+import { supabase } from '../lib/supabase'
 
 type Tab = 'perfil' | 'aportes' | 'votaciones' | 'comunicados' | 'documentos'
 
@@ -200,10 +201,61 @@ function InfoCard({ title, icon: Icon, items, columns = 2 }: { title: string; ic
 }
 
 function MisAportes({ affiliateId }: { affiliateId: string }) {
-  const { aportes, payAporte } = useDemo()
+  const { aportes, payAporte, refreshAportes, notify } = useDemo()
   const { org } = useAuth()
   const esNomina = (org?.modoRecaudo ?? 'nomina') === 'nomina'
+  const esPse = org?.modoRecaudo === 'pse' && Boolean(org?.wompiActiva)
+  const [pagando, setPagando] = useState<string | null>(null)
   const mine = aportes.filter((a) => a.affiliateId === affiliateId).sort((x, y) => (x.period < y.period ? 1 : -1))
+
+  // Redirige a Wompi para pagar un aporte con PSE/tarjeta. La firma la calcula el
+  // servidor (/api/wompi-checkout); aquí solo mandamos el id del aporte.
+  async function pagarPse(aporteId: string) {
+    setPagando(aporteId)
+    try {
+      const { data: sess } = await supabase.auth.getSession()
+      const token = sess.session?.access_token
+      const r = await fetch('/api/wompi-checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token ?? ''}` },
+        body: JSON.stringify({ aporteId }),
+      })
+      const j = await r.json()
+      if (!r.ok || !j.checkoutUrl) { notify(j.error || 'No se pudo iniciar el pago.', 'warning'); setPagando(null); return }
+      window.location.href = j.checkoutUrl
+    } catch {
+      notify('No se pudo conectar con la pasarela de pago.', 'warning'); setPagando(null)
+    }
+  }
+
+  // Al volver de Wompi (…/?wompi=1&id=TX), verificamos con el servidor si quedó
+  // aprobado y marcamos el aporte pagado. Confía en /api/wompi-confirm, no en la URL.
+  useEffect(() => {
+    const p = new URLSearchParams(window.location.search)
+    const tx = p.get('id')
+    if (p.get('wompi') !== '1' || !tx) return
+    ;(async () => {
+      try {
+        const { data: sess } = await supabase.auth.getSession()
+        const token = sess.session?.access_token
+        const r = await fetch('/api/wompi-confirm', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token ?? ''}` },
+          body: JSON.stringify({ transactionId: tx }),
+        })
+        const j = await r.json()
+        if (r.ok && j.paid) { notify('¡Pago aprobado! Tu aporte quedó registrado.', 'success'); await refreshAportes() }
+        else if (r.ok) notify('El pago no se completó (estado: ' + (j.status || 'desconocido') + ').', 'warning')
+        else notify(j.error || 'No se pudo verificar el pago.', 'warning')
+      } catch {
+        notify('No se pudo verificar el pago.', 'warning')
+      } finally {
+        window.history.replaceState(null, '', window.location.pathname)
+      }
+    })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   const pendiente = mine.filter((a) => a.status === 'Pendiente').reduce((s, a) => s + a.amount, 0)
   const pagadoTotal = mine.filter((a) => a.status === 'Pagado').reduce((s, a) => s + a.amount, 0)
   const alDia = pendiente === 0
@@ -268,6 +320,8 @@ function MisAportes({ affiliateId }: { affiliateId: string }) {
                   <StatusBadge tone="positive">Pagado</StatusBadge>
                 ) : esNomina ? (
                   <span className="shrink-0 rounded-lg bg-ink/5 px-2.5 py-1 text-[11px] font-semibold text-ink/50">Por descontar (nómina)</span>
+                ) : esPse ? (
+                  <button onClick={() => pagarPse(a.id)} disabled={pagando === a.id} className="shrink-0 rounded-xl bg-night px-4 py-2 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-50">{pagando === a.id ? 'Abriendo…' : 'Pagar con PSE'}</button>
                 ) : (
                   <button onClick={() => payAporte(a.id, 'Portal')} className="shrink-0 rounded-xl bg-night px-4 py-2 text-sm font-semibold text-white transition hover:bg-night-deep">Registrar pago</button>
                 )}

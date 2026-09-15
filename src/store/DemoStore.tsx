@@ -689,6 +689,7 @@ type DemoContextValue = {
   porcentajeCuota: number
   generateAportes: (period: string) => void
   payAporte: (id: string, method: AporteMethod) => void
+  refreshAportes: () => Promise<void>
   decretarExtraordinaria: (period: string, pct: number, acta: string) => void
   anticiparAporte: (id: string) => void
   setPorcentajeCuota: (value: number) => void
@@ -1367,6 +1368,10 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
     notify(method === 'Portal' ? 'Pago de aporte registrado. ¡Gracias!' : 'Aporte marcado como pagado.', 'success')
   }, [notify])
 
+  // Recarga los aportes desde el servidor (p. ej. tras confirmar un pago con PSE,
+  // que lo marca la función serverless con el service role).
+  const refreshAportes = useCallback(() => fetchAportes().then((list) => dispatch({ type: 'setAportes', list })).catch(() => {}), [])
+
   const decretarExtraordinaria = useCallback((period: string, pct: number, acta: string) => {
     const p = Math.min(TOPE_EXTRAORDINARIA, Math.max(0, pct))
     const yaCon = new Set(aportesRef.current.filter((a) => a.tipo === 'Extraordinaria' && a.period === period && a.acta === acta).map((a) => a.affiliateId))
@@ -1561,6 +1566,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       porcentajeCuota: state.porcentajeCuota,
       generateAportes,
       payAporte,
+      refreshAportes,
       decretarExtraordinaria,
       anticiparAporte,
       setPorcentajeCuota,
