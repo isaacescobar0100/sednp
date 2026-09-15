@@ -68,15 +68,17 @@ export function PublicSite({ onEnter }: { onEnter: () => void }) {
     return () => window.removeEventListener('popstate', onPop)
   }, [])
 
-  // Resuelve el sindicato del sitio: por ?org=slug, luego por el DOMINIO (host),
-  // y si no, SERDNP por defecto.
+  // Resuelve el sindicato del sitio: por ?org=slug o por el DOMINIO (host).
+  // Si el subdominio/dominio no corresponde a ningún sindicato → "no encontrado"
+  // (ya NO cae a un sindicato por defecto).
   useEffect(() => {
     let on = true
     const paramOrg = new URLSearchParams(window.location.search).get('org') || null
     supabase.rpc('sitio_publico', { p_host: window.location.hostname, p_slug: paramOrg }).then(({ data }) => {
       if (!on) return
       const d = (data || {}) as { slug?: string; nombre?: string; logoUrl?: string }
-      setSlug(d.slug || 'serdnp')
+      if (!d.slug) { setNoEncontrado(true); return }
+      setSlug(d.slug)
       setOrg({ nombre: d.nombre || 'Sindicato', logo: d.logoUrl || '' })
       guardarMarca(d.nombre || '', d.logoUrl || '')
     })
@@ -138,6 +140,18 @@ export function PublicSite({ onEnter }: { onEnter: () => void }) {
   }, [articulos])
   const afiliarseUrl = `${window.location.origin}/?afiliacion=${encodeURIComponent(slug)}`
   const logo = org.logo || '/sindika.png'
+
+  // Subdominio/dominio que no corresponde a ningún sindicato.
+  if (noEncontrado) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-canvas p-6 text-center">
+        <img src="/sindika.png" alt="Sindika" className="h-14 w-auto object-contain" />
+        <h1 className="font-display text-xl font-semibold text-ink">Este sitio no existe</h1>
+        <p className="max-w-md text-sm text-ink/60">La dirección que abriste no corresponde a ningún sindicato. Verifica el enlace, o conoce la plataforma.</p>
+        <a href="https://sindika.acordemusic.com/landing" className="rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep">Conocer Sindika</a>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-canvas">
