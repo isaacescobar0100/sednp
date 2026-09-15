@@ -321,7 +321,7 @@ function MisAportes({ affiliateId }: { affiliateId: string }) {
       ) : esPse ? (
         <div className="rounded-xl border border-night/15 bg-night/[0.03] px-4 py-3 text-xs text-ink/70">
           <p className="mb-1 font-semibold text-ink">Pago en línea con PSE</p>
-          <p>Usa <strong>“Pagar con PSE”</strong> en cada aporte pendiente. Se cobra el <strong>valor exacto</strong> del aporte y queda registrado automáticamente.</p>
+          <p>Usa <strong>“Pagar con PSE”</strong> en cada aporte pendiente. Se cobra el <strong>valor exacto</strong> y queda registrado automáticamente. Si pagaste y no se reflejó, usa el <strong>clip 📎</strong> del aporte para subir tu comprobante.</p>
         </div>
       ) : org?.instruccionesPago ? (
         <div className="rounded-xl border border-night/15 bg-night/[0.03] px-4 py-3 text-xs text-ink/70">
@@ -355,7 +355,10 @@ function MisAportes({ affiliateId }: { affiliateId: string }) {
                 ) : esNomina ? (
                   <span className="shrink-0 rounded-lg bg-ink/5 px-2.5 py-1 text-[11px] font-semibold text-ink/50">Por descontar (nómina)</span>
                 ) : esPse ? (
-                  <button onClick={() => pagarPse(a.id)} disabled={pagando === a.id} className="shrink-0 rounded-xl bg-night px-4 py-2 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-50">{pagando === a.id ? 'Abriendo…' : 'Pagar con PSE'}</button>
+                  <div className="flex shrink-0 items-center gap-1.5">
+                    <button onClick={() => pagarPse(a.id)} disabled={pagando === a.id} className="rounded-xl bg-night px-4 py-2 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-50">{pagando === a.id ? 'Abriendo…' : 'Pagar con PSE'}</button>
+                    <button onClick={() => { setCompFor(a.id); setCompFile(null) }} title="Ya pagué y no se reflejó — subir comprobante" className="rounded-xl border border-ink/15 p-2 text-ink/55 transition hover:border-night hover:text-night"><PaperclipIcon className="h-4 w-4" /></button>
+                  </div>
                 ) : (
                   <button onClick={() => { setCompFor(a.id); setCompFile(null) }} className="shrink-0 rounded-xl bg-night px-4 py-2 text-sm font-semibold text-white transition hover:bg-night-deep">Ya pagué · subir comprobante</button>
                 )}
