@@ -7,11 +7,13 @@
 //   VAPID_PUBLIC_KEY   (opcional; por defecto la clave pública incluida abajo)
 //   VAPID_SUBJECT      (opcional; por defecto mailto:no-responder@acordemusic.com)
 import webpush from 'web-push'
+import { rateLimited, clientIp } from './_rateLimit.js'
 
 const PUBLIC_DEFAULT = 'BFXJ0q6YKT9lOp8xoYS9PZljcSCRk1GQVOh68rj65dYsSrQe87Tu5WCKDYLvVvJiarXjn4MNpL9JQxIVsgJyrCI'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') { res.status(405).json({ error: 'Método no permitido' }); return }
+  if (rateLimited(`push:${clientIp(req)}`, 10, 60_000)) { res.status(429).json({ error: 'Demasiadas solicitudes. Intenta en un momento.' }); return }
 
   const privateKey = process.env.VAPID_PRIVATE_KEY
   const publicKey = process.env.VAPID_PUBLIC_KEY || PUBLIC_DEFAULT

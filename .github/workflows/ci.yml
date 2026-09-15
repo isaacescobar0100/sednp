@@ -21,5 +21,7 @@ jobs:
         run: npm ci
       - name: Type-check (TypeScript)
         run: npx tsc --noEmit -p tsconfig.json
+      - name: Tests (Vitest)
+        run: npm test
       - name: Build (Vite)
         run: npm run build

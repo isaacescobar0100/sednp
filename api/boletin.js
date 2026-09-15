@@ -10,6 +10,8 @@
 // tiene dominio verificado, o la global de EMAIL_FROM. Resend rechaza dominios
 // no verificados, así que no permite suplantar dominios ajenos.
 const EMAIL_RE = /^[^@\s<>"]+@[^@\s<>"]+\.[^@\s<>"]+$/
+import { rateLimited, clientIp } from './_rateLimit.js'
+
 function componerFrom(base, fromName, fromEmail) {
   const def = base || 'SERDNP <onboarding@resend.dev>'
   const m = def.match(/<([^>]+)>/)
@@ -49,6 +51,7 @@ async function enviarLote(apiKey, emails) {
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') { res.status(405).json({ error: 'Método no permitido' }); return }
+  if (rateLimited(`boletin:${clientIp(req)}`, 5, 60_000)) { res.status(429).json({ error: 'Demasiados envíos seguidos. Espera un minuto.' }); return }
 
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) { res.status(500).json({ error: 'Falta RESEND_API_KEY en el servidor.' }); return }
