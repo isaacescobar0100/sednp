@@ -69,20 +69,21 @@ const roleModules: Record<Role, ModuleKey[]> = {
 
 type DemoUser = { name: string; initials: string }
 
-// Junta Directiva Nacional real (Resolución No. 011 de 2026).
+// Etiqueta genérica por cargo (respaldo cuando la sesión no trae el nombre real
+// del perfil). No contiene nombres de personas: cada sindicato tiene los suyos.
 const roleUser: Record<Role, DemoUser> = {
-  presidencia: { name: 'Heisson G. Cifuentes Meneses', initials: 'HC' },
-  vicepresidencia: { name: 'Zulay Olarte Bermúdez', initials: 'ZO' },
-  secretaria: { name: 'Ludy Maritza Montoya Roberto', initials: 'LM' },
-  tesoreria: { name: 'Lina María Ocampo Palacio', initials: 'LO' },
-  fiscal: { name: 'Nini Dahyana Idarraga Garay', initials: 'NI' },
+  presidencia: { name: 'Presidencia', initials: 'PR' },
+  vicepresidencia: { name: 'Vicepresidencia', initials: 'VP' },
+  secretaria: { name: 'Secretaría', initials: 'SE' },
+  tesoreria: { name: 'Tesorería', initials: 'TE' },
+  fiscal: { name: 'Fiscalía', initials: 'FI' },
 }
 
-// Junta Directiva Nacional (Art. 13): cada cargo tiene principal y suplente.
-// Los principales provienen de la Resolución 011; los suplentes se designan.
+// Composición de la Junta Directiva: cada cargo con principal y suplente.
+// Los nombres los designa cada sindicato (no vienen precargados).
 export const juntaDirectiva = roles.map((r) => ({
   cargo: roleLabel[r],
-  principal: roleUser[r].name,
+  principal: 'Por designar',
   suplente: 'Por designar',
 }))
 

@@ -83,15 +83,6 @@ export function seedSessions(): GovSession[] {
   return []
 }
 
-// Sesiones de ejemplo (sin uso mientras se prueba con datos reales).
-export function sampleSessions(): GovSession[] {
-  return [
-    { id: 'ses-seed-0', day: '08', month: 'MAY', title: 'Junta Directiva Ordinaria', detail: '9:00 a. m. · Sala 4B', organ: 'Junta Directiva', status: 'Programada' },
-    { id: 'ses-seed-1', day: '15', month: 'MAY', title: 'Comité de Bienestar', detail: '2:00 p. m. · Virtual', organ: 'Comité', status: 'Programada' },
-    { id: 'ses-seed-2', day: '30', month: 'MAY', title: 'Asamblea extraordinaria', detail: '8:30 a. m. · Auditorio DNP', organ: 'Asamblea', status: 'Programada' },
-    { id: 'ses-seed-3', day: '24', month: 'ABR', title: 'Sesión de Junta Directiva No. 08', detail: 'Sala 4B', organ: 'Junta Directiva', status: 'Realizada', minutes: 'Aprobación de plan de bienestar, seguimiento al recaudo y designación de comités.' },
-  ]
-}
 
 // Votaciones VACÍO para pruebas reales.
 export function seedBallots(): Ballot[] {
