@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react'
-import { BadgeCheckIcon, Building2Icon, BriefcaseIcon, CalendarDaysIcon, CameraIcon, CheckCircle2Icon, CircleDollarSignIcon, DownloadIcon, FileTextIcon, HashIcon, IdCardIcon, LogOutIcon, MailIcon, MapPinIcon, PhoneIcon, TagIcon, UserRoundIcon, VoteIcon, WalletIcon } from 'lucide-react'
+import { BadgeCheckIcon, Building2Icon, BriefcaseIcon, CalendarDaysIcon, CameraIcon, CheckCircle2Icon, CircleDollarSignIcon, DownloadIcon, FileTextIcon, HashIcon, IdCardIcon, LogOutIcon, MailIcon, MapPinIcon, PaperclipIcon, PhoneIcon, TagIcon, UploadIcon, UserRoundIcon, VoteIcon, WalletIcon } from 'lucide-react'
 import { useDemo } from '../store/DemoStore'
 import { useAuth } from '../store/auth'
 import { MiFoto } from '../components/MiFoto'
@@ -7,7 +7,7 @@ import { PushToggle } from '../components/PushToggle'
 import { StatusBadge } from '../components/StatusBadge'
 import { Ballot, totalVotes, votePct } from '../store/governance'
 import { Doc, formatFileSize } from '../store/documents'
-import { abrirSoporte } from '../store/storageApi'
+import { abrirSoporte, subirSoporte } from '../store/storageApi'
 import { periodLabel } from '../store/contributions'
 import { formatCop } from '../store/finance'
 import { supabase } from '../lib/supabase'
@@ -24,6 +24,15 @@ const tabs: Array<{ key: Tab; label: string }> = [
 
 const statusTone: Record<string, 'positive' | 'warning' | 'negative' | 'neutral'> = {
   Activo: 'positive', Pendiente: 'warning', Suspendido: 'warning', Retirado: 'negative',
+}
+
+// Convierte un texto en nodos, volviendo clicables las URLs (http/https).
+function conEnlaces(texto: string): React.ReactNode[] {
+  return texto.split(/(https?:\/\/[^\s]+)/g).map((parte, i) =>
+    /^https?:\/\//.test(parte)
+      ? <a key={i} href={parte} target="_blank" rel="noopener noreferrer" className="font-medium text-night underline underline-offset-2 hover:text-night-deep">{parte}</a>
+      : <span key={i}>{parte}</span>,
+  )
 }
 
 export function AfiliadoPortal({ affiliateId, onLogout }: { affiliateId: string; onLogout: () => void }) {
@@ -206,7 +215,26 @@ function MisAportes({ affiliateId }: { affiliateId: string }) {
   const esNomina = (org?.modoRecaudo ?? 'nomina') === 'nomina'
   const esPse = org?.modoRecaudo === 'pse' && Boolean(org?.wompiActiva)
   const [pagando, setPagando] = useState<string | null>(null)
+  const [compFor, setCompFor] = useState<string | null>(null) // aporte al que se le adjunta comprobante
+  const [compFile, setCompFile] = useState<File | null>(null)
+  const [subiendo, setSubiendo] = useState(false)
   const mine = aportes.filter((a) => a.affiliateId === affiliateId).sort((x, y) => (x.period < y.period ? 1 : -1))
+
+  // Registra el pago por transferencia adjuntando (opcional) el comprobante.
+  async function registrarConComprobante() {
+    if (!compFor) return
+    setSubiendo(true)
+    try {
+      let path: string | undefined
+      if (compFile) path = await subirSoporte('comprobantes', compFile)
+      payAporte(compFor, 'Portal', path)
+      setCompFor(null); setCompFile(null)
+    } catch {
+      notify('No se pudo subir el comprobante. Intenta de nuevo.', 'warning')
+    } finally {
+      setSubiendo(false)
+    }
+  }
 
   // Redirige a Wompi para pagar un aporte con PSE/tarjeta. La firma la calcula el
   // servidor (/api/wompi-checkout); aquí solo mandamos el id del aporte.
@@ -290,11 +318,16 @@ function MisAportes({ affiliateId }: { affiliateId: string }) {
         <div className="rounded-xl border border-ink/10 bg-canvas/50 px-4 py-3 text-xs text-ink/60">
           Tu cuota se descuenta <strong>automáticamente por nómina</strong>. Aquí solo ves tu estado de cuenta; no necesitas pagar desde la app.
         </div>
+      ) : esPse ? (
+        <div className="rounded-xl border border-night/15 bg-night/[0.03] px-4 py-3 text-xs text-ink/70">
+          <p className="mb-1 font-semibold text-ink">Pago en línea con PSE</p>
+          <p>Usa <strong>“Pagar con PSE”</strong> en cada aporte pendiente. Se cobra el <strong>valor exacto</strong> del aporte y queda registrado automáticamente.</p>
+        </div>
       ) : org?.instruccionesPago ? (
         <div className="rounded-xl border border-night/15 bg-night/[0.03] px-4 py-3 text-xs text-ink/70">
           <p className="mb-1 font-semibold text-ink">Cómo pagar tu cuota</p>
-          <p className="whitespace-pre-line">{org.instruccionesPago}</p>
-          <p className="mt-1.5 text-ink/45">Después de pagar, usa "Registrar pago" en el aporte correspondiente.</p>
+          <p className="whitespace-pre-line">{conEnlaces(org.instruccionesPago)}</p>
+          <p className="mt-1.5 text-ink/45">Después de pagar, usa “Registrar pago” en el aporte y <strong>adjunta tu comprobante</strong>.</p>
         </div>
       ) : null}
 
@@ -314,6 +347,7 @@ function MisAportes({ affiliateId }: { affiliateId: string }) {
                     {a.tipo === 'Extraordinaria' ? <span className="rounded-md bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">Extraordinaria{a.acta ? ` · Acta ${a.acta}` : ''}</span> : null}
                     {a.anticipada ? <span className="rounded-md bg-sky-100 px-1.5 py-0.5 text-[10px] font-semibold text-sky-700">Anticipada · vacaciones</span> : null}
                     {pagado && a.method ? <span className="text-[11px] text-ink/40">· pagado por {a.method}</span> : null}
+                    {pagado && a.comprobantePath ? <button onClick={() => abrirSoporte(a.comprobantePath!)} className="inline-flex items-center gap-1 text-[11px] font-medium text-night hover:underline"><PaperclipIcon className="h-3 w-3" />Ver comprobante</button> : null}
                   </div>
                 </div>
                 {pagado ? (
@@ -323,13 +357,33 @@ function MisAportes({ affiliateId }: { affiliateId: string }) {
                 ) : esPse ? (
                   <button onClick={() => pagarPse(a.id)} disabled={pagando === a.id} className="shrink-0 rounded-xl bg-night px-4 py-2 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-50">{pagando === a.id ? 'Abriendo…' : 'Pagar con PSE'}</button>
                 ) : (
-                  <button onClick={() => payAporte(a.id, 'Portal')} className="shrink-0 rounded-xl bg-night px-4 py-2 text-sm font-semibold text-white transition hover:bg-night-deep">Registrar pago</button>
+                  <button onClick={() => { setCompFor(a.id); setCompFile(null) }} className="shrink-0 rounded-xl bg-night px-4 py-2 text-sm font-semibold text-white transition hover:bg-night-deep">Registrar pago</button>
                 )}
               </article>
             )
           })}
         </div>
       </div>
+
+      {/* Modal: registrar pago por transferencia + adjuntar comprobante */}
+      {compFor ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4" onClick={() => !subiendo && setCompFor(null)}>
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-display text-lg font-semibold text-ink">Registrar pago</h3>
+            <p className="mt-1 text-sm text-ink/60">Adjunta el comprobante de tu transferencia (imagen o PDF) como evidencia. La Tesorería lo verá al conciliar.</p>
+            <label className="mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-ink/25 px-4 py-6 text-sm text-ink/60 transition hover:border-night hover:text-night">
+              <UploadIcon className="h-5 w-5" />
+              <span>{compFile ? compFile.name : 'Seleccionar comprobante…'}</span>
+              <input type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => setCompFile(e.target.files?.[0] ?? null)} />
+            </label>
+            <p className="mt-2 text-[11px] text-ink/45">El comprobante es recomendado. Si aún no lo tienes, puedes registrar el pago sin adjuntarlo.</p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button onClick={() => setCompFor(null)} disabled={subiendo} className="rounded-xl border border-ink/12 px-4 py-2 text-sm font-semibold text-ink/60 transition hover:border-ink/30 disabled:opacity-50">Cancelar</button>
+              <button onClick={registrarConComprobante} disabled={subiendo} className="rounded-xl bg-night px-4 py-2 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-50">{subiendo ? 'Registrando…' : 'Registrar pago'}</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

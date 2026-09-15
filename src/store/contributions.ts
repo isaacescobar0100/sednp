@@ -18,6 +18,7 @@ export type Aporte = {
   anticipada?: boolean // descuento anticipado por vacaciones (Parágrafo Art. 32)
   paidDate?: string
   method?: AporteMethod
+  comprobantePath?: string // ruta del comprobante en Storage (pago por transferencia)
 }
 
 // Tope de la cuota extraordinaria: 3% de la asignación básica (Art. 33).

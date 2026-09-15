@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { ArrowDownLeftIcon, ArrowUpRightIcon, CircleDollarSignIcon, LockIcon, PlusIcon, SearchIcon, WalletCardsIcon, XIcon } from 'lucide-react'
+import { ArrowDownLeftIcon, ArrowUpRightIcon, CircleDollarSignIcon, LockIcon, PaperclipIcon, PlusIcon, SearchIcon, WalletCardsIcon, XIcon } from 'lucide-react'
 import { Bar, BarChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import { MetricCard } from '../components/MetricCard'
 import { SectionTitle } from '../components/SectionTitle'
@@ -378,6 +378,8 @@ function AportesSection() {
                         {!a.anticipada && a.tipo === 'Ordinaria' ? <button onClick={() => anticiparAporte(a.id)} title={`Descuento anticipado por vacaciones${cita('vacaciones')}`} className="rounded-lg border border-ink/12 px-2.5 py-1.5 text-xs font-semibold text-ink/60 transition hover:border-night hover:text-night">Anticipar</button> : null}
                         <button onClick={() => payAporte(a.id, 'Nómina')} className="rounded-lg border border-ink/12 px-3 py-1.5 text-xs font-semibold text-night transition hover:border-night hover:bg-night/5">Marcar pagado</button>
                       </div>
+                    ) : a.comprobantePath ? (
+                      <button onClick={() => abrirSoporte(a.comprobantePath!)} className="inline-flex items-center gap-1 rounded-lg border border-ink/12 px-2.5 py-1.5 text-xs font-semibold text-night transition hover:border-night hover:bg-night/5"><PaperclipIcon className="h-3.5 w-3.5" />Comprobante</button>
                     ) : <span className="text-xs text-ink/35">—</span>}
                   </td>
                 </tr>

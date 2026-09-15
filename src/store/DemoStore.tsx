@@ -206,7 +206,7 @@ type Action =
   | { type: 'setEscalas'; list: Escala[] }
   | { type: 'generateAportes'; period: string }
   | { type: 'decretarExtraordinaria'; period: string; pct: number; acta: string }
-  | { type: 'payAporte'; id: string; method: AporteMethod; date: string }
+  | { type: 'payAporte'; id: string; method: AporteMethod; date: string; comprobantePath?: string }
   | { type: 'anticiparAporte'; id: string }
   | { type: 'setPorcentajeCuota'; value: number }
   | { type: 'setPresupuesto'; category: string; anual: number }
@@ -432,7 +432,7 @@ function reducer(state: DemoState, action: Action): DemoState {
       // Marca el aporte pagado; el ingreso al libro contable lo inserta el callback.
       return {
         ...state,
-        aportes: state.aportes.map((a) => (a.id === action.id ? { ...a, status: 'Pagado', paidDate: action.date, method: action.method } : a)),
+        aportes: state.aportes.map((a) => (a.id === action.id ? { ...a, status: 'Pagado', paidDate: action.date, method: action.method, comprobantePath: action.comprobantePath ?? a.comprobantePath } : a)),
       }
     }
     case 'decretarExtraordinaria': {
@@ -688,7 +688,7 @@ type DemoContextValue = {
   aportes: Aporte[]
   porcentajeCuota: number
   generateAportes: (period: string) => void
-  payAporte: (id: string, method: AporteMethod) => void
+  payAporte: (id: string, method: AporteMethod, comprobantePath?: string) => void
   refreshAportes: () => Promise<void>
   decretarExtraordinaria: (period: string, pct: number, acta: string) => void
   anticiparAporte: (id: string) => void
@@ -1337,11 +1337,11 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       .catch(() => notify('No se pudo generar el corte en el servidor.', 'warning'))
   }, [notify])
 
-  const payAporte = useCallback((id: string, method: AporteMethod) => {
+  const payAporte = useCallback((id: string, method: AporteMethod, comprobantePath?: string) => {
     const date = commNowLabel()
     const aporte = aportesRef.current.find((a) => a.id === id)
-    dispatch({ type: 'payAporte', id, method, date })
-    patchAporte(id, { status: 'Pagado', paidDate: date, method }).catch(() => notify('No se pudo guardar el pago en el servidor.', 'warning'))
+    dispatch({ type: 'payAporte', id, method, date, comprobantePath })
+    patchAporte(id, { status: 'Pagado', paidDate: date, method, comprobantePath }).catch(() => notify('No se pudo guardar el pago en el servidor.', 'warning'))
     // El ingreso al libro contable lo registra Tesorería (Nómina); en el portal
     // el afiliado no tiene permiso de insertar movimientos (lo concilia Tesorería).
     if (method === 'Nómina' && aporte) {
