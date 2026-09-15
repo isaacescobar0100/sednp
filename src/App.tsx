@@ -14,19 +14,40 @@ import { ModuleKey, ModuleMeta } from './types/navigation'
 
 // Carga diferida por módulo (code-splitting): cada página se descarga solo
 // cuando se abre, aligerando la primera carga.
-const AfiliadoPortal = lazy(() => import('./pages/AfiliadoPortal').then((m) => ({ default: m.AfiliadoPortal })))
-const AfiliacionPage = lazy(() => import('./pages/AfiliacionPage').then((m) => ({ default: m.AfiliacionPage })))
-const ComitesPage = lazy(() => import('./pages/ComitesPage').then((m) => ({ default: m.ComitesPage })))
-const ComunicacionesPage = lazy(() => import('./pages/ComunicacionesPage').then((m) => ({ default: m.ComunicacionesPage })))
-const DashboardPage = lazy(() => import('./pages/DashboardPage').then((m) => ({ default: m.DashboardPage })))
-const DisciplinarioPage = lazy(() => import('./pages/DisciplinarioPage').then((m) => ({ default: m.DisciplinarioPage })))
-const DocumentalPage = lazy(() => import('./pages/DocumentalPage').then((m) => ({ default: m.DocumentalPage })))
-const FinancieroPage = lazy(() => import('./pages/FinancieroPage').then((m) => ({ default: m.FinancieroPage })))
-const GobernanzaPage = lazy(() => import('./pages/GobernanzaPage').then((m) => ({ default: m.GobernanzaPage })))
-const LibroPage = lazy(() => import('./pages/LibroPage').then((m) => ({ default: m.LibroPage })))
-const PublicacionesPage = lazy(() => import('./pages/PublicacionesPage').then((m) => ({ default: m.PublicacionesPage })))
-const ParametrosPage = lazy(() => import('./pages/ParametrosPage').then((m) => ({ default: m.ParametrosPage })))
-const ReportesPage = lazy(() => import('./pages/ReportesPage').then((m) => ({ default: m.ReportesPage })))
+//
+// Tras un redeploy, los chunks cambian de hash; una pestaña abierta con el index
+// viejo intenta cargar un archivo que ya no existe (Vercel devuelve el index.html
+// y el módulo llega vacío/roto). Ante ese fallo recargamos la página UNA sola vez
+// para que el navegador tome el index nuevo con los hashes correctos.
+const RELOAD_KEY = 'sindika-chunk-reload'
+function importarConReintento<M>(carga: () => Promise<M>): Promise<M> {
+  return carga()
+    .then((m) => { try { sessionStorage.removeItem(RELOAD_KEY) } catch { /* noop */ } return m })
+    .catch((err) => {
+      try {
+        if (!sessionStorage.getItem(RELOAD_KEY)) {
+          sessionStorage.setItem(RELOAD_KEY, '1')
+          window.location.reload()
+          return new Promise<M>(() => {}) // no resuelve: la página se está recargando
+        }
+      } catch { /* noop */ }
+      throw err
+    })
+}
+
+const AfiliadoPortal = lazy(() => importarConReintento(() => import('./pages/AfiliadoPortal')).then((m) => ({ default: m.AfiliadoPortal })))
+const AfiliacionPage = lazy(() => importarConReintento(() => import('./pages/AfiliacionPage')).then((m) => ({ default: m.AfiliacionPage })))
+const ComitesPage = lazy(() => importarConReintento(() => import('./pages/ComitesPage')).then((m) => ({ default: m.ComitesPage })))
+const ComunicacionesPage = lazy(() => importarConReintento(() => import('./pages/ComunicacionesPage')).then((m) => ({ default: m.ComunicacionesPage })))
+const DashboardPage = lazy(() => importarConReintento(() => import('./pages/DashboardPage')).then((m) => ({ default: m.DashboardPage })))
+const DisciplinarioPage = lazy(() => importarConReintento(() => import('./pages/DisciplinarioPage')).then((m) => ({ default: m.DisciplinarioPage })))
+const DocumentalPage = lazy(() => importarConReintento(() => import('./pages/DocumentalPage')).then((m) => ({ default: m.DocumentalPage })))
+const FinancieroPage = lazy(() => importarConReintento(() => import('./pages/FinancieroPage')).then((m) => ({ default: m.FinancieroPage })))
+const GobernanzaPage = lazy(() => importarConReintento(() => import('./pages/GobernanzaPage')).then((m) => ({ default: m.GobernanzaPage })))
+const LibroPage = lazy(() => importarConReintento(() => import('./pages/LibroPage')).then((m) => ({ default: m.LibroPage })))
+const PublicacionesPage = lazy(() => importarConReintento(() => import('./pages/PublicacionesPage')).then((m) => ({ default: m.PublicacionesPage })))
+const ParametrosPage = lazy(() => importarConReintento(() => import('./pages/ParametrosPage')).then((m) => ({ default: m.ParametrosPage })))
+const ReportesPage = lazy(() => importarConReintento(() => import('./pages/ReportesPage')).then((m) => ({ default: m.ReportesPage })))
 
 const modules: Record<ModuleKey, ModuleMeta> = {
   dashboard: { key: 'dashboard', label: 'Dashboard', subtitle: 'Resumen general de la organización' },
