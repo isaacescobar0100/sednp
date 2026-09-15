@@ -5,7 +5,7 @@
 // Variables de entorno en Vercel:
 //   VAPID_PRIVATE_KEY  (obligatoria, SECRETA)
 //   VAPID_PUBLIC_KEY   (opcional; por defecto la clave pública incluida abajo)
-//   VAPID_SUBJECT      (opcional; por defecto mailto:contacto@serdnp.org.co)
+//   VAPID_SUBJECT      (opcional; por defecto mailto:no-responder@acordemusic.com)
 import webpush from 'web-push'
 
 const PUBLIC_DEFAULT = 'BFXJ0q6YKT9lOp8xoYS9PZljcSCRk1GQVOh68rj65dYsSrQe87Tu5WCKDYLvVvJiarXjn4MNpL9JQxIVsgJyrCI'
@@ -48,7 +48,7 @@ export default async function handler(req, res) {
 
   if (subs.length === 0) { res.status(200).json({ ok: true, sent: 0, total: 0 }); return }
 
-  webpush.setVapidDetails(process.env.VAPID_SUBJECT || 'mailto:contacto@serdnp.org.co', publicKey, privateKey)
+  webpush.setVapidDetails(process.env.VAPID_SUBJECT || 'mailto:no-responder@acordemusic.com', publicKey, privateKey)
   const payload = JSON.stringify({ title, body: mensaje, url })
 
   let sent = 0
