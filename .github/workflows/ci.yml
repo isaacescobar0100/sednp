@@ -15,7 +15,9 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          # jsdom 30 (usado por Vitest) exige Node >= 22.22; con Node 20 los
+          # tests fallan solo en CI. Node 22 cumple y coincide con el runtime local.
+          node-version: 22
           cache: npm
       - name: Instalar dependencias
         # --legacy-peer-deps: vitest 2.x declara un peer de vite distinto al 5.3.x
