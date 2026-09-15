@@ -5,6 +5,7 @@ import { StatusBadge } from '../components/StatusBadge'
 import { useDemo } from '../store/DemoStore'
 import { juntaDirectiva, useSession } from '../store/session'
 import { Ballot, GovSession, UMBRAL_DELEGADOS, actoLabel, dayMonthFromISO, formatTime, longDateLabel, quorumMinimo, totalVotes, votePct } from '../store/governance'
+import { cita } from '../store/referencias'
 
 type VoteChoice = 'favor' | 'contra' | 'abstencion'
 
@@ -115,7 +116,7 @@ export function GobernanzaPage() {
       <section className="mt-8 overflow-hidden rounded-2xl border border-ink/[0.08] bg-white">
         <div className="border-b border-ink/[0.07] p-5">
           <h2 className="font-display text-base font-semibold">Junta Directiva Nacional</h2>
-          <p className="mt-1 text-xs text-ink/50">Composición reglamentaria (Art. 13): cada cargo con principal y suplente.</p>
+          <p className="mt-1 text-xs text-ink/50">Composición reglamentaria{cita('junta')}: cada cargo con principal y suplente.</p>
         </div>
         <div className="overflow-x-auto">
           <table className="w-full min-w-[520px] text-left">
@@ -137,7 +138,7 @@ export function GobernanzaPage() {
             </tbody>
           </table>
         </div>
-        <p className="px-5 py-3 text-[11px] text-ink/40">La Junta se elige por la Asamblea General para periodos de dos (2) años (Art. 13).{juntaDesde ? ` Periodo actual desde ${juntaDesde}${proximaEleccion ? ` · próxima elección ${proximaEleccion}` : ''}.` : ' Define el periodo en Parámetros.'}</p>
+        <p className="px-5 py-3 text-[11px] text-ink/40">La Junta se elige por la Asamblea General para periodos de dos (2) años{cita('junta')}.{juntaDesde ? ` Periodo actual desde ${juntaDesde}${proximaEleccion ? ` · próxima elección ${proximaEleccion}` : ''}.` : ' Define el periodo en Parámetros.'}</p>
       </section>
 
       {showSchedule ? <ScheduleModal onClose={() => setShowSchedule(false)} /> : null}
@@ -333,7 +334,7 @@ function MinutesModal({ session, onClose }: { session: GovSession; onClose: () =
         <div className="mb-4">
           {porDelegados ? (
             <>
-              <p className="mb-3 rounded-xl bg-gold/[0.1] px-3 py-2 text-xs text-ink/70">Con {activos} afiliados (más de {UMBRAL_DELEGADOS}), la Asamblea se realiza por <strong>Delegados</strong> (Art. 9). El quórum se calcula sobre los delegados.</p>
+              <p className="mb-3 rounded-xl bg-gold/[0.1] px-3 py-2 text-xs text-ink/70">Con {activos} afiliados (más de {UMBRAL_DELEGADOS}), la Asamblea se realiza por <strong>Delegados</strong>{cita('asamblea_delegados')}. El quórum se calcula sobre los delegados.</p>
               <ModalField label="Delegados convocados" required>
                 <input value={convocadosText} onChange={(e) => setConvocadosText(e.target.value)} inputMode="numeric" placeholder="N.º de delegados" className={inputClass} />
               </ModalField>
@@ -406,7 +407,7 @@ function BallotModal({ onClose }: { onClose: () => void }) {
         </div>
         <label className="flex items-start gap-2.5 rounded-xl border border-ink/10 bg-canvas/40 p-3">
           <input type="checkbox" checked={secreta} onChange={(e) => setSecreta(e.target.checked)} className="mt-0.5 h-4 w-4 rounded border-ink/25 text-night focus:ring-night" />
-          <span className="text-xs text-ink/70"><strong className="text-ink">Votación secreta</strong> (Art. 12b) — se muestran solo los resultados agregados; no se revela el sentido del voto de cada participante.</span>
+          <span className="text-xs text-ink/70"><strong className="text-ink">Votación secreta</strong>{cita('voto_secreto')} — se muestran solo los resultados agregados; no se revela el sentido del voto de cada participante.</span>
         </label>
       </div>
       <ModalActions onClose={onClose} onSubmit={submit} disabled={!valid} label="Abrir votación" />

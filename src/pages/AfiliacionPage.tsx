@@ -8,6 +8,7 @@ import { useAuth } from '../store/auth'
 import { Affiliate, AffiliateStatus, AffiliateType, BENEFICIOS, MEDIOS } from '../store/affiliates'
 import { formatCop } from '../store/finance'
 import { escalaLabel, sortEscalas } from '../store/payscale'
+import { cita } from '../store/referencias'
 import { SectionTitle } from '../components/SectionTitle'
 import { StatusBadge } from '../components/StatusBadge'
 import { RowMenu, RowAction } from '../components/RowMenu'
@@ -133,7 +134,7 @@ export function AfiliacionPage() {
         <div className="mb-5 flex items-start gap-3 rounded-xl border border-gold/30 bg-gold/[0.08] px-4 py-3 text-sm text-ink/70">
           <LockIcon className="mt-0.5 h-4 w-4 shrink-0 text-gold" />
           <p>
-            Flujo de afiliación (Art. 5): la Secretaría <strong>registra</strong> → el <strong>Fiscal</strong> emite concepto → la <strong>Junta Directiva</strong> aprueba con acta.
+            Flujo de afiliación{cita('afiliacion')}: la Secretaría <strong>registra</strong> → el <strong>Fiscal</strong> emite concepto → la <strong>Junta Directiva</strong> aprueba con acta.
           </p>
         </div>
       ) : null}
@@ -252,7 +253,7 @@ function ApproveModal({ affiliate, onClose }: { affiliate: Affiliate; onClose: (
           <button onClick={onClose} className="rounded-lg p-2 text-ink/50 hover:bg-canvas" aria-label="Cerrar"><XIcon className="h-5 w-5" /></button>
         </div>
         <p className="text-sm text-ink/60"><strong>{affiliate.name}</strong> · Concepto del Fiscal: <span className="font-semibold text-emerald-700">{affiliate.conceptoFiscal ?? 'Positivo'}</span></p>
-        <p className="mt-3 rounded-xl border border-gold/25 bg-gold/[0.07] px-3 py-2.5 text-xs text-ink/60">La Junta Directiva aprueba la afiliación mediante acta (Art. 5d). El afiliado quedará <strong>Activo</strong> y podrá acceder a su portal.</p>
+        <p className="mt-3 rounded-xl border border-gold/25 bg-gold/[0.07] px-3 py-2.5 text-xs text-ink/60">La Junta Directiva aprueba la afiliación mediante acta{cita('afiliacion_aprobacion')}. El afiliado quedará <strong>Activo</strong> y podrá acceder a su portal.</p>
         <label className="mt-4 block">
           <span className="mb-1.5 block text-xs font-semibold text-ink/70">Acta No. de la Junta Directiva <span className="text-brick">*</span></span>
           <input value={acta} onChange={(e) => setActa(e.target.value)} placeholder="Ej. 011" className="w-full rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
@@ -739,7 +740,7 @@ function EnrollmentModal({ onClose }: { onClose: () => void }) {
                   <ReviewItem label="Programas de bienestar" value={form.beneficios.join(', ')} />
                 </dl>
                 <div className="mt-4 rounded-xl border border-gold/30 bg-gold/10 p-4 text-sm text-ink/70">
-                  La solicitud quedará <strong>pendiente</strong>: el Fiscal emite concepto y la Junta Directiva aprueba (Art. 5).
+                  La solicitud quedará <strong>pendiente</strong>: el Fiscal emite concepto y la Junta Directiva aprueba{cita('afiliacion')}.
                 </div>
               </div>
             )}

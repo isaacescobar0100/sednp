@@ -9,6 +9,7 @@ import { useSession } from '../store/session'
 import { RowMenu, RowAction } from '../components/RowMenu'
 import { FirmaKey, Movement, MovementKind, MovementStatus, TOPE_CAJA_SMMLV, ejecucionPorRubro, ejecutadoRubro, pendienteRubro, expenseCategories, firmaLabel, firmasCount, formatCop, formatCopShort, incomeCategories, isoToLabel, monthlyFlow, movementsToCsv, nivelGasto, nivelLabel, requiereActaAsamblea, todayISO } from '../store/finance'
 import { marca } from '../store/emailApi'
+import { cita } from '../store/referencias'
 import { TOPE_EXTRAORDINARIA, mesesVencidos, periodLabel, recentPeriods } from '../store/contributions'
 import { abrirSoporte, nombreSoporte, subirSoporte } from '../store/storageApi'
 import { Pagination, paginate } from '../components/Pagination'
@@ -197,7 +198,7 @@ function CaucionExportBar() {
       <div className="text-xs text-ink/55">
         {caucionVence ? (
           caucionAlerta
-            ? <span className="font-semibold text-rose-600">⚠ Caución del Tesorero {dias !== null && dias < 0 ? 'vencida' : `vence en ${dias} días`} — renovar (Art. 26).</span>
+            ? <span className="font-semibold text-rose-600">⚠ Caución del Tesorero {dias !== null && dias < 0 ? 'vencida' : `vence en ${dias} días`} — renovar{cita('caucion')}.</span>
             : <span>Caución del Tesorero vigente (vence {caucionVence}).</span>
         ) : <span className="text-ink/40">Caución del Tesorero: sin registrar (defínela en Parámetros).</span>}
       </div>
@@ -248,7 +249,7 @@ function CajaMenorSection() {
       <div className="flex flex-col gap-3 border-b border-ink/[0.07] p-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="font-display text-base font-semibold">Caja menor</h2>
-          <p className="mt-1 text-xs text-ink/50">Fondo administrado por Tesorería · tope 1 SMMLV ({formatCop(tope)}). Cada gasto requiere soporte (Art. 26e).</p>
+          <p className="mt-1 text-xs text-ink/50">Fondo administrado por Tesorería · tope 1 SMMLV ({formatCop(tope)}). Cada gasto requiere soporte{cita('caja_menor')}.</p>
         </div>
         <div className="flex items-end gap-2">
           <label className="block">
@@ -277,7 +278,7 @@ function CajaMenorSection() {
             <input ref={fileRef} type="file" accept="image/*,application/pdf" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="rounded-xl border border-ink/12 bg-canvas/45 px-3 py-1.5 text-xs outline-none file:mr-2 file:rounded-md file:border-0 file:bg-night file:px-2 file:py-1 file:text-white focus:border-night" title="Soporte: factura o recibo (imagen o PDF)" />
             <button onClick={registrar} disabled={!gastoValido || subiendo} className="rounded-xl bg-night px-4 py-2 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">{subiendo ? 'Subiendo…' : 'Registrar'}</button>
           </div>
-          <p className="mt-1 text-[11px] text-ink/40">El soporte (factura/recibo) es obligatorio: imagen o PDF (Art. 26e).</p>
+          <p className="mt-1 text-[11px] text-ink/40">El soporte (factura/recibo) es obligatorio: imagen o PDF{cita('caja_menor')}.</p>
           {monto > saldo ? <p className="mt-1 text-[11px] font-medium text-rose-600">El gasto supera el saldo de caja menor.</p> : null}
 
           {cajaGastos.length > 0 ? (
@@ -335,7 +336,7 @@ function AportesSection() {
         <div>
           <h2 className="font-display text-base font-semibold">Aportes sindicales</h2>
           <p className="mt-1 text-xs text-ink/50">Cuota ordinaria: {pctLabel}% de la asignación básica · recaudado {formatCop(recaudado)} · pendiente {formatCop(pendiente)}{enMora ? ` · ${enMora} en mora` : ''}</p>
-          <p className="mt-0.5 text-[11px] text-ink/40">Distribución del recaudo: 80% Junta Directiva Nacional / 20% subdirectivas seccionales (Art. 32) — sin seccionales, 100% JDN.</p>
+          <p className="mt-0.5 text-[11px] text-ink/40">Distribución del recaudo: 80% Junta Directiva Nacional / 20% subdirectivas seccionales{cita('recaudo')} — sin seccionales, 100% JDN.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <select value={period} onChange={(e) => { setPeriod(e.target.value); setAportePage(1) }} className="rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night">
@@ -374,7 +375,7 @@ function AportesSection() {
                   <td className="px-5 py-3 text-right">
                     {a.status === 'Pendiente' && canCreate ? (
                       <div className="flex items-center justify-end gap-1.5">
-                        {!a.anticipada && a.tipo === 'Ordinaria' ? <button onClick={() => anticiparAporte(a.id)} title="Descuento anticipado por vacaciones (Parágrafo Art. 32)" className="rounded-lg border border-ink/12 px-2.5 py-1.5 text-xs font-semibold text-ink/60 transition hover:border-night hover:text-night">Anticipar</button> : null}
+                        {!a.anticipada && a.tipo === 'Ordinaria' ? <button onClick={() => anticiparAporte(a.id)} title={`Descuento anticipado por vacaciones${cita('vacaciones')}`} className="rounded-lg border border-ink/12 px-2.5 py-1.5 text-xs font-semibold text-ink/60 transition hover:border-night hover:text-night">Anticipar</button> : null}
                         <button onClick={() => payAporte(a.id, 'Nómina')} className="rounded-lg border border-ink/12 px-3 py-1.5 text-xs font-semibold text-night transition hover:border-night hover:bg-night/5">Marcar pagado</button>
                       </div>
                     ) : <span className="text-xs text-ink/35">—</span>}
@@ -404,7 +405,7 @@ function ExtraordinariaModal({ period, onClose }: { period: string; onClose: () 
   const submit = () => {
     const value = Number(pct.replace(',', '.'))
     if (!Number.isFinite(value) || value <= 0) return setError('Ingresa un porcentaje válido.')
-    if (value > topePct) return setError(`El tope estatutario es ${topePct}% (Art. 33).`)
+    if (value > topePct) return setError(`El tope estatutario es ${topePct}%${cita('cuota_extra')}.`)
     if (!acta.trim()) return setError('Indica el número de acta de la Asamblea.')
     decretarExtraordinaria(period, value / 100, acta.trim())
     onClose()
@@ -417,7 +418,7 @@ function ExtraordinariaModal({ period, onClose }: { period: string; onClose: () 
           <h3 className="font-display text-lg font-semibold">Decretar cuota extraordinaria</h3>
           <button onClick={onClose} className="rounded-lg p-1 text-ink/50 hover:bg-canvas"><XIcon className="h-5 w-5" /></button>
         </div>
-        <p className="mt-1 text-xs text-ink/50">Periodo {periodLabel(period)}. La Asamblea la aprueba en acta; el tope es {topePct}% de la asignación básica (Art. 33). Se genera un aporte extraordinario por cada afiliado activo.</p>
+        <p className="mt-1 text-xs text-ink/50">Periodo {periodLabel(period)}. La Asamblea la aprueba en acta; el tope es {topePct}% de la asignación básica{cita('cuota_extra')}. Se genera un aporte extraordinario por cada afiliado activo.</p>
         <label className="mt-4 block text-xs font-semibold text-ink/60">Porcentaje sobre la asignación básica (%)</label>
         <input value={pct} onChange={(e) => { setPct(e.target.value); setError('') }} inputMode="decimal" className="mt-1 w-full rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night" placeholder={`Máx. ${topePct}`} />
         <label className="mt-3 block text-xs font-semibold text-ink/60">Acta de la Asamblea No.</label>
@@ -708,13 +709,13 @@ function MovementModal({ kind, onClose }: { kind: MovementKind; onClose: () => v
           </label>
           {kind === 'Egreso' && amount > 0 ? (
             <div className="rounded-xl border border-gold/25 bg-gold/[0.07] px-3 py-2.5 text-xs text-ink/65">
-              Nivel de aprobación: <strong>{nivelLabel[nivelGasto(amount, smmlv)]}</strong>. Todo pago requiere firma de Presidente, Tesorero y Fiscal (Art. 35).
+              Nivel de aprobación: <strong>{nivelLabel[nivelGasto(amount, smmlv)]}</strong>. Todo pago requiere firma de Presidente, Tesorero y Fiscal{cita('firmas_pago')}.
             </div>
           ) : null}
           {esEgreso ? (
             excedeSaldo ? (
               <div className="rounded-xl border border-rose-300 bg-rose-50 px-3 py-2.5 text-xs font-medium text-rose-700">
-                El gasto excede el saldo del rubro <strong>{category}</strong>: disponible {formatCop(Math.max(0, saldo))} de {formatCop(anual)}. Sin autorización de la Asamblea no puede erogarse (Art. 34).
+                El gasto excede el saldo del rubro <strong>{category}</strong>: disponible {formatCop(Math.max(0, saldo))} de {formatCop(anual)}. Sin autorización de la Asamblea no puede erogarse{cita('gasto_asamblea')}.
               </div>
             ) : sinPresupuesto ? (
               <div className="rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-xs text-amber-700">

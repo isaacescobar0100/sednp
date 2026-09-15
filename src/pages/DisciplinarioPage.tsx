@@ -6,6 +6,7 @@ import { useDemo } from '../store/DemoStore'
 import { Role, roleLabel, useSession } from '../store/session'
 import { CaseStatus, DisciplineCase, MULTA_DIAS_MAX, MULTA_DIAS_MIN, PRESCRIPCION_ANIOS, Sancion, stageTerms, stages, termOf, termTone, valorMulta } from '../store/discipline'
 import { formatCop } from '../store/finance'
+import { cita } from '../store/referencias'
 import { abrirSoporte, nombreSoporte, subirSoporte } from '../store/storageApi'
 
 const statusTone: Record<CaseStatus, 'positive' | 'warning' | 'negative' | 'neutral' | 'night'> = {
@@ -171,7 +172,7 @@ function CaseDetail({ caseItem }: { caseItem: DisciplineCase }) {
 
             {canRule && atTraslado ? (
               <div className="space-y-2">
-                <p className="text-xs font-semibold text-ink/60">Fallo de la Junta Directiva (Art. 45):</p>
+                <p className="text-xs font-semibold text-ink/60">Fallo de la Junta Directiva{cita('disc_fallo')}:</p>
                 <div className="grid grid-cols-3 gap-2">
                   <button onClick={() => rule('Amonestación')} className="rounded-xl bg-amber-500 px-3 py-2.5 text-sm font-semibold text-white transition hover:brightness-95">Amonestar</button>
                   <button onClick={() => rule('Multa')} className="rounded-xl bg-amber-600 px-3 py-2.5 text-sm font-semibold text-white transition hover:brightness-95">Multar</button>
@@ -212,7 +213,7 @@ function CaseDetail({ caseItem }: { caseItem: DisciplineCase }) {
           </div>
           {caseItem.sancion === 'Multa' && caseItem.multaMonto ? <p className="mt-2 text-xs text-ink/55">Multa por <strong>{formatCop(caseItem.multaMonto)}</strong>, registrada en Financiero para cobro por nómina.</p> : null}
           {caseItem.sancion && caseItem.sancion !== 'Absuelto' ? <RecursosPanel caseItem={caseItem} canInstruct={canInstruct} canRule={canRule} /> : null}
-          <p className="mt-3 text-[11px] text-ink/40">La acción disciplinaria prescribe a los {PRESCRIPCION_ANIOS} años (Art. 56).</p>
+          <p className="mt-3 text-[11px] text-ink/40">La acción disciplinaria prescribe a los {PRESCRIPCION_ANIOS} años{cita('disc_prescripcion')}.</p>
         </div>
       )}
       <Bitacora caseItem={caseItem} canAct={canInstruct || canRule} />
@@ -322,7 +323,7 @@ function RecursosPanel({ caseItem, canInstruct, canRule }: { caseItem: Disciplin
 
   return (
     <div className="mt-3 rounded-xl border border-ink/10 bg-white p-3">
-      <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink/40">Recursos (Art. 57)</p>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.1em] text-ink/40">Recursos{cita('disc_recursos')}</p>
       {tipo ? (
         <p className="mt-1.5 text-xs text-ink/60">
           {tipo} · {estado}{resultado ? ` · ${resultado === 'Revoca' ? 'revoca el fallo' : 'confirma el fallo'}` : ''}
@@ -370,7 +371,7 @@ function MultaModal({ caseItem, onClose }: { caseItem: DisciplineCase; onClose: 
           <h3 className="font-display text-lg font-semibold">Multa disciplinaria</h3>
           <button onClick={onClose} className="rounded-lg p-1 text-ink/50 hover:bg-canvas"><XIcon className="h-5 w-5" /></button>
         </div>
-        <p className="mt-1 text-xs text-ink/50">De 1 a 3 días de SMMLV diario (Art. 48). Se registrará como ingreso en Financiero para cobro por nómina ({caseItem.code}).</p>
+        <p className="mt-1 text-xs text-ink/50">De 1 a 3 días de SMMLV diario{cita('disc_multa')}. Se registrará como ingreso en Financiero para cobro por nómina ({caseItem.code}).</p>
         <div className="mt-4 flex gap-2">
           {[MULTA_DIAS_MIN, 2, MULTA_DIAS_MAX].map((d) => (
             <button key={d} onClick={() => setDias(d)} className={`flex-1 rounded-xl border px-3 py-2.5 text-sm font-semibold transition ${dias === d ? 'border-night bg-night text-white' : 'border-ink/12 text-night hover:bg-canvas'}`}>{d} día{d > 1 ? 's' : ''}</button>

@@ -6,6 +6,7 @@ import { subirFoto } from '../store/storageApi'
 import { useDemo } from '../store/DemoStore'
 import { useSession } from '../store/session'
 import { useAuth } from '../store/auth'
+import { cita, REF_KEYS } from '../store/referencias'
 import { VinculacionType, nextVinculacionColor } from '../store/catalogs'
 import { CuentaNaturaleza, CuentaTipo, formatCop } from '../store/finance'
 import { AJUSTE_ANUAL, NIVELES, sortEscalas } from '../store/payscale'
@@ -33,6 +34,10 @@ export function ParametrosPage() {
 
           <div className="min-w-0 xl:col-span-2">
             <MensajeBienvenidaCard />
+          </div>
+
+          <div className="min-w-0 xl:col-span-2">
+            <ReferenciasCard />
           </div>
 
           <CuotaCard />
@@ -117,19 +122,19 @@ function ParametrosReadOnly() {
           </div>
         </ROCard>
 
-        <ROCard title="Cuota sindical ordinaria" hint="Porcentaje sobre la asignación básica (Art. 32)">
+        <ROCard title="Cuota sindical ordinaria" hint={`Porcentaje sobre la asignación básica${cita('cuota')}`}>
           <p className="font-display text-2xl font-semibold text-ink">{actualPct}%</p>
         </ROCard>
 
-        <ROCard title="SMMLV vigente" hint="Base de los rangos de aprobación de gastos (Art. 34)">
+        <ROCard title="SMMLV vigente" hint={`Base de los rangos de aprobación de gastos${cita('gasto_asamblea')}`}>
           <p className="font-display text-2xl font-semibold text-ink">{formatCop(smmlv)}</p>
         </ROCard>
 
-        <ROCard title="Caución del Tesorero" hint="Garantía del manejo de fondos (Art. 26)">
+        <ROCard title="Caución del Tesorero" hint={`Garantía del manejo de fondos${cita('caucion')}`}>
           <p className="text-sm text-ink/80">{caucionVence ? `Vence: ${caucionVence}` : 'Sin registrar'}</p>
         </ROCard>
 
-        <ROCard title="Periodo de la Junta Directiva" hint="Elección por la Asamblea cada 2 años (Art. 13)">
+        <ROCard title="Periodo de la Junta Directiva" hint={`Elección por la Asamblea cada 2 años${cita('junta')}`}>
           <p className="text-sm text-ink/80">Inicio: {juntaDesde || '—'}</p>
           <p className="text-sm text-ink/60">Próxima elección: {proxima}</p>
         </ROCard>
@@ -298,6 +303,53 @@ Cualquier inquietud, estamos para servirte. ¡Bienvenido(a)!
 Cordialmente,
 Junta Directiva de {sindicato}`
 
+// Editor de referencias normativas (citas de estatutos) por sindicato.
+function ReferenciasCard() {
+  const { org, refreshProfile } = useAuth()
+  const [vals, setVals] = useState<Record<string, string>>(() => ({ ...(org?.referencias ?? {}) }))
+  const [busy, setBusy] = useState(false)
+  const [estado, setEstado] = useState<{ ok: boolean; msg: string } | null>(null)
+
+  async function guardar() {
+    setBusy(true); setEstado(null)
+    const limpio: Record<string, string> = {}
+    for (const [k, v] of Object.entries(vals)) { const t = (v || '').trim(); if (t) limpio[k] = t }
+    const { error } = await supabase.rpc('set_referencias', { p_refs: limpio })
+    setBusy(false)
+    if (error) { setEstado({ ok: false, msg: error.message }); return }
+    await refreshProfile()
+    setEstado({ ok: true, msg: 'Referencias guardadas. Se reflejan en los módulos.' })
+  }
+
+  const grupos = REF_KEYS.reduce((acc, r) => { (acc[r.modulo] ??= []).push(r); return acc }, {} as Record<string, typeof REF_KEYS>)
+
+  return (
+    <section className="rounded-2xl border border-ink/[0.08] bg-white p-5">
+      <h2 className="font-display text-base font-semibold">Referencias normativas</h2>
+      <p className="mt-0.5 text-xs text-ink/50">Números de artículo de <strong>tus estatutos</strong> que se muestran como citas en los módulos. Lo que dejes vacío no mostrará ninguna cita (solo la regla). El texto gris es un ejemplo.</p>
+      <div className="mt-4 space-y-5">
+        {Object.entries(grupos).map(([modulo, items]) => (
+          <div key={modulo}>
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-ink/45">{modulo}</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              {items.map((r) => (
+                <label key={r.key} className="block">
+                  <span className="mb-1 block text-[11px] font-medium text-ink/60">{r.label}</span>
+                  <input value={vals[r.key] ?? ''} onChange={(e) => setVals((s) => ({ ...s, [r.key]: e.target.value }))} placeholder={r.ejemplo} className="w-full rounded-lg border border-ink/12 bg-canvas/45 px-3 py-2 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
+                </label>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+      {estado ? <p className={`mt-2 text-xs ${estado.ok ? 'text-emerald-700' : 'text-brick'}`}>{estado.msg}</p> : null}
+      <div className="mt-3 flex justify-end">
+        <button onClick={guardar} disabled={busy} className="inline-flex items-center gap-1.5 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-50">{busy ? 'Guardando…' : 'Guardar referencias'}</button>
+      </div>
+    </section>
+  )
+}
+
 // Editor del mensaje de bienvenida (correo al aprobar afiliación). Por sindicato.
 function MensajeBienvenidaCard() {
   const { org, refreshProfile } = useAuth()
@@ -360,7 +412,7 @@ function CuotaCard() {
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-canvas text-night"><CircleDollarSignIcon className="h-5 w-5" strokeWidth={1.8} /></div>
           <div>
             <h2 className="font-display text-base font-semibold">Cuota sindical ordinaria</h2>
-            <p className="text-xs text-ink/50">Porcentaje sobre la asignación básica mensual (Art. 32) · actual: {actual}%</p>
+            <p className="text-xs text-ink/50">Porcentaje sobre la asignación básica mensual{cita('cuota')} · actual: {actual}%</p>
           </div>
         </div>
         <div className="flex w-full items-end gap-2 sm:w-auto">
@@ -388,7 +440,7 @@ function SmmlvCard() {
           <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-canvas text-night"><ScaleIcon className="h-5 w-5" strokeWidth={1.8} /></div>
           <div>
             <h2 className="font-display text-base font-semibold">SMMLV vigente</h2>
-            <p className="text-xs text-ink/50">Base de los rangos de aprobación de gastos (Art. 34) · actual: {formatCop(smmlv)}</p>
+            <p className="text-xs text-ink/50">Base de los rangos de aprobación de gastos{cita('gasto_asamblea')} · actual: {formatCop(smmlv)}</p>
           </div>
         </div>
         <div className="flex w-full items-end gap-2 sm:w-auto">
@@ -414,7 +466,7 @@ function CaucionCard() {
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-canvas text-night"><ScaleIcon className="h-5 w-5" strokeWidth={1.8} /></div>
         <div>
           <h2 className="font-display text-base font-semibold">Caución del Tesorero</h2>
-          <p className="text-xs text-ink/50">Garantía del manejo de fondos (Art. 26){caucionVence ? ` · vence ${caucionVence}` : ' · sin registrar'}</p>
+          <p className="text-xs text-ink/50">Garantía del manejo de fondos{cita('caucion')}{caucionVence ? ` · vence ${caucionVence}` : ' · sin registrar'}</p>
         </div>
       </div>
       <div className="mt-4 flex w-full items-end gap-2">
@@ -440,7 +492,7 @@ function JuntaPeriodoCard() {
         <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-canvas text-night"><LandmarkIcon className="h-5 w-5" strokeWidth={1.8} /></div>
         <div>
           <h2 className="font-display text-base font-semibold">Periodo de la Junta Directiva</h2>
-          <p className="text-xs text-ink/50">Elección por la Asamblea cada 2 años (Art. 13){proxima ? ` · próxima elección ${proxima}` : ''}</p>
+          <p className="text-xs text-ink/50">Elección por la Asamblea cada 2 años{cita('junta')}{proxima ? ` · próxima elección ${proxima}` : ''}</p>
         </div>
       </div>
       <div className="mt-4 flex w-full items-end gap-2">
