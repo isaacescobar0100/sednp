@@ -12,7 +12,7 @@ function slugify(s) {
 
 export default async function handler(req, res) {
   const id = (req.query && req.query.id ? String(req.query.id) : '').trim()
-  const slug = (req.query && req.query.org ? String(req.query.org) : 'serdnp').trim()
+  const slug = (req.query && req.query.org ? String(req.query.org) : '').trim()
   const proto = (req.headers['x-forwarded-proto'] || 'https').split(',')[0]
   const host = req.headers['x-forwarded-host'] || req.headers.host || ''
   const origin = `${proto}://${host}`
