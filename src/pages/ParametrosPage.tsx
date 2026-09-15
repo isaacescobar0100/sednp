@@ -366,7 +366,7 @@ function RecaudoCard() {
 
   async function guardar() {
     setBusy(true); setEstado(null)
-    const { error } = await supabase.rpc('set_recaudo', { p_modo: modo, p_instrucciones: modo === 'nomina' ? null : instrucciones })
+    const { error } = await supabase.rpc('set_recaudo', { p_modo: modo, p_instrucciones: modo === 'transferencia' ? instrucciones : null })
     if (error) { setBusy(false); setEstado({ ok: false, msg: error.message }); return }
     // Si eligió PSE y escribió llaves de Wompi, las guarda (el secreto queda solo
     // en el servidor; si lo deja vacío, se conserva el que ya estuviera guardado).
@@ -388,14 +388,16 @@ function RecaudoCard() {
         <span className="mb-1 block text-xs font-medium text-ink/70">Modo</span>
         <select value={modo} onChange={(e) => setModo(e.target.value)} className="w-full rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10">
           <option value="nomina">Descuento por nómina (el afiliado no paga en la app)</option>
-          <option value="transferencia">Transferencia bancaria</option>
-          <option value="pse">Pago en línea / PSE</option>
+          <option value="pse">Pago en línea — PSE y tarjeta (Wompi, automático)</option>
+          <option value="transferencia">Pago manual — transferencia + comprobante</option>
         </select>
       </label>
-      {modo !== 'nomina' ? (
+      {modo === 'pse' ? (
+        <p className="mt-3 rounded-lg bg-canvas/60 px-3 py-2 text-[11px] text-ink/55">Con <b>pago en línea</b>, el afiliado abre Wompi y elige <b>PSE (débito) o tarjeta</b>. Se cobra el valor exacto del aporte y queda pagado automáticamente. Configura abajo la cuenta Wompi del sindicato.</p>
+      ) : modo === 'transferencia' ? (
         <label className="mt-3 block">
-          <span className="mb-1 block text-xs font-medium text-ink/70">Instrucciones de pago (las ve el afiliado)</span>
-          <textarea value={instrucciones} onChange={(e) => setInstrucciones(e.target.value)} rows={4} placeholder={'Ej. Bancolombia, ahorros 123-456789-00 a nombre de [sindicato].\nO enlace de pago PSE: https://...'} className="w-full resize-y rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm leading-relaxed outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
+          <span className="mb-1 block text-xs font-medium text-ink/70">Datos para la transferencia (los ve el afiliado)</span>
+          <textarea value={instrucciones} onChange={(e) => setInstrucciones(e.target.value)} rows={4} placeholder={'Ej. Bancolombia, cuenta de ahorros 123-456789-00 a nombre de [sindicato].\nEl afiliado transfiere y luego sube el comprobante.'} className="w-full resize-y rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm leading-relaxed outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
         </label>
       ) : (
         <p className="mt-3 rounded-lg bg-canvas/60 px-3 py-2 text-[11px] text-ink/55">Con <b>nómina</b>, el afiliado solo ve su estado de cuenta; no paga desde la app. La Tesorería registra los descuentos (concilia el reporte de la pagaduría) desde el módulo Financiero.</p>

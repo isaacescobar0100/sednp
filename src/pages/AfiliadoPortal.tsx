@@ -325,9 +325,9 @@ function MisAportes({ affiliateId }: { affiliateId: string }) {
         </div>
       ) : org?.instruccionesPago ? (
         <div className="rounded-xl border border-night/15 bg-night/[0.03] px-4 py-3 text-xs text-ink/70">
-          <p className="mb-1 font-semibold text-ink">Cómo pagar tu cuota</p>
+          <p className="mb-1 font-semibold text-ink">Cómo pagar tu cuota (transferencia)</p>
           <p className="whitespace-pre-line">{conEnlaces(org.instruccionesPago)}</p>
-          <p className="mt-1.5 text-ink/45">Después de pagar, usa “Registrar pago” en el aporte y <strong>adjunta tu comprobante</strong>.</p>
+          <p className="mt-1.5 text-ink/45">Transfiere con estos datos y, cuando <strong>ya hayas pagado</strong>, usa <strong>“Ya pagué · subir comprobante”</strong> en el aporte.</p>
         </div>
       ) : null}
 
@@ -357,7 +357,7 @@ function MisAportes({ affiliateId }: { affiliateId: string }) {
                 ) : esPse ? (
                   <button onClick={() => pagarPse(a.id)} disabled={pagando === a.id} className="shrink-0 rounded-xl bg-night px-4 py-2 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-50">{pagando === a.id ? 'Abriendo…' : 'Pagar con PSE'}</button>
                 ) : (
-                  <button onClick={() => { setCompFor(a.id); setCompFile(null) }} className="shrink-0 rounded-xl bg-night px-4 py-2 text-sm font-semibold text-white transition hover:bg-night-deep">Registrar pago</button>
+                  <button onClick={() => { setCompFor(a.id); setCompFile(null) }} className="shrink-0 rounded-xl bg-night px-4 py-2 text-sm font-semibold text-white transition hover:bg-night-deep">Ya pagué · subir comprobante</button>
                 )}
               </article>
             )
@@ -369,17 +369,17 @@ function MisAportes({ affiliateId }: { affiliateId: string }) {
       {compFor ? (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4" onClick={() => !subiendo && setCompFor(null)}>
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-display text-lg font-semibold text-ink">Registrar pago</h3>
-            <p className="mt-1 text-sm text-ink/60">Adjunta el comprobante de tu transferencia (imagen o PDF) como evidencia. La Tesorería lo verá al conciliar.</p>
+            <h3 className="font-display text-lg font-semibold text-ink">Subir comprobante</h3>
+            <p className="mt-1 text-sm text-ink/60">Primero realiza la transferencia con los datos del sindicato. Cuando ya hayas pagado, adjunta aquí el comprobante (imagen o PDF); así la Tesorería lo concilia con evidencia.</p>
             <label className="mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-ink/25 px-4 py-6 text-sm text-ink/60 transition hover:border-night hover:text-night">
               <UploadIcon className="h-5 w-5" />
               <span>{compFile ? compFile.name : 'Seleccionar comprobante…'}</span>
               <input type="file" accept="image/*,application/pdf" className="hidden" onChange={(e) => setCompFile(e.target.files?.[0] ?? null)} />
             </label>
-            <p className="mt-2 text-[11px] text-ink/45">El comprobante es recomendado. Si aún no lo tienes, puedes registrar el pago sin adjuntarlo.</p>
+            <p className="mt-2 text-[11px] text-ink/45">Formatos: imagen o PDF. Sin comprobante no se puede confirmar el pago.</p>
             <div className="mt-5 flex justify-end gap-2">
               <button onClick={() => setCompFor(null)} disabled={subiendo} className="rounded-xl border border-ink/12 px-4 py-2 text-sm font-semibold text-ink/60 transition hover:border-ink/30 disabled:opacity-50">Cancelar</button>
-              <button onClick={registrarConComprobante} disabled={subiendo} className="rounded-xl bg-night px-4 py-2 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-50">{subiendo ? 'Registrando…' : 'Registrar pago'}</button>
+              <button onClick={registrarConComprobante} disabled={subiendo || !compFile} className="rounded-xl bg-night px-4 py-2 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-50">{subiendo ? 'Subiendo…' : 'Confirmar pago'}</button>
             </div>
           </div>
         </div>
