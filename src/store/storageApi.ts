@@ -3,10 +3,19 @@ import { supabase } from '../lib/supabase'
 
 const BUCKET = 'soportes'
 
+// Sindicato de la sesión: los soportes se guardan bajo su carpeta (<org_id>/...)
+// para que el Storage los aísle por organización. Se fija al iniciar sesión.
+let orgActualId = ''
+export function setOrgActual(id?: string | null): void {
+  orgActualId = (id || '').trim()
+}
+
 // Sube un archivo y devuelve su ruta dentro del bucket (para guardar en la BD).
+// La ruta va bajo la carpeta del sindicato: <org_id>/<folder>/<archivo>.
 export async function subirSoporte(folder: string, file: File): Promise<string> {
   const safe = file.name.replace(/[^\w.\-]+/g, '_')
-  const path = `${folder}/${Date.now()}-${safe}`
+  const prefijo = orgActualId ? `${orgActualId}/` : ''
+  const path = `${prefijo}${folder}/${Date.now()}-${safe}`
   const { error } = await supabase.storage.from(BUCKET).upload(path, file, { upsert: false })
   if (error) throw error
   return path

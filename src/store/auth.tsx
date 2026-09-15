@@ -4,6 +4,7 @@ import { supabase } from '../lib/supabase'
 import { Role } from './session'
 import { setMarca, setPlantillaBienvenida } from './emailApi'
 import { setReferencias } from './referencias'
+import { setOrgActual } from './storageApi'
 import { guardarMarca } from './brandCache'
 
 // Autenticación real con Supabase. El rol de la persona vive en la tabla
@@ -12,7 +13,7 @@ import { guardarMarca } from './brandCache'
 export type AppRole = Role | 'afiliado'
 export type Profile = { id: string; full_name: string; role: AppRole; initials: string; platformAdmin: boolean; fotoUrl: string }
 // Marca del sindicato al que pertenece la persona (multi-sindicato / SaaS).
-export type Org = { nombre: string; logoUrl: string | null; activo: boolean; slug: string | null; dominio: string | null; mensajeBienvenida: string | null; afiliadosMax: number | null; plan: string | null; referencias: Record<string, string> }
+export type Org = { id: string; nombre: string; logoUrl: string | null; activo: boolean; slug: string | null; dominio: string | null; mensajeBienvenida: string | null; afiliadosMax: number | null; plan: string | null; referencias: Record<string, string> }
 
 type Result = { error?: string }
 
@@ -54,20 +55,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const loadProfile = useCallback(async (s: Session | null) => {
-    if (!s?.user) { setProfile(null); setOrg(null); setMarca(null); setPlantillaBienvenida(null); setReferencias(null); return }
+    if (!s?.user) { setProfile(null); setOrg(null); setMarca(null); setPlantillaBienvenida(null); setReferencias(null); setOrgActual(null); return }
     const meta = (s.user.user_metadata?.full_name as string) || ''
     try {
       // Perfil y marca del sindicato se piden en paralelo (no dependen entre sí);
       // así el splash posterior al login dura una sola ida y vuelta, no dos.
       const [{ data }, o] = await Promise.all([
         supabase.from('profiles').select('id, full_name, role, platform_admin, foto_url').eq('id', s.user.id).maybeSingle(),
-        supabase.from('organizations').select('nombre, logo_url, activo, slug, dominio, correo_remitente, mensaje_bienvenida, afiliados_max, plan, referencias').maybeSingle().then((r) => r.data, () => null),
+        supabase.from('organizations').select('id, nombre, logo_url, activo, slug, dominio, correo_remitente, mensaje_bienvenida, afiliados_max, plan, referencias').maybeSingle().then((r) => r.data, () => null),
       ])
       const fullName = data?.full_name || meta
       const role = (data?.role as AppRole) || 'afiliado'
       setProfile({ id: s.user.id, full_name: fullName, role, initials: initialsOf(fullName, s.user.email ?? ''), platformAdmin: Boolean(data?.platform_admin), fotoUrl: (data?.foto_url as string | null) ?? '' })
       const refs = (o?.referencias as Record<string, string> | null) ?? {}
-      setOrg(o ? { nombre: o.nombre as string, logoUrl: (o.logo_url as string | null) ?? null, activo: (o.activo as boolean | null) ?? true, slug: (o.slug as string | null) ?? null, dominio: (o.dominio as string | null) ?? null, mensajeBienvenida: (o.mensaje_bienvenida as string | null) ?? null, afiliadosMax: (o.afiliados_max as number | null) ?? null, plan: (o.plan as string | null) ?? null, referencias: refs } : null)
+      setOrg(o ? { id: o.id as string, nombre: o.nombre as string, logoUrl: (o.logo_url as string | null) ?? null, activo: (o.activo as boolean | null) ?? true, slug: (o.slug as string | null) ?? null, dominio: (o.dominio as string | null) ?? null, mensajeBienvenida: (o.mensaje_bienvenida as string | null) ?? null, afiliadosMax: (o.afiliados_max as number | null) ?? null, plan: (o.plan as string | null) ?? null, referencias: refs } : null)
+      setOrgActual((o?.id as string | undefined) || null)
       // Marca de los correos = nombre + logo del sindicato; dirección propia si la tiene.
       setMarca((o?.nombre as string | undefined) || null, (o?.correo_remitente as string | undefined) || null, (o?.logo_url as string | undefined) || null)
       setPlantillaBienvenida((o?.mensaje_bienvenida as string | undefined) || null)
@@ -157,6 +159,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setMarca(null)
     setPlantillaBienvenida(null)
     setReferencias(null)
+    setOrgActual(null)
     setNeedsMfa(false)
   }, [])
 
