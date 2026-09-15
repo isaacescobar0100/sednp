@@ -2,7 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { useAuth } from './auth'
 import { hasSupabase, supabase } from '../lib/supabase'
 import { fetchAffiliates, insertAffiliate, patchAffiliate } from './affiliatesApi'
-import { fetchAportes, insertAportes, patchAporte } from './aportesApi'
+import { conciliarNominaPeriodo, fetchAportes, insertAportes, patchAporte } from './aportesApi'
 import { fetchMovements, insertMovement, patchMovement, deleteMovementRow } from './movementsApi'
 import { Params, clearCajaGastos, deletePresupuesto as deletePresupuestoRow, fetchCajaGastos, fetchCuentas, fetchParams, fetchPresupuestos, insertCajaGasto, replaceCuentas, upsertParams, upsertPresupuesto } from './configApi'
 import { deleteCaseRow, fetchCases, insertCase, patchCase } from './casesApi'
@@ -207,6 +207,7 @@ type Action =
   | { type: 'generateAportes'; period: string }
   | { type: 'decretarExtraordinaria'; period: string; pct: number; acta: string }
   | { type: 'payAporte'; id: string; method: AporteMethod; date: string; comprobantePath?: string }
+  | { type: 'conciliarNomina'; period: string; date: string; comprobantePath?: string }
   | { type: 'anticiparAporte'; id: string }
   | { type: 'setPorcentajeCuota'; value: number }
   | { type: 'setPresupuesto'; category: string; anual: number }
@@ -433,6 +434,15 @@ function reducer(state: DemoState, action: Action): DemoState {
       return {
         ...state,
         aportes: state.aportes.map((a) => (a.id === action.id ? { ...a, status: 'Pagado', paidDate: action.date, method: action.method, comprobantePath: action.comprobantePath ?? a.comprobantePath } : a)),
+      }
+    }
+    case 'conciliarNomina': {
+      // Marca pagados por nómina todos los aportes pendientes del periodo.
+      return {
+        ...state,
+        aportes: state.aportes.map((a) => (a.period === action.period && a.status === 'Pendiente'
+          ? { ...a, status: 'Pagado', method: 'Nómina', paidDate: action.date, comprobantePath: action.comprobantePath ?? a.comprobantePath }
+          : a)),
       }
     }
     case 'decretarExtraordinaria': {
@@ -689,6 +699,7 @@ type DemoContextValue = {
   porcentajeCuota: number
   generateAportes: (period: string) => void
   payAporte: (id: string, method: AporteMethod, comprobantePath?: string) => void
+  conciliarNomina: (period: string, comprobantePath?: string) => void
   refreshAportes: () => Promise<void>
   decretarExtraordinaria: (period: string, pct: number, acta: string) => void
   anticiparAporte: (id: string) => void
@@ -1372,6 +1383,26 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
   // que lo marca la función serverless con el service role).
   const refreshAportes = useCallback(() => fetchAportes().then((list) => dispatch({ type: 'setAportes', list })).catch(() => {}), [])
 
+  // Conciliación de nómina en lote: la empresa descontó y consignó el total del
+  // periodo; Tesorería marca pagados todos los pendientes de una vez y registra
+  // UN ingreso consolidado al libro. El comprobante (planilla de la empresa) es
+  // opcional y queda como evidencia del lote en cada aporte.
+  const conciliarNomina = useCallback((period: string, comprobantePath?: string) => {
+    const date = commNowLabel()
+    const pendientes = aportesRef.current.filter((a) => a.period === period && a.status === 'Pendiente')
+    if (pendientes.length === 0) { notify('No hay aportes pendientes en ese periodo.', 'warning'); return }
+    dispatch({ type: 'conciliarNomina', period, date, comprobantePath })
+    conciliarNominaPeriodo(period, date, comprobantePath).catch(() => notify('No se pudo conciliar en el servidor.', 'warning'))
+    const total = pendientes.reduce((s, a) => s + a.amount, 0)
+    const mov: Movement = {
+      id: '', date,
+      concept: `Aportes por nómina — ${periodLabel(period)} (${pendientes.length} afiliados)`,
+      category: 'Recaudo', kind: 'Ingreso', amount: total, status: 'Confirmado',
+    }
+    insertMovement(mov).then((saved) => dispatch({ type: 'addMovement', movement: saved })).catch(() => {})
+    notify(`Conciliados ${pendientes.length} aportes por nómina (${formatCop(total)}).`, 'success')
+  }, [notify])
+
   const decretarExtraordinaria = useCallback((period: string, pct: number, acta: string) => {
     const p = Math.min(TOPE_EXTRAORDINARIA, Math.max(0, pct))
     const yaCon = new Set(aportesRef.current.filter((a) => a.tipo === 'Extraordinaria' && a.period === period && a.acta === acta).map((a) => a.affiliateId))
@@ -1566,6 +1597,7 @@ export function DemoProvider({ children }: { children: React.ReactNode }) {
       porcentajeCuota: state.porcentajeCuota,
       generateAportes,
       payAporte,
+      conciliarNomina,
       refreshAportes,
       decretarExtraordinaria,
       anticiparAporte,

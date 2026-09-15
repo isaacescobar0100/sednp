@@ -67,3 +67,14 @@ export async function patchAporte(id: string, changes: Partial<Aporte>): Promise
   const { error } = await supabase.from('aportes').update(aporteToRow(changes)).eq('id', id)
   if (error) throw error
 }
+
+// Concilia por NÓMINA todos los aportes PENDIENTES de un periodo de una sola vez
+// (la empresa descontó y consignó el total). RLS lo limita al sindicato en sesión.
+// Devuelve cuántos aportes quedaron marcados como pagados.
+export async function conciliarNominaPeriodo(period: string, date: string, comprobantePath?: string): Promise<number> {
+  const changes: Record<string, unknown> = { status: 'Pagado', method: 'Nómina', paid_date: date }
+  if (comprobantePath) changes.comprobante_path = comprobantePath
+  const { data, error } = await supabase.from('aportes').update(changes).eq('period', period).eq('status', 'Pendiente').select('id')
+  if (error) throw error
+  return (data ?? []).length
+}

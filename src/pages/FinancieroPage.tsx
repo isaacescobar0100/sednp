@@ -320,6 +320,7 @@ function AportesSection() {
   const periods = recentPeriods(6)
   const [period, setPeriod] = useState(periods[0])
   const [extraOpen, setExtraOpen] = useState(false)
+  const [conciliarOpen, setConciliarOpen] = useState(false)
   const [aportePage, setAportePage] = useState(1)
   const pctLabel = (porcentajeCuota * 100).toLocaleString('es-CO', { maximumFractionDigits: 2 })
 
@@ -343,6 +344,7 @@ function AportesSection() {
             {periods.map((p) => <option key={p} value={p}>{periodLabel(p)}</option>)}
           </select>
           {canApprove ? <button onClick={() => setExtraOpen(true)} className="inline-flex items-center gap-2 rounded-xl border border-night/25 px-4 py-2.5 text-sm font-semibold text-night transition hover:bg-night/5">Decretar extraordinaria</button> : null}
+          {canCreate && pendiente > 0 ? <button onClick={() => setConciliarOpen(true)} className="inline-flex items-center gap-2 rounded-xl border border-emerald-600/30 px-4 py-2.5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50">Conciliar nómina</button> : null}
           {canCreate ? <button onClick={() => generateAportes(period)} className="inline-flex items-center gap-2 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep"><PlusIcon className="h-4 w-4" />Generar corte</button> : null}
         </div>
       </div>
@@ -391,7 +393,48 @@ function AportesSection() {
       </div>
       <Pagination page={aportePage} size={APORTE_PAGE} total={rows.length} onPage={setAportePage} />
       {extraOpen ? <ExtraordinariaModal period={period} onClose={() => setExtraOpen(false)} /> : null}
+      {conciliarOpen ? <ConciliarNominaModal period={period} pendientes={rows.filter((a) => a.status === 'Pendiente').length} total={pendiente} onClose={() => setConciliarOpen(false)} /> : null}
     </section>
+  )
+}
+
+// Conciliación de nómina en lote: la empresa descontó la cuota y consignó el
+// total del periodo. Tesorería marca pagados todos los pendientes de una vez y
+// puede adjuntar la planilla de la empresa como evidencia del lote.
+function ConciliarNominaModal({ period, pendientes, total, onClose }: { period: string; pendientes: number; total: number; onClose: () => void }) {
+  const { conciliarNomina } = useDemo()
+  const [file, setFile] = useState<File | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const submit = async () => {
+    setBusy(true)
+    try {
+      let path: string | undefined
+      if (file) path = await subirSoporte('planillas-nomina', file)
+      conciliarNomina(period, path)
+      onClose()
+    } catch {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4" onClick={() => !busy && onClose()}>
+      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <h3 className="font-display text-lg font-semibold text-ink">Conciliar nómina · {periodLabel(period)}</h3>
+        <p className="mt-1 text-sm text-ink/60">Marca como <b>pagados por nómina</b> los <b>{pendientes}</b> aportes pendientes del periodo ({formatCop(total)}) y registra un ingreso consolidado al libro.</p>
+        <label className="mt-4 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-ink/25 px-4 py-6 text-sm text-ink/60 transition hover:border-night hover:text-night">
+          <PaperclipIcon className="h-5 w-5" />
+          <span>{file ? file.name : 'Adjuntar planilla de la empresa (opcional)…'}</span>
+          <input type="file" accept="image/*,application/pdf,.csv,.xlsx,.xls" className="hidden" onChange={(e) => setFile(e.target.files?.[0] ?? null)} />
+        </label>
+        <p className="mt-2 text-[11px] text-ink/45">La planilla queda como evidencia del lote. Puedes conciliar sin adjuntarla.</p>
+        <div className="mt-5 flex justify-end gap-2">
+          <button onClick={onClose} disabled={busy} className="rounded-xl border border-ink/12 px-4 py-2 text-sm font-semibold text-ink/60 transition hover:border-ink/30 disabled:opacity-50">Cancelar</button>
+          <button onClick={submit} disabled={busy} className="rounded-xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-50">{busy ? 'Conciliando…' : `Conciliar ${pendientes}`}</button>
+        </div>
+      </div>
+    </div>
   )
 }
 
