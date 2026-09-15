@@ -1,0 +1,67 @@
+// Función serverless: genera el enlace de pago de Wompi para un aporte.
+// La FIRMA (signature:integrity) se calcula AQUÍ con el secreto del sindicato,
+// que nunca llega al navegador. Requiere SUPABASE_SERVICE_ROLE_KEY (ya existe).
+import crypto from 'crypto'
+import { rateLimited, clientIp } from './_rateLimit.js'
+
+export default async function handler(req, res) {
+  if (req.method !== 'POST') { res.status(405).json({ error: 'Método no permitido' }); return }
+  if (rateLimited(`wompi-co:${clientIp(req)}`, 30, 60_000)) { res.status(429).json({ error: 'Demasiadas solicitudes.' }); return }
+
+  const supaUrl = process.env.VITE_SUPABASE_URL
+  const anon = process.env.VITE_SUPABASE_ANON_KEY
+  const service = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!supaUrl || !anon || !service) { res.status(500).json({ error: 'Servidor sin configurar.' }); return }
+
+  // 1) Sesión válida (el afiliado paga desde su portal).
+  const token = (req.headers.authorization || '').startsWith('Bearer ') ? req.headers.authorization.slice(7) : ''
+  if (!token) { res.status(401).json({ error: 'No autorizado' }); return }
+  try {
+    const u = await fetch(`${supaUrl}/auth/v1/user`, { headers: { apikey: anon, Authorization: `Bearer ${token}` } })
+    if (!u.ok) { res.status(401).json({ error: 'Sesión inválida' }); return }
+  } catch { res.status(401).json({ error: 'No se pudo validar la sesión' }); return }
+
+  let body = req.body
+  if (typeof body === 'string') { try { body = JSON.parse(body) } catch { body = {} } }
+  const aporteId = String((body && body.aporteId) || '').trim()
+  if (!aporteId) { res.status(400).json({ error: 'Falta aporteId' }); return }
+
+  const sH = { apikey: service, Authorization: `Bearer ${service}`, 'Content-Type': 'application/json' }
+  try {
+    // 2) Aporte (monto + org).
+    const ar = await fetch(`${supaUrl}/rest/v1/aportes?id=eq.${aporteId}&select=id,amount,org_id,status`, { headers: sH })
+    const aporte = (await ar.json())[0]
+    if (!aporte) { res.status(404).json({ error: 'Aporte no encontrado' }); return }
+    if (aporte.status !== 'Pendiente') { res.status(409).json({ error: 'Este aporte ya está pagado.' }); return }
+
+    // 3) Config Wompi del sindicato.
+    const or = await fetch(`${supaUrl}/rest/v1/organizations?id=eq.${aporte.org_id}&select=wompi_public_key,wompi_integrity`, { headers: sH })
+    const org = (await or.json())[0]
+    if (!org || !org.wompi_public_key || !org.wompi_integrity) {
+      res.status(400).json({ error: 'Este sindicato no tiene configurada la pasarela de pago.' }); return
+    }
+
+    // 4) Firma de integridad y enlace de checkout.
+    const reference = `SNK-${aporteId}`
+    const amountInCents = Math.round(Number(aporte.amount) * 100)
+    const currency = 'COP'
+    const firma = crypto.createHash('sha256').update(`${reference}${amountInCents}${currency}${org.wompi_integrity}`).digest('hex')
+
+    const proto = (req.headers['x-forwarded-proto'] || 'https').split(',')[0]
+    const host = req.headers['x-forwarded-host'] || req.headers.host || ''
+    const redirectUrl = `${proto}://${host}/?wompi=1`
+
+    const url = 'https://checkout.wompi.co/p/?' + new URLSearchParams({
+      'public-key': org.wompi_public_key,
+      currency,
+      'amount-in-cents': String(amountInCents),
+      reference,
+      'signature:integrity': firma,
+      'redirect-url': redirectUrl,
+    }).toString()
+
+    res.status(200).json({ checkoutUrl: url })
+  } catch (e) {
+    res.status(502).json({ error: 'No se pudo generar el pago.' })
+  }
+}
