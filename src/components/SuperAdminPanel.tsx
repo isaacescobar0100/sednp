@@ -102,6 +102,7 @@ function SuperAdminContent() {
   const [presiNombre, setPresiNombre] = useState('')
   const [dominio, setDominio] = useState('')
   const [plan, setPlan] = useState<PlanKey>('basico')
+  const [modoRecaudo, setModoRecaudo] = useState('nomina')
   const [busy, setBusy] = useState(false)
   const [creado, setCreado] = useState<null | { nombre: string; slug: string; dominio: string; email: string; password: string; presi: string }>(null)
   const [avisoCorreo, setAvisoCorreo] = useState('')
@@ -147,12 +148,13 @@ function SuperAdminContent() {
         precio_anual: p.precio,
         afiliados_max: p.max,
         fecha_proximo_pago: proximo.toISOString().slice(0, 10),
+        modo_recaudo: modoRecaudo,
       }).eq('slug', s)
       // Guardamos los datos (incl. contraseña) para la tarjeta de credenciales,
       // ANTES de limpiar el formulario. La contraseña solo se conoce ahora.
       const cred = { nombre: nombre.trim(), slug: s, dominio: dom, email: presiEmail.trim().toLowerCase(), password: presiPassword, presi: presiNombre.trim() }
       setCreado(cred)
-      setNombre(''); setSlug(''); setPresiEmail(''); setPresiPassword(''); setPresiNombre(''); setDominio(''); setPlan('basico')
+      setNombre(''); setSlug(''); setPresiEmail(''); setPresiPassword(''); setPresiNombre(''); setDominio(''); setPlan('basico'); setModoRecaudo('nomina')
       void load()
       // Correo automático al presidente con sus accesos + bienvenida (mismo
       // camino que el correo de afiliación, que sí entra a Principal).
@@ -355,6 +357,13 @@ function SuperAdminContent() {
                         {(Object.keys(PLANES) as PlanKey[]).map((k) => (
                           <option key={k} value={k}>{PLANES[k].label} · {PLANES[k].max ? `hasta ${PLANES[k].max}` : '800+'} · {COP(PLANES[k].precio)}/año</option>
                         ))}
+                      </select>
+                    </Field>
+                    <Field label="Modo de recaudo de la cuota">
+                      <select value={modoRecaudo} onChange={(e) => setModoRecaudo(e.target.value)} className={inputC}>
+                        <option value="nomina">Descuento por nómina (el afiliado no paga en la app)</option>
+                        <option value="transferencia">Transferencia bancaria (el afiliado paga y registra)</option>
+                        <option value="pse">Pago en línea / PSE</option>
                       </select>
                     </Field>
                   </div>

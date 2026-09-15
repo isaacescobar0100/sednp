@@ -40,6 +40,10 @@ export function ParametrosPage() {
             <ReferenciasCard />
           </div>
 
+          <div className="min-w-0 xl:col-span-2">
+            <RecaudoCard />
+          </div>
+
           <CuotaCard />
           <SmmlvCard />
 
@@ -345,6 +349,51 @@ function ReferenciasCard() {
       {estado ? <p className={`mt-2 text-xs ${estado.ok ? 'text-emerald-700' : 'text-brick'}`}>{estado.msg}</p> : null}
       <div className="mt-3 flex justify-end">
         <button onClick={guardar} disabled={busy} className="inline-flex items-center gap-1.5 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-50">{busy ? 'Guardando…' : 'Guardar referencias'}</button>
+      </div>
+    </section>
+  )
+}
+
+// Modo de recaudo de la cuota (nómina / transferencia / PSE) + instrucciones.
+function RecaudoCard() {
+  const { org, refreshProfile } = useAuth()
+  const [modo, setModo] = useState(org?.modoRecaudo ?? 'nomina')
+  const [instrucciones, setInstrucciones] = useState(org?.instruccionesPago ?? '')
+  const [busy, setBusy] = useState(false)
+  const [estado, setEstado] = useState<{ ok: boolean; msg: string } | null>(null)
+
+  async function guardar() {
+    setBusy(true); setEstado(null)
+    const { error } = await supabase.rpc('set_recaudo', { p_modo: modo, p_instrucciones: modo === 'nomina' ? null : instrucciones })
+    setBusy(false)
+    if (error) { setEstado({ ok: false, msg: error.message }); return }
+    await refreshProfile()
+    setEstado({ ok: true, msg: 'Modo de recaudo guardado.' })
+  }
+
+  return (
+    <section className="rounded-2xl border border-ink/[0.08] bg-white p-5">
+      <h2 className="font-display text-base font-semibold">Recaudo de la cuota</h2>
+      <p className="mt-0.5 text-xs text-ink/50">Define cómo pagan la cuota tus afiliados.</p>
+      <label className="mt-3 block">
+        <span className="mb-1 block text-xs font-medium text-ink/70">Modo</span>
+        <select value={modo} onChange={(e) => setModo(e.target.value)} className="w-full rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10">
+          <option value="nomina">Descuento por nómina (el afiliado no paga en la app)</option>
+          <option value="transferencia">Transferencia bancaria</option>
+          <option value="pse">Pago en línea / PSE</option>
+        </select>
+      </label>
+      {modo !== 'nomina' ? (
+        <label className="mt-3 block">
+          <span className="mb-1 block text-xs font-medium text-ink/70">Instrucciones de pago (las ve el afiliado)</span>
+          <textarea value={instrucciones} onChange={(e) => setInstrucciones(e.target.value)} rows={4} placeholder={'Ej. Bancolombia, ahorros 123-456789-00 a nombre de [sindicato].\nO enlace de pago PSE: https://...'} className="w-full resize-y rounded-xl border border-ink/12 bg-canvas/45 px-3 py-2.5 text-sm leading-relaxed outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
+        </label>
+      ) : (
+        <p className="mt-3 rounded-lg bg-canvas/60 px-3 py-2 text-[11px] text-ink/55">Con <b>nómina</b>, el afiliado solo ve su estado de cuenta; no paga desde la app. La Tesorería registra los descuentos (concilia el reporte de la pagaduría) desde el módulo Financiero.</p>
+      )}
+      {estado ? <p className={`mt-2 text-xs ${estado.ok ? 'text-emerald-700' : 'text-brick'}`}>{estado.msg}</p> : null}
+      <div className="mt-3 flex justify-end">
+        <button onClick={guardar} disabled={busy} className="inline-flex items-center gap-1.5 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-50">{busy ? 'Guardando…' : 'Guardar recaudo'}</button>
       </div>
     </section>
   )

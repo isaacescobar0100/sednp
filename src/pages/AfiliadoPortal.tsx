@@ -201,6 +201,8 @@ function InfoCard({ title, icon: Icon, items, columns = 2 }: { title: string; ic
 
 function MisAportes({ affiliateId }: { affiliateId: string }) {
   const { aportes, payAporte } = useDemo()
+  const { org } = useAuth()
+  const esNomina = (org?.modoRecaudo ?? 'nomina') === 'nomina'
   const mine = aportes.filter((a) => a.affiliateId === affiliateId).sort((x, y) => (x.period < y.period ? 1 : -1))
   const pendiente = mine.filter((a) => a.status === 'Pendiente').reduce((s, a) => s + a.amount, 0)
   const pagadoTotal = mine.filter((a) => a.status === 'Pagado').reduce((s, a) => s + a.amount, 0)
@@ -231,6 +233,19 @@ function MisAportes({ affiliateId }: { affiliateId: string }) {
         </div>
       </section>
 
+      {/* Cómo se paga la cuota, según el modo de recaudo del sindicato */}
+      {esNomina ? (
+        <div className="rounded-xl border border-ink/10 bg-canvas/50 px-4 py-3 text-xs text-ink/60">
+          Tu cuota se descuenta <strong>automáticamente por nómina</strong>. Aquí solo ves tu estado de cuenta; no necesitas pagar desde la app.
+        </div>
+      ) : org?.instruccionesPago ? (
+        <div className="rounded-xl border border-night/15 bg-night/[0.03] px-4 py-3 text-xs text-ink/70">
+          <p className="mb-1 font-semibold text-ink">Cómo pagar tu cuota</p>
+          <p className="whitespace-pre-line">{org.instruccionesPago}</p>
+          <p className="mt-1.5 text-ink/45">Después de pagar, usa "Registrar pago" en el aporte correspondiente.</p>
+        </div>
+      ) : null}
+
       {/* Historial */}
       <div className="overflow-hidden rounded-2xl border border-ink/[0.08] bg-white">
         <div className="border-b border-ink/[0.07] px-5 py-4"><h3 className="font-display text-base font-semibold">Historial de aportes</h3></div>
@@ -251,8 +266,10 @@ function MisAportes({ affiliateId }: { affiliateId: string }) {
                 </div>
                 {pagado ? (
                   <StatusBadge tone="positive">Pagado</StatusBadge>
+                ) : esNomina ? (
+                  <span className="shrink-0 rounded-lg bg-ink/5 px-2.5 py-1 text-[11px] font-semibold text-ink/50">Por descontar (nómina)</span>
                 ) : (
-                  <button onClick={() => payAporte(a.id, 'Portal')} className="shrink-0 rounded-xl bg-night px-4 py-2 text-sm font-semibold text-white transition hover:bg-night-deep">Pagar {formatCop(a.amount)}</button>
+                  <button onClick={() => payAporte(a.id, 'Portal')} className="shrink-0 rounded-xl bg-night px-4 py-2 text-sm font-semibold text-white transition hover:bg-night-deep">Registrar pago</button>
                 )}
               </article>
             )
