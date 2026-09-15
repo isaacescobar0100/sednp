@@ -9,7 +9,7 @@ import { SuperAdminScreen } from './components/SuperAdminPanel'
 import { PublicRegistroPage } from './pages/PublicRegistroPage'
 import { PublicSite } from './components/PublicSite'
 import { logoCacheado, marcaCacheada } from './store/brandCache'
-import { esEntradaAdmin } from './store/platform'
+import { esEntradaAdmin, hostPerteneceASindicato, urlDeSindicato } from './store/platform'
 import { ModuleKey, ModuleMeta } from './types/navigation'
 
 // Carga diferida por módulo (code-splitting): cada página se descarga solo
@@ -149,6 +149,10 @@ function Root() {
   // Administrador de la plataforma (Sindika): pantalla propia, sin rol de sindicato.
   if (profile.platformAdmin) return <SuperAdminScreen />
 
+  // La cuenta pertenece a OTRO sindicato: no puede entrar por esta puerta.
+  // (Los datos ya están aislados por RLS; esto endurece el aislamiento por dominio.)
+  if (org && !hostPerteneceASindicato(org.slug, org.dominio)) return <CuentaOtroSindicato onLogout={signOut} />
+
   // Sindicato suspendido (p. ej. por falta de pago): se bloquea el acceso.
   if (org && !org.activo) return <SindicatoSuspendido onLogout={signOut} />
 
@@ -195,6 +199,25 @@ function AfiliadoGate() {
     <Suspense fallback={<Splash />}>
       <AfiliadoPortal affiliateId={me.id} onLogout={signOut} />
     </Suspense>
+  )
+}
+
+// La cuenta entró por la dirección de otro sindicato: se la redirige a la suya.
+function CuentaOtroSindicato({ onLogout }: { onLogout: () => void }) {
+  const { org } = useAuth()
+  const url = urlDeSindicato(org?.slug ?? null, org?.dominio ?? null)
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-canvas p-6 text-center">
+      <BrandMark size={56} />
+      <h1 className="font-display text-xl font-semibold text-ink">Esta no es la dirección de tu sindicato</h1>
+      <p className="max-w-md text-sm text-ink/60">
+        Tu cuenta pertenece a <b>{org?.nombre ?? 'otro sindicato'}</b>. Por seguridad, ingresa desde tu propia dirección para acceder a tu sistema.
+      </p>
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <a href={url} className="rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep">Ir a mi sindicato</a>
+        <button onClick={onLogout} className="rounded-xl border border-ink/12 px-4 py-2.5 text-sm font-semibold text-ink/60 transition hover:bg-canvas">Cerrar sesión</button>
+      </div>
+    </div>
   )
 }
 
