@@ -19,16 +19,17 @@ export function BrandPanel() {
     let on = true
     // En la administración NO se consulta ni muestra marca de sindicato.
     if (admin) { setTenantLogo(''); setTenantNombre(''); return () => { on = false } }
-    supabase.rpc('contar_afiliados_activos').then(({ data, error }) => {
-      if (on && !error && typeof data === 'number') setActivos(data)
-    })
     const paramOrg = new URLSearchParams(window.location.search).get('org') || null
     supabase.rpc('sitio_publico', { p_host: window.location.hostname, p_slug: paramOrg }).then(({ data }) => {
       if (!on) return
-      const d = (data || {}) as { nombre?: string; logoUrl?: string }
+      const d = (data || {}) as { nombre?: string; logoUrl?: string; slug?: string }
       setTenantLogo(d.logoUrl || '')
       setTenantNombre(d.nombre || '')
       guardarMarca(d.nombre || '', d.logoUrl || '')
+      // Conteo de afiliados SOLO de este sindicato (no el total de la plataforma).
+      supabase.rpc('contar_afiliados_activos', { p_slug: d.slug || paramOrg || null }).then(({ data: n, error }) => {
+        if (on && !error && typeof n === 'number') setActivos(n)
+      })
     })
     return () => { on = false }
   }, [admin])
