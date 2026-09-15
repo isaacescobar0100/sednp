@@ -2,6 +2,10 @@ import "./index.css";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { App } from "./App";
+import { initSentry } from "./lib/sentry";
+
+// Monitoreo de errores en producción (no-op si no hay VITE_SENTRY_DSN).
+initSentry();
 
 // Si al navegar falla la carga de un módulo (típico tras un despliegue nuevo:
 // el "pedazo" viejo ya no existe), recargamos una sola vez para traer la

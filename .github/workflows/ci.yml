@@ -1,0 +1,25 @@
+name: CI
+
+# Verifica type-check + build en cada push a main y en cada Pull Request.
+# Si algo falla, la marca de estado sale en rojo en GitHub (y puede exigirse
+# como "required check" para no fusionar/desplegar código roto).
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Instalar dependencias
+        run: npm ci
+      - name: Type-check (TypeScript)
+        run: npx tsc --noEmit -p tsconfig.json
+      - name: Build (Vite)
+        run: npm run build
