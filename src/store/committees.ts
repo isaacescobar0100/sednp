@@ -55,10 +55,3 @@ export function seedCommittees(): Committee[] {
   return [...tematicos, ...estatutarios]
 }
 
-// Comités de ejemplo (sin uso mientras se prueba con datos reales).
-export function sampleCommittees(): Committee[] {
-  return [
-    { id: 'com-seed-0', name: 'Planeación e Innovación', lead: 'Carlos Andrés Pardo', members: ['Diana Marcela Ortiz', 'Jorge Iván Salcedo'], next: '16 may · Laboratorio de proyectos', activity: 'Matriz de iniciativas 2026 actualizada', color: 'bg-night' },
-    { id: 'com-seed-1', name: 'Bienestar', lead: 'Diana Marcela Ortiz', members: ['Ana Sofía Méndez'], next: '15 may · Virtual', activity: 'Convocatoria taller de salud mental', color: 'bg-gold' },
-  ]
-}

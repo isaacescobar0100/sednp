@@ -50,12 +50,3 @@ export function seedDocs(): Doc[] {
   return []
 }
 
-// Documentos de ejemplo (sin uso mientras se prueba con datos reales).
-export function sampleDocs(): Doc[] {
-  return [
-    { id: 'doc-seed-0', title: 'Acta Asamblea General Ordinaria 2026', type: 'Acta', code: 'ACT-AGO-2026-01', date: '12 abr 2026', fileName: 'acta-asamblea-2026.pdf', fileSize: 245_760 },
-    { id: 'doc-seed-1', title: 'Resolución 004 — Plan anual de bienestar', type: 'Resolución', code: 'RES-004-2026', date: '28 mar 2026', fileName: 'resolucion-004.pdf', fileSize: 102_400 },
-    { id: 'doc-seed-2', title: 'Informe financiero primer trimestre', type: 'Informe', code: 'INF-FIN-2026-01', date: '15 abr 2026', fileName: 'informe-financiero-t1.pdf', fileSize: 358_400 },
-    { id: 'doc-seed-3', title: 'Reglamento interno de trabajo sindical', type: 'Reglamento', code: 'REG-INT-2026', date: '03 feb 2026', fileName: 'reglamento-interno.pdf', fileSize: 512_000 },
-  ]
-}

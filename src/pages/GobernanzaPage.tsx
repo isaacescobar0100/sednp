@@ -115,7 +115,7 @@ export function GobernanzaPage() {
 
       <section className="mt-8 overflow-hidden rounded-2xl border border-ink/[0.08] bg-white">
         <div className="border-b border-ink/[0.07] p-5">
-          <h2 className="font-display text-base font-semibold">Junta Directiva Nacional</h2>
+          <h2 className="font-display text-base font-semibold">Junta Directiva</h2>
           <p className="mt-1 text-xs text-ink/50">Composición reglamentaria{cita('junta')}: cada cargo con principal y suplente.</p>
         </div>
         <div className="overflow-x-auto">
