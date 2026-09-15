@@ -15,4 +15,8 @@ export function initSentry(): void {
     tracesSampleRate: 0.1,   // muestreo bajo de rendimiento (no gastar cuota)
     sendDefaultPii: false,   // no capturar datos personales por defecto
   })
+  // Expone el SDK para poder probar el envío desde la consola del navegador:
+  //   Sentry.captureException(new Error("prueba"))
+  // (Inofensivo: es un SDK de cliente; útil para diagnóstico.)
+  ;(window as unknown as { Sentry?: typeof Sentry }).Sentry = Sentry
 }
