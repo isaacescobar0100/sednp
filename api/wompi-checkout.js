@@ -13,26 +13,37 @@ export default async function handler(req, res) {
   const service = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!supaUrl || !anon || !service) { res.status(500).json({ error: 'Servidor sin configurar.' }); return }
 
-  // 1) Sesión válida (el afiliado paga desde su portal).
+  // 1) Sesión válida (el afiliado paga desde su portal). Guardamos su uid.
   const token = (req.headers.authorization || '').startsWith('Bearer ') ? req.headers.authorization.slice(7) : ''
   if (!token) { res.status(401).json({ error: 'No autorizado' }); return }
+  let uid = ''
   try {
     const u = await fetch(`${supaUrl}/auth/v1/user`, { headers: { apikey: anon, Authorization: `Bearer ${token}` } })
     if (!u.ok) { res.status(401).json({ error: 'Sesión inválida' }); return }
+    uid = (await u.json())?.id || ''
   } catch { res.status(401).json({ error: 'No se pudo validar la sesión' }); return }
+  if (!uid) { res.status(401).json({ error: 'Sesión inválida' }); return }
 
   let body = req.body
   if (typeof body === 'string') { try { body = JSON.parse(body) } catch { body = {} } }
   const aporteId = String((body && body.aporteId) || '').trim()
-  if (!aporteId) { res.status(400).json({ error: 'Falta aporteId' }); return }
+  // Debe ser un UUID válido: evita inyección en la consulta PostgREST y basura.
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(aporteId)) {
+    res.status(400).json({ error: 'aporteId inválido' }); return
+  }
 
   const sH = { apikey: service, Authorization: `Bearer ${service}`, 'Content-Type': 'application/json' }
   try {
-    // 2) Aporte (monto + org).
-    const ar = await fetch(`${supaUrl}/rest/v1/aportes?id=eq.${aporteId}&select=id,amount,org_id,status`, { headers: sH })
+    // 2) Aporte (monto + org + titular).
+    const ar = await fetch(`${supaUrl}/rest/v1/aportes?id=eq.${aporteId}&select=id,amount,org_id,status,affiliate_id`, { headers: sH })
     const aporte = (await ar.json())[0]
     if (!aporte) { res.status(404).json({ error: 'Aporte no encontrado' }); return }
     if (aporte.status !== 'Pendiente') { res.status(409).json({ error: 'Este aporte ya está pagado.' }); return }
+
+    // 2b) El aporte debe pertenecer al afiliado que pide el pago (no IDOR).
+    const afr = await fetch(`${supaUrl}/rest/v1/affiliates?id=eq.${encodeURIComponent(aporte.affiliate_id)}&select=user_id`, { headers: sH })
+    const afiliado = (await afr.json())[0]
+    if (!afiliado || afiliado.user_id !== uid) { res.status(403).json({ error: 'No autorizado para este aporte.' }); return }
 
     // 3) Config Wompi del sindicato.
     const or = await fetch(`${supaUrl}/rest/v1/organizations?id=eq.${aporte.org_id}&select=wompi_public_key,wompi_integrity`, { headers: sH })
