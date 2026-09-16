@@ -29,6 +29,9 @@ type AuthContextValue = {
   signIn: (email: string, password: string, captchaToken?: string) => Promise<Result>
   signUp: (email: string, password: string, fullName: string) => Promise<Result & { needsConfirmation?: boolean }>
   signOut: () => Promise<void>
+  resetPassword: (email: string, captchaToken?: string) => Promise<Result>  // envía enlace de recuperación al correo
+  updatePassword: (password: string) => Promise<Result>                     // fija la nueva contraseña (modo recuperación)
+  recoveryMode: boolean         // el usuario llegó por un enlace de "olvidé mi contraseña"
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -44,6 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<Profile | null>(null)
   const [org, setOrg] = useState<Org | null>(null)
   const [needsMfa, setNeedsMfa] = useState(false)
+  const [recoveryMode, setRecoveryMode] = useState(false)
 
   // ¿La cuenta tiene 2FA activo y aún no ha pasado el segundo factor?
   const refreshMfa = useCallback(async () => {
@@ -102,10 +106,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (data.session) void refreshMfa()
       })
       .catch(() => { if (active) setLoading(false) })
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, s) => {
+    const { data: sub } = supabase.auth.onAuthStateChange((event, s) => {
       setSession(s)
       void loadProfile(s)
       if (s) void refreshMfa(); else setNeedsMfa(false)
+      // El usuario abrió el enlace de "olvidé mi contraseña": entra en modo
+      // recuperación para fijar una nueva clave.
+      if (event === 'PASSWORD_RECOVERY') setRecoveryMode(true)
     })
     return () => { active = false; sub.subscription.unsubscribe() }
   }, [loadProfile, refreshMfa])
@@ -165,11 +172,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setReferencias(null)
     setOrgActual(null)
     setNeedsMfa(false)
+    setRecoveryMode(false)
+  }, [])
+
+  // Envía un enlace de recuperación al MISMO correo que ingresa la persona.
+  // Al hacer clic, vuelve a la app con una sesión de recuperación (PASSWORD_RECOVERY).
+  const resetPassword = useCallback(async (email: string, captchaToken?: string): Promise<Result> => {
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: `${window.location.origin}/ingresar`,
+      captchaToken,
+    })
+    return error ? { error: translate(error.message) } : {}
+  }, [])
+
+  // Fija la nueva contraseña usando la sesión de recuperación activa.
+  const updatePassword = useCallback(async (password: string): Promise<Result> => {
+    const { error } = await supabase.auth.updateUser({ password })
+    if (error) return { error: translate(error.message) }
+    setRecoveryMode(false)
+    return {}
   }, [])
 
   const value = useMemo<AuthContextValue>(
-    () => ({ loading, session, profile, org, refreshProfile, needsMfa, refreshMfa, signIn, signUp, signOut }),
-    [loading, session, profile, org, refreshProfile, needsMfa, refreshMfa, signIn, signUp, signOut],
+    () => ({ loading, session, profile, org, refreshProfile, needsMfa, refreshMfa, signIn, signUp, signOut, resetPassword, updatePassword, recoveryMode }),
+    [loading, session, profile, org, refreshProfile, needsMfa, refreshMfa, signIn, signUp, signOut, resetPassword, updatePassword, recoveryMode],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

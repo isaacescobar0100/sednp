@@ -3,7 +3,7 @@ import { AppShell } from './components/AppShell'
 import { DemoProvider, useDemo } from './store/DemoStore'
 import { SessionProvider, useSession, Role } from './store/session'
 import { AuthProvider, useAuth } from './store/auth'
-import { AuthScreen } from './components/AuthScreen'
+import { AuthScreen, NuevaClaveScreen } from './components/AuthScreen'
 import { MfaChallenge } from './components/MfaChallenge'
 import { SuperAdminScreen } from './components/SuperAdminPanel'
 import { PublicRegistroPage } from './pages/PublicRegistroPage'
@@ -148,7 +148,7 @@ function PageLoader() {
 }
 
 function Root() {
-  const { loading, session, profile, org, needsMfa, signOut } = useAuth()
+  const { loading, session, profile, org, needsMfa, signOut, recoveryMode } = useAuth()
 
   // Pestaña del navegador (título + favicon) según el sindicato; si no, Sindika.
   useEffect(() => {
@@ -165,6 +165,8 @@ function Root() {
   }, [org, profile?.platformAdmin])
 
   if (loading) return <Splash />
+  // El usuario abrió el enlace de "olvidé mi contraseña": fijar la nueva clave.
+  if (recoveryMode) return <NuevaClaveScreen />
   if (!session) return <AuthScreen />
   if (needsMfa) return <MfaChallenge />
   if (!profile) return <Splash text="Preparando tu cuenta…" />
