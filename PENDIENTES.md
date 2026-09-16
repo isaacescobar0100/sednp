@@ -12,7 +12,7 @@
 
 ## 🔑 "Olvidé mi contraseña" — config en Supabase (ya está el código; falta ajustar)
 
-- [ ] **Authentication → URL Configuration → Redirect URLs:** agregar las URLs de la app (ej. `https://sednp.vercel.app/ingresar`, subdominios y dominio real). Sin esto el enlace de recuperación redirige a la Site URL por defecto.
+- [ ] **Authentication → URL Configuration:** poner **Site URL** = `https://sindika.acordemusic.com` y en **Redirect URLs** agregar el comodín `https://*.acordemusic.com/**` (cubre todos los subdominios de sindicatos). Sin esto el enlace de recuperación abre **localhost**. Al migrar al dominio real, cambiar por `https://*.tudominio.com/**`.
 - [ ] **Authentication → Emails → SMTP:** conectar Resend como SMTP para que el correo de recuperación no tenga el límite del plan gratis de Supabase (para producción). En demo funciona con el correo interno de Supabase (pocos por hora).
 
 ## 📧 Correo (producción) — modelo: UNA sola cuenta Resend (opción A, ya elegida)
