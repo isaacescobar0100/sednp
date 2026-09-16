@@ -175,7 +175,6 @@ export function formatCop(value: number): string {
   }).format(value)
 }
 
-// Versión compacta en millones para tarjetas: $14,2 M
 // Formato compacto que se adapta al tamaño: millones → "$1,2 M", miles →
 // "$206 K", y montos pequeños con su valor exacto → "$500". Evita que una cifra
 // de miles se muestre como "$0,2 M" (impreciso).
@@ -216,8 +215,9 @@ const MONTH_INDEX: Record<string, number> = {
   ene: 0, feb: 1, mar: 2, abr: 3, may: 4, jun: 5, jul: 6, ago: 7, sep: 8, oct: 9, nov: 10, dic: 11,
 }
 
-// Agrega movimientos por mes (ingresos confirmados vs egresos pagados) en
-// millones COP, ordenados cronológicamente. Vacío si no hay movimientos.
+// Agrega movimientos por mes (ingresos confirmados vs egresos pagados) en PESOS
+// COP, ordenados cronológicamente. Las gráficas formatean el eje con formatCopShort
+// (K/M según tamaño). Vacío si no hay movimientos.
 export function monthlyFlow(movements: Movement[]): Array<{ month: string; income: number; expense: number }> {
   const map = new Map<string, { month: string; income: number; expense: number; sort: number }>()
   for (const m of movements) {
@@ -230,24 +230,24 @@ export function monthlyFlow(movements: Movement[]): Array<{ month: string; incom
     const key = `${abbr}-${year}`
     const label = abbr.charAt(0).toUpperCase() + abbr.slice(1)
     const cur = map.get(key) ?? { month: label, income: 0, expense: 0, sort: year * 12 + idx }
-    if (m.kind === 'Ingreso' && m.status === 'Confirmado') cur.income += m.amount / 1_000_000
-    if (m.kind === 'Egreso' && m.status === 'Pagado') cur.expense += m.amount / 1_000_000
+    if (m.kind === 'Ingreso' && m.status === 'Confirmado') cur.income += m.amount
+    if (m.kind === 'Egreso' && m.status === 'Pagado') cur.expense += m.amount
     map.set(key, cur)
   }
   return [...map.values()]
     .sort((a, b) => a.sort - b.sort)
-    .map(({ month, income, expense }) => ({ month, income: +income.toFixed(2), expense: +expense.toFixed(2) }))
+    .map(({ month, income, expense }) => ({ month, income: Math.round(income), expense: Math.round(expense) }))
 }
 
-// Egresos comprometidos (aprobados o pagados) por categoría, en millones COP.
+// Egresos comprometidos (aprobados o pagados) por categoría, en PESOS COP.
 export function expensesByCategory(movements: Movement[]): Array<{ category: string; value: number }> {
   return expenseCategories.map((category) => ({
     category,
-    value: +(
+    value: Math.round(
       movements
         .filter((m) => m.kind === 'Egreso' && m.category === category && (m.status === 'Aprobado' || m.status === 'Pagado'))
-        .reduce((acc, m) => acc + m.amount, 0) / 1_000_000
-    ).toFixed(2),
+        .reduce((acc, m) => acc + m.amount, 0),
+    ),
   }))
 }
 

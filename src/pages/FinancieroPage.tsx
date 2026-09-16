@@ -89,16 +89,16 @@ export function FinancieroPage() {
       <section className="mt-6 rounded-2xl border border-ink/[0.08] bg-white p-5">
         <div>
           <h2 className="font-display text-base font-semibold">Flujo de caja</h2>
-          <p className="mt-1 text-xs text-ink/50">Ingresos y egresos mensuales · millones COP</p>
+          <p className="mt-1 text-xs text-ink/50">Ingresos y egresos mensuales · COP</p>
         </div>
         {flow.length > 0 ? (
           <>
             <div className="mt-5 h-72">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={flow} margin={{ top: 4, right: 4, bottom: 0, left: -25 }}>
+                <BarChart data={flow} margin={{ top: 4, right: 4, bottom: 0, left: 4 }}>
                   <XAxis dataKey="month" tick={{ fontSize: 11, fill: '#768094' }} axisLine={false} tickLine={false} />
-                  <YAxis tickFormatter={(v) => `$${v}M`} tick={{ fontSize: 11, fill: '#768094' }} axisLine={false} tickLine={false} />
-                  <Tooltip formatter={(v: number, n: string) => [`$${v.toFixed(1)} M`, n === 'income' ? 'Ingresos' : 'Egresos']} contentStyle={{ borderRadius: 12, border: '1px solid #e8e7e2', fontSize: 12 }} />
+                  <YAxis width={64} tickFormatter={(v) => formatCopShort(Number(v))} tick={{ fontSize: 11, fill: '#768094' }} axisLine={false} tickLine={false} />
+                  <Tooltip formatter={(v: number, n: string) => [formatCopShort(Number(v)), n === 'income' ? 'Ingresos' : 'Egresos']} contentStyle={{ borderRadius: 12, border: '1px solid #e8e7e2', fontSize: 12 }} />
                   <Bar dataKey="income" name="income" fill="#0F1B3D" radius={[5, 5, 0, 0]} barSize={18} />
                   <Bar dataKey="expense" name="expense" fill="#C9973B" radius={[5, 5, 0, 0]} barSize={18} />
                 </BarChart>

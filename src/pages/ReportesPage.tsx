@@ -21,9 +21,9 @@ export function ReportesPage() {
   ]
 
   const financeCompare = [
-    { name: 'Ingresos', value: +(financeStats.income / 1_000_000).toFixed(1), color: '#0F1B3D' },
-    { name: 'Egresos pagados', value: +(financeStats.expensesPaid / 1_000_000).toFixed(1), color: '#C9973B' },
-    { name: 'Por aprobar', value: +(financeStats.pendingAmount / 1_000_000).toFixed(1), color: '#B23A3A' },
+    { name: 'Ingresos', value: Math.round(financeStats.income), color: '#0F1B3D' },
+    { name: 'Egresos pagados', value: Math.round(financeStats.expensesPaid), color: '#C9973B' },
+    { name: 'Por aprobar', value: Math.round(financeStats.pendingAmount), color: '#B23A3A' },
   ]
 
   const caseStatuses: CaseStatus[] = ['En trámite', 'Con fallo', 'Archivado']
@@ -102,14 +102,14 @@ export function ReportesPage() {
           ) : <GraficoVacio>Aún no hay afiliados registrados.</GraficoVacio>}
         </ReportCard>
 
-        <ReportCard title="Comparativo financiero" detail="Millones COP · en tiempo real">
+        <ReportCard title="Comparativo financiero" detail="COP · en tiempo real">
           {(financeStats.income || financeStats.expensesPaid || financeStats.pendingAmount) ? (
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={financeCompare} margin={{ top: 8, right: 5, bottom: 0, left: -20 }}>
+                <BarChart data={financeCompare} margin={{ top: 8, right: 5, bottom: 0, left: 4 }}>
                   <XAxis dataKey="name" tick={{ fontSize: 11, fill: '#768094' }} axisLine={false} tickLine={false} />
-                  <YAxis tickFormatter={(v) => `$${v}M`} tick={{ fontSize: 11, fill: '#768094' }} axisLine={false} tickLine={false} />
-                  <Tooltip formatter={(v: number) => [`$${v} M`, '']} contentStyle={{ borderRadius: 12, border: '1px solid #e8e7e2', fontSize: 12 }} cursor={{ fill: '#F7F6F2' }} />
+                  <YAxis width={64} tickFormatter={(v) => formatCopShort(Number(v))} tick={{ fontSize: 11, fill: '#768094' }} axisLine={false} tickLine={false} />
+                  <Tooltip formatter={(v: number) => [formatCopShort(Number(v)), '']} contentStyle={{ borderRadius: 12, border: '1px solid #e8e7e2', fontSize: 12 }} cursor={{ fill: '#F7F6F2' }} />
                   <Bar dataKey="value" radius={[5, 5, 0, 0]} barSize={40}>
                     {financeCompare.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
                   </Bar>
