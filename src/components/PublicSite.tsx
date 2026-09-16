@@ -147,8 +147,7 @@ export function PublicSite({ onEnter }: { onEnter: () => void }) {
       <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-canvas p-6 text-center">
         <img src="/sindika.png" alt="Sindika" className="h-14 w-auto object-contain" />
         <h1 className="font-display text-xl font-semibold text-ink">Este sitio no existe</h1>
-        <p className="max-w-md text-sm text-ink/60">La dirección que abriste no corresponde a ningún sindicato. Verifica el enlace, o conoce la plataforma.</p>
-        <a href="https://sindika.acordemusic.com/landing" className="rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep">Conocer Sindika</a>
+        <p className="max-w-md text-sm text-ink/60">La dirección que abriste no corresponde a ningún sindicato. Verifica el enlace.</p>
       </div>
     )
   }
