@@ -32,10 +32,11 @@ export default async function handler(req, res) {
     // Primero preguntamos a producción y, si no existe, a sandbox — Wompi no
     // permite cruzar ambientes, así que probamos ambos de forma segura.
     let tx = null
-    for (const host of ['https://production.wompi.co', 'https://sandbox.wompi.co']) {
+    let txEnv = ''
+    for (const [env, host] of [['prod', 'https://production.wompi.co'], ['sandbox', 'https://sandbox.wompi.co']]) {
       try {
         const r = await fetch(`${host}/v1/transactions/${encodeURIComponent(transactionId)}`)
-        if (r.ok) { const j = await r.json(); if (j && j.data) { tx = j.data; break } }
+        if (r.ok) { const j = await r.json(); if (j && j.data) { tx = j.data; txEnv = env; break } }
       } catch { /* probar el siguiente ambiente */ }
     }
     if (!tx) { res.status(404).json({ error: 'Transacción no encontrada en Wompi.' }); return }
@@ -45,11 +46,28 @@ export default async function handler(req, res) {
     const m = reference.match(/^SNK-(.+)$/)
     if (!m) { res.status(400).json({ error: 'Referencia no reconocida.' }); return }
     const aporteId = m[1]
+    // Debe ser un UUID: evita inyección PostgREST vía referencia manipulada.
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(aporteId)) {
+      res.status(400).json({ error: 'Referencia inválida.' }); return
+    }
 
-    // 2) Traer el aporte y validar monto/estado.
-    const ar = await fetch(`${supaUrl}/rest/v1/aportes?id=eq.${aporteId}&select=id,amount,status`, { headers: sH })
+    // 2) Traer el aporte (con su org) y validar monto/estado/ambiente/moneda.
+    const ar = await fetch(`${supaUrl}/rest/v1/aportes?id=eq.${aporteId}&select=id,amount,status,org_id`, { headers: sH })
     const aporte = (await ar.json())[0]
     if (!aporte) { res.status(404).json({ error: 'Aporte no encontrado.' }); return }
+
+    // La transacción debe ser del MISMO ambiente que la llave del sindicato
+    // (una llave pub_test_ es sandbox; cualquier otra, producción). Evita marcar
+    // pagado con una transacción de un comercio/ambiente ajeno.
+    const orr = await fetch(`${supaUrl}/rest/v1/organizations?id=eq.${encodeURIComponent(aporte.org_id)}&select=wompi_public_key`, { headers: sH })
+    const orgRow = (await orr.json())[0]
+    const esSandbox = String(orgRow?.wompi_public_key || '').startsWith('pub_test_')
+    if ((esSandbox ? 'sandbox' : 'prod') !== txEnv) {
+      res.status(409).json({ error: 'La transacción no corresponde a la pasarela del sindicato.' }); return
+    }
+    if (String(tx.currency || '') !== 'COP') {
+      res.status(409).json({ error: 'Moneda inválida.' }); return
+    }
 
     if (status !== 'APPROVED') {
       res.status(200).json({ paid: false, status }); return
