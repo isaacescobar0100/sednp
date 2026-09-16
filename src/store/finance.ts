@@ -176,9 +176,21 @@ export function formatCop(value: number): string {
 }
 
 // Versión compacta en millones para tarjetas: $14,2 M
+// Formato compacto que se adapta al tamaño: millones → "$1,2 M", miles →
+// "$206 K", y montos pequeños con su valor exacto → "$500". Evita que una cifra
+// de miles se muestre como "$0,2 M" (impreciso).
 export function formatCopShort(value: number): string {
-  const millions = value / 1_000_000
-  return `$${millions.toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} M`
+  const abs = Math.abs(value)
+  const signo = value < 0 ? '-' : ''
+  if (abs >= 1_000_000) {
+    const m = abs / 1_000_000
+    return `${signo}$${m.toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} M`
+  }
+  if (abs >= 1_000) {
+    const k = abs / 1_000
+    return `${signo}$${k.toLocaleString('es-CO', { maximumFractionDigits: Number.isInteger(k) ? 0 : 1 })} K`
+  }
+  return `${signo}$${abs.toLocaleString('es-CO')}`
 }
 
 export function todayLabel(): string {
