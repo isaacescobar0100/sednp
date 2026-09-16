@@ -67,26 +67,37 @@ export default async function handler(req, res) {
       headers: { apikey: supaKey, Authorization: `Bearer ${token}` },
     })
     if (!u.ok) { res.status(401).json({ error: 'Sesión inválida' }); return }
-    // Nota: /api/send-email queda abierto a cualquier sesión válida porque el
-    // afiliado dispara legítimamente un correo (agradecimiento al pagar su aporte
-    // desde el portal). Es 1 correo por llamada; el envío masivo (boletin) sí
-    // exige rol directivo. El abuso de 1-a-1 se limita con rate-limit de Resend.
   } catch {
     res.status(401).json({ error: 'No se pudo validar la sesión' })
     return
   }
 
+  // 1b) El REMITENTE se decide en el servidor (nombre + dirección del sindicato del
+  // que llama), NO desde el cuerpo. Así un afiliado no puede suplantar a un banco u
+  // otra marca. Se lee con el token del propio usuario (RLS lo limita a su sindicato).
+  let remitenteNombre = ''
+  let remitenteEmail = ''
+  try {
+    const orgResp = await fetch(`${supaUrl}/rest/v1/organizations?select=nombre,correo_remitente&limit=1`, {
+      headers: { apikey: supaKey, Authorization: `Bearer ${token}` },
+    })
+    const callerOrg = (await orgResp.json())?.[0]
+    remitenteNombre = (callerOrg && callerOrg.nombre) || 'Sindika'
+    remitenteEmail = (callerOrg && callerOrg.correo_remitente) || ''
+  } catch { remitenteNombre = 'Sindika' }
+
   // 2) Leer el cuerpo.
   let body = req.body
   if (typeof body === 'string') { try { body = JSON.parse(body) } catch { body = {} } }
   body = body || {}
-  const { to, subject, html, text, fromName, attachments } = body
+  const { to, subject, html, text, attachments } = body
   if (!to || !subject || (!html && !text)) {
     res.status(400).json({ error: 'Faltan campos: to, subject y html/text' })
     return
   }
 
-  const from = componerFrom(process.env.EMAIL_FROM, fromName, body.fromEmail)
+  // Remitente fijado por el servidor (ignora fromName/fromEmail del cliente).
+  const from = componerFrom(process.env.EMAIL_FROM, remitenteNombre, remitenteEmail)
   const textoPlano = text || (html ? htmlAtexto(html) : undefined)
   // Adjuntos opcionales: [{ filename, content }] con content en base64.
   const adjuntos = Array.isArray(attachments) && attachments.length
