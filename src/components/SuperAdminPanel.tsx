@@ -403,7 +403,6 @@ function OrgItem({ org, conteo, onReload }: { org: OrgRow; conteo?: Conteo; onRe
   const [avisoPago, setAvisoPago] = useState('')
   const [resetInfo, setResetInfo] = useState<null | { email: string; password: string }>(null)
   const [dialogo, setDialogo] = useState<Dialogo | null>(null)
-  const esPrincipal = org.slug === 'serdnp'
   const est = estadoPago(org.fecha_proximo_pago)
   const eui = ESTADO_UI[est]
   const nAfi = conteo?.afiliados ?? 0
@@ -613,11 +612,9 @@ function OrgItem({ org, conteo, onReload }: { org: OrgRow; conteo?: Conteo; onRe
         <button onClick={resetearPassword} title="Resetear contraseña de presidencia" className="inline-flex shrink-0 items-center justify-center rounded-lg border border-ink/12 px-3 py-2 text-xs font-semibold text-ink/70 transition hover:border-night hover:text-night">
           <KeyRoundIcon className="h-3.5 w-3.5" />
         </button>
-        {!esPrincipal ? (
-          <button onClick={borrar} disabled={borrando} title="Eliminar sindicato" className="inline-flex shrink-0 items-center justify-center rounded-lg border border-brick/25 px-3 py-2 text-xs font-semibold text-brick transition hover:bg-brick/10 disabled:opacity-50">
-            <Trash2Icon className="h-3.5 w-3.5" />
-          </button>
-        ) : null}
+        <button onClick={borrar} disabled={borrando} title="Eliminar sindicato" className="inline-flex shrink-0 items-center justify-center rounded-lg border border-brick/25 px-3 py-2 text-xs font-semibold text-brick transition hover:bg-brick/10 disabled:opacity-50">
+          <Trash2Icon className="h-3.5 w-3.5" />
+        </button>
       </div>
       {editing ? <EditOrgModal org={org} onClose={() => setEditing(false)} onSaved={() => { setEditing(false); onReload() }} /> : null}
       {dialogo ? <PanelDialog d={dialogo} onClose={() => setDialogo(null)} /> : null}
