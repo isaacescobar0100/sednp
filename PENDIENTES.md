@@ -24,15 +24,21 @@
 - [ ] (Opcional, hoy) **Rotar la llave de Resend** si en algún momento estuvo expuesta.
 - [ ] (Solo si un sindicato grande lo exige) Opción B: llave de Resend **por sindicato** (columna `resend_api_key`, patrón igual a Wompi). ~30 min cuando se necesite.
 
-## 🌐 Dominio definitivo
+## 🏷️ Marca (decidido)
 
-- [ ] Adquirir el **dominio real** (hoy `acordemusic.com` es de prueba/genérico).
-- [ ] Definir el **nombre definitivo** de la plataforma (corto, tipo tech, "paraguas" para varios proyectos).
-- [ ] Migración cuando esté el dominio (hacerlo todo junto):
-  - [ ] Vercel env: `PLATFORM_BASE_DOMAIN`, `VITE_PLATFORM_HOSTS`, `PUBLIC_BASE_URL`.
-  - [ ] DNS: subdominio comodín `*.tudominio.com` → Vercel (para `<slug>.tudominio.com`).
-  - [ ] Supabase: **Redirect URLs / Site URL** de Auth con el dominio nuevo.
-  - [ ] Revisar textos/imágenes que mencionen el dominio viejo.
+- **Empresa (razón social):** GRUPO ISDA S.A.S
+- **Corporativo / paraguas:** `idhetech.co` (casa de varios productos)
+- **Producto Sindika:** `sindikasoft.co` → los sindicatos viven en `<slug>.sindikasoft.co`
+- [ ] Verificar disponibilidad y **comprar** `idhetech.co` y `sindikasoft.co`.
+
+## 🌐 Dominio definitivo — migración a `sindikasoft.co`
+
+- [ ] Migración cuando estén los dominios (hacerlo todo junto):
+  - [ ] Vercel env: `PLATFORM_BASE_DOMAIN=sindikasoft.co`, `VITE_PLATFORM_HOSTS` (host de plataforma, ej. `sindika.sindikasoft.co` o `admin.sindikasoft.co`), `PUBLIC_BASE_URL`.
+  - [ ] DNS: subdominio comodín `*.sindikasoft.co` → Vercel (para `<slug>.sindikasoft.co`).
+  - [ ] Supabase: **Redirect URLs** `https://*.sindikasoft.co/**` + **Site URL** con el host de plataforma.
+  - [ ] (Opcional) idhetech.co como sitio corporativo/portafolio de la empresa.
+  - [ ] Revisar textos/imágenes que mencionen `acordemusic.com` (dominio de prueba).
 
 ## 🛡️ Seguridad — hecho y por reforzar
 
