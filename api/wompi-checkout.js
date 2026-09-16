@@ -46,7 +46,7 @@ export default async function handler(req, res) {
     if (!afiliado || afiliado.user_id !== uid) { res.status(403).json({ error: 'No autorizado para este aporte.' }); return }
 
     // 3) Config Wompi del sindicato.
-    const or = await fetch(`${supaUrl}/rest/v1/organizations?id=eq.${aporte.org_id}&select=wompi_public_key,wompi_integrity`, { headers: sH })
+    const or = await fetch(`${supaUrl}/rest/v1/organizations?id=eq.${encodeURIComponent(aporte.org_id)}&select=wompi_public_key,wompi_integrity,dominio`, { headers: sH })
     const org = (await or.json())[0]
     if (!org || !org.wompi_public_key || !org.wompi_integrity) {
       res.status(400).json({ error: 'Este sindicato no tiene configurada la pasarela de pago.' }); return
@@ -58,9 +58,17 @@ export default async function handler(req, res) {
     const currency = 'COP'
     const firma = crypto.createHash('sha256').update(`${reference}${amountInCents}${currency}${org.wompi_integrity}`).digest('hex')
 
-    const proto = (req.headers['x-forwarded-proto'] || 'https').split(',')[0]
-    const host = req.headers['x-forwarded-host'] || req.headers.host || ''
-    const redirectUrl = `${proto}://${host}/?wompi=1`
+    // La redirección post-pago vuelve al host desde el que se llamó, PERO solo si
+    // es un host conocido de la plataforma (evita redirección abierta por Host
+    // manipulado). Si no, cae a un destino fijo seguro.
+    const rawHost = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim().toLowerCase()
+    const dominioOrg = String(org.dominio || '').trim().toLowerCase()
+    const hostOk = /^[a-z0-9.-]+$/.test(rawHost) && (
+      rawHost === 'acordemusic.com' || rawHost.endsWith('.acordemusic.com') ||
+      rawHost.endsWith('.vercel.app') || (dominioOrg && rawHost === dominioOrg)
+    )
+    const base = hostOk ? `https://${rawHost}` : (process.env.PUBLIC_BASE_URL || 'https://sindika.acordemusic.com')
+    const redirectUrl = `${base}/?wompi=1`
 
     const url = 'https://checkout.wompi.co/p/?' + new URLSearchParams({
       'public-key': org.wompi_public_key,
