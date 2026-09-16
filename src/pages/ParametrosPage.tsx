@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react'
-import { BriefcaseBusinessIcon, CircleDollarSignIcon, ImageIcon, LandmarkIcon, PlusIcon, ScaleIcon, TagsIcon, Trash2Icon } from 'lucide-react'
+import { BriefcaseBusinessIcon, CheckCircle2Icon, CircleDollarSignIcon, EyeIcon, EyeOffIcon, ImageIcon, LandmarkIcon, PlusIcon, ScaleIcon, TagsIcon, Trash2Icon } from 'lucide-react'
 import { SectionTitle } from '../components/SectionTitle'
 import { supabase } from '../lib/supabase'
 import { subirFoto } from '../store/storageApi'
@@ -359,10 +359,13 @@ function RecaudoCard() {
   const { org, refreshProfile } = useAuth()
   const [modo, setModo] = useState(org?.modoRecaudo ?? 'nomina')
   const [instrucciones, setInstrucciones] = useState(org?.instruccionesPago ?? '')
-  const [wPublic, setWPublic] = useState('')
+  const [wPublic, setWPublic] = useState(org?.wompiPublicKey ?? '')
   const [wIntegrity, setWIntegrity] = useState('')
+  const [showPublic, setShowPublic] = useState(false)
+  const [showIntegrity, setShowIntegrity] = useState(false)
   const [busy, setBusy] = useState(false)
   const [estado, setEstado] = useState<{ ok: boolean; msg: string } | null>(null)
+  const [modalOk, setModalOk] = useState(false)
 
   async function guardar() {
     setBusy(true); setEstado(null)
@@ -375,9 +378,11 @@ function RecaudoCard() {
       if (e2) { setBusy(false); setEstado({ ok: false, msg: e2.message }); return }
     }
     setBusy(false)
-    setWIntegrity('')
+    setWPublic(wPublic.trim())   // la llave pública queda visible como guardada
+    setWIntegrity('')            // el secreto no se conserva en pantalla (seguridad)
+    setShowIntegrity(false)
     await refreshProfile()
-    setEstado({ ok: true, msg: 'Recaudo guardado.' })
+    setModalOk(true)             // confirmación con modal + Aceptar
   }
 
   return (
@@ -408,19 +413,36 @@ function RecaudoCard() {
           <p className="mt-0.5 text-[11px] text-ink/55">Conecta la cuenta Wompi <b>del sindicato</b>: el dinero llega a esa cuenta. Copia las llaves desde tu panel de Wompi → Desarrolladores. {org?.wompiActiva ? <span className="text-emerald-700">Ya hay una pasarela configurada.</span> : null}</p>
           <label className="mt-2.5 block">
             <span className="mb-1 block text-[11px] font-medium text-ink/70">Llave pública (pub_test_… o pub_prod_…)</span>
-            <input value={wPublic} onChange={(e) => setWPublic(e.target.value)} placeholder="pub_test_XXXXXXXX" className="w-full rounded-xl border border-ink/12 bg-white px-3 py-2 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
+            <div className="relative">
+              <input value={wPublic} onChange={(e) => setWPublic(e.target.value)} type={showPublic ? 'text' : 'password'} placeholder="pub_test_XXXXXXXX" className="w-full rounded-xl border border-ink/12 bg-white px-3 py-2 pr-10 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
+              <button type="button" onClick={() => setShowPublic((v) => !v)} aria-label={showPublic ? 'Ocultar' : 'Mostrar'} className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-ink/40 transition hover:text-ink/70">{showPublic ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}</button>
+            </div>
           </label>
           <label className="mt-2 block">
             <span className="mb-1 block text-[11px] font-medium text-ink/70">Secreto de integridad (queda solo en el servidor)</span>
-            <input value={wIntegrity} onChange={(e) => setWIntegrity(e.target.value)} type="password" placeholder={org?.wompiActiva ? 'Déjalo vacío para conservar el actual' : 'test_integrity_XXXX / prod_integrity_XXXX'} className="w-full rounded-xl border border-ink/12 bg-white px-3 py-2 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
+            <div className="relative">
+              <input value={wIntegrity} onChange={(e) => setWIntegrity(e.target.value)} type={showIntegrity ? 'text' : 'password'} placeholder={org?.wompiActiva ? '•••••• guardado — déjalo vacío para conservarlo' : 'test_integrity_XXXX / prod_integrity_XXXX'} className="w-full rounded-xl border border-ink/12 bg-white px-3 py-2 pr-10 text-sm outline-none focus:border-night focus:ring-4 focus:ring-night/10" />
+              <button type="button" onClick={() => setShowIntegrity((v) => !v)} aria-label={showIntegrity ? 'Ocultar' : 'Mostrar'} className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-ink/40 transition hover:text-ink/70">{showIntegrity ? <EyeOffIcon className="h-4 w-4" /> : <EyeIcon className="h-4 w-4" />}</button>
+            </div>
           </label>
           <p className="mt-2 text-[11px] text-ink/45">Sugerencia: prueba primero con las llaves <b>de pruebas</b> (pub_test_ / test_integrity_) antes de poner las de producción.</p>
         </div>
       ) : null}
-      {estado ? <p className={`mt-2 text-xs ${estado.ok ? 'text-emerald-700' : 'text-brick'}`}>{estado.msg}</p> : null}
+      {estado && !estado.ok ? <p className="mt-2 text-xs text-brick">{estado.msg}</p> : null}
       <div className="mt-3 flex justify-end">
         <button onClick={guardar} disabled={busy} className="inline-flex items-center gap-1.5 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-50">{busy ? 'Guardando…' : 'Guardar recaudo'}</button>
       </div>
+
+      {modalOk ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4" onClick={() => setModalOk(false)}>
+          <div className="w-full max-w-xs rounded-2xl bg-white p-6 text-center shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50 text-emerald-600"><CheckCircle2Icon className="h-6 w-6" /></div>
+            <h3 className="font-display text-base font-semibold text-ink">Recaudo guardado</h3>
+            <p className="mt-1 text-sm text-ink/60">{modo === 'pse' ? 'La configuración de pago quedó guardada.' : 'Los cambios se guardaron correctamente.'}</p>
+            <button onClick={() => setModalOk(false)} className="mt-4 w-full rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep">Aceptar</button>
+          </div>
+        </div>
+      ) : null}
     </section>
   )
 }
