@@ -1,8 +1,11 @@
 -- =============================================================================
 -- Eliminar un sindicato y TODOS sus datos (destructivo, irreversible).
--- Solo el administrador de la plataforma. Protege al sindicato principal (SERDNP).
--- Borra datos de negocio, catálogos, publicaciones, suscripciones push y las
--- cuentas de acceso (auth) de las personas de ese sindicato.
+-- Solo el administrador de la plataforma. Borra datos de negocio, catálogos,
+-- publicaciones, suscripciones push, auditoría y las cuentas de acceso de las
+-- personas de ese sindicato. PROTEGE a los administradores de plataforma: si
+-- alguno estaba asociado a este sindicato, se DESVINCULA (no se borra su cuenta),
+-- para no quedarte sin acceso al eliminar el sindicato principal.
+-- Recomendado correr también saas_stage24_borrado_cascada.sql (CASCADE de respaldo).
 -- Idempotente. Ejecutar en el SQL Editor de Supabase.
 -- =============================================================================
 
@@ -10,14 +13,17 @@ create or replace function public.eliminar_sindicato(p_org uuid)
 returns void
 language plpgsql security definer set search_path = public, auth
 as $$
-declare v_slug text;
 begin
   if not public.is_platform_admin() then
     raise exception 'Solo el administrador de la plataforma puede eliminar sindicatos';
   end if;
-  select slug into v_slug from public.organizations where id = p_org;
-  if v_slug is null then raise exception 'Sindicato no encontrado'; end if;
-  if v_slug = 'serdnp' then raise exception 'No se puede eliminar el sindicato principal (SERDNP).'; end if;
+  if not exists (select 1 from public.organizations where id = p_org) then
+    raise exception 'Sindicato no encontrado';
+  end if;
+
+  -- Desvincula a los administradores de plataforma de este sindicato (no se borran).
+  update public.profiles set org_id = null
+   where org_id = p_org and coalesce(platform_admin, false) = true;
 
   -- Datos de negocio (hijos antes que padres para respetar llaves foráneas).
   delete from public.push_subscriptions where org_id = p_org;
@@ -35,6 +41,7 @@ begin
   delete from public.docs where org_id = p_org;
   delete from public.committees where org_id = p_org;
   delete from public.affiliates where org_id = p_org;
+  delete from public.audit_log where org_id = p_org;
 
   -- Catálogos / parámetros.
   delete from public.cargos where org_id = p_org;
@@ -45,14 +52,17 @@ begin
   delete from public.cuentas where org_id = p_org;
   delete from public.params where org_id = p_org;
 
-  -- Cuentas de acceso de ese sindicato (cascada a identities y perfiles).
-  delete from auth.users where id in (select id from public.profiles where org_id = p_org);
-  delete from public.profiles where org_id = p_org;
+  -- Cuentas de acceso de ese sindicato (NUNCA los administradores de plataforma).
+  delete from auth.users where id in (
+    select id from public.profiles where org_id = p_org and coalesce(platform_admin, false) = false
+  );
+  delete from public.profiles where org_id = p_org and coalesce(platform_admin, false) = false;
 
-  -- La organización.
+  -- La organización. Con stage24 (CASCADE), cualquier tabla hija no listada aquí
+  -- se borra en cascada y no bloquea el borrado.
   delete from public.organizations where id = p_org;
 end $$;
 
 grant execute on function public.eliminar_sindicato(uuid) to authenticated;
 
-select 'listo: eliminar_sindicato' as estado;
+select 'listo: eliminar_sindicato (sin protección a SERDNP, con protección a admins)' as estado;
