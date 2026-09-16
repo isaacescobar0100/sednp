@@ -41,6 +41,7 @@
 **Por reforzar (no urgente):**
 - [ ] **Rate-limit compartido** (ej. Upstash) para `/api` sensibles. Hoy es en-memoria por instancia (best-effort).
 - [ ] Webhooks de Wompi (ver sección de pagos).
+- [ ] **Pentest externo antes del lanzamiento grande.** Contratar una empresa/profesional de seguridad que intente "hackear" la plataforma de forma controlada y autorizada, para encontrar fallos que una auditoría interna pudo no ver. Recomendado antes de manejar dinero real de varios sindicatos. (La auditoría interna 2026-09-16 ya cerró los 6 hallazgos encontrados; el pentest es la validación externa e independiente.)
 
 ## 💼 Comercial / crecimiento
 
