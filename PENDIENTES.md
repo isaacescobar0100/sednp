@@ -10,6 +10,11 @@
 - [ ] **Webhooks de Wompi.** Hoy la confirmación de pago consulta el `transactionId` que devuelve el navegador. Para producción real hay que validar el pago con el **evento firmado de Wompi** (`events secret`, cabecera `X-Event-Checksum`). Endpoint nuevo `/api/wompi-webhook`. *(En sandbox/demo lo actual está bien.)*
 - [ ] Cada sindicato conecta **su propia cuenta Wompi** (ya soportado): llave pública + secreto de integridad en Parámetros → Recaudo. La plata cae en la cuenta del sindicato.
 
+## 🔑 "Olvidé mi contraseña" — config en Supabase (ya está el código; falta ajustar)
+
+- [ ] **Authentication → URL Configuration → Redirect URLs:** agregar las URLs de la app (ej. `https://sednp.vercel.app/ingresar`, subdominios y dominio real). Sin esto el enlace de recuperación redirige a la Site URL por defecto.
+- [ ] **Authentication → Emails → SMTP:** conectar Resend como SMTP para que el correo de recuperación no tenga el límite del plan gratis de Supabase (para producción). En demo funciona con el correo interno de Supabase (pocos por hora).
+
 ## 📧 Correo (producción) — modelo: UNA sola cuenta Resend (opción A, ya elegida)
 
 - [ ] **Verificar el dominio real en Resend** (registros SPF + DKIM en el DNS).
