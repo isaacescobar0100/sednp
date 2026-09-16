@@ -10,14 +10,15 @@
 - [ ] **Webhooks de Wompi.** Hoy la confirmación de pago consulta el `transactionId` que devuelve el navegador. Para producción real hay que validar el pago con el **evento firmado de Wompi** (`events secret`, cabecera `X-Event-Checksum`). Endpoint nuevo `/api/wompi-webhook`. *(En sandbox/demo lo actual está bien.)*
 - [ ] Cada sindicato conecta **su propia cuenta Wompi** (ya soportado): llave pública + secreto de integridad en Parámetros → Recaudo. La plata cae en la cuenta del sindicato.
 
-## 🔑 "Olvidé mi contraseña" — config en Supabase (ya está el código; falta ajustar)
+## 🔑 "Olvidé mi contraseña"
 
-- [ ] **Authentication → URL Configuration:** poner **Site URL** = `https://sindika.acordemusic.com` y en **Redirect URLs** agregar el comodín `https://*.acordemusic.com/**` (cubre todos los subdominios de sindicatos). Sin esto el enlace de recuperación abre **localhost**. Al migrar al dominio real, cambiar por `https://*.tudominio.com/**`.
-- [ ] **Authentication → Emails → SMTP:** conectar Resend como SMTP para que el correo de recuperación no tenga el límite del plan gratis de Supabase (para producción). En demo funciona con el correo interno de Supabase (pocos por hora).
+- [x] Código listo (link en login → correo → pantalla nueva clave).
+- [x] **Redirect URLs** configuradas en Supabase (ya no abre localhost).
+- [ ] (Opcional) **SMTP de Resend en Supabase** — solo si el correo de recuperación llega a spam. *En prueba llegó bien, así que queda para hacerlo junto con el dominio real, sin prisa.*
 
 ## 📧 Correo (producción) — modelo: UNA sola cuenta Resend (opción A, ya elegida)
 
-- [ ] **Verificar el dominio real en Resend** (registros SPF + DKIM en el DNS).
+- [~] **Verificar el dominio en Resend** — **en verificación** (esperando propagación de DNS). Cuando quede "verified", los correos salen por tu dominio.
 - [ ] **DMARC** en el DNS del dominio de correo.
 - [ ] Setear `EMAIL_FROM` en Vercel con la dirección oficial (ej. `Sindika <notificaciones@tudominio.com>`).
 - [ ] (Opcional, hoy) **Rotar la llave de Resend** si en algún momento estuvo expuesta.
@@ -44,7 +45,8 @@
 - [x] M2 — allowlist de host en la redirección post-pago (configurable por env).
 
 **Por reforzar (no urgente):**
-- [ ] **Rate-limit compartido** (ej. Upstash) para `/api` sensibles. Hoy es en-memoria por instancia (best-effort).
+- [x] Rate-limit **básico** ya implementado en los endpoints sensibles (correo/boletín/push).
+- [ ] (Opcional) **Rate-limit compartido** (ej. Upstash) para que el límite sea global entre instancias. El básico actual sirve para el piloto.
 - [ ] Webhooks de Wompi (ver sección de pagos).
 - [ ] **Pentest externo antes del lanzamiento grande.** Contratar una empresa/profesional de seguridad que intente "hackear" la plataforma de forma controlada y autorizada, para encontrar fallos que una auditoría interna pudo no ver. Recomendado antes de manejar dinero real de varios sindicatos. (La auditoría interna 2026-09-16 ya cerró los 6 hallazgos encontrados; el pentest es la validación externa e independiente.)
 
