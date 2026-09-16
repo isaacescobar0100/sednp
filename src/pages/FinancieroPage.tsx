@@ -382,6 +382,8 @@ function AportesSection() {
                       </div>
                     ) : a.comprobantePath ? (
                       <button onClick={() => abrirSoporte(a.comprobantePath!)} className="inline-flex items-center gap-1 rounded-lg border border-ink/12 px-2.5 py-1.5 text-xs font-semibold text-night transition hover:border-night hover:bg-night/5"><PaperclipIcon className="h-3.5 w-3.5" />Comprobante</button>
+                    ) : a.wompiRef ? (
+                      <span className="text-[11px] text-ink/45" title={`Transacción Wompi: ${a.wompiRef}`}>Wompi #{a.wompiRef.slice(0, 10)}</span>
                     ) : <span className="text-xs text-ink/35">—</span>}
                   </td>
                 </tr>

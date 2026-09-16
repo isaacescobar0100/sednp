@@ -65,7 +65,7 @@ export default async function handler(req, res) {
     const up = await fetch(`${supaUrl}/rest/v1/aportes?id=eq.${aporteId}&status=eq.Pendiente`, {
       method: 'PATCH',
       headers: { ...sH, Prefer: 'return=minimal' },
-      body: JSON.stringify({ status: 'Pagado', paid_date: new Date().toISOString().slice(0, 10), method: 'Portal' }),
+      body: JSON.stringify({ status: 'Pagado', paid_date: new Date().toISOString().slice(0, 10), method: 'Portal', wompi_ref: transactionId }),
     })
     if (!up.ok) { res.status(502).json({ error: 'No se pudo registrar el pago.' }); return }
 
