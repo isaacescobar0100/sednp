@@ -62,12 +62,15 @@ export default async function handler(req, res) {
     // es un host conocido de la plataforma (evita redirección abierta por Host
     // manipulado). Si no, cae a un destino fijo seguro.
     const rawHost = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim().toLowerCase()
+    // Dominio base de la plataforma por variable de entorno (hoy es de prueba;
+    // al adquirir el real solo cambias PLATFORM_BASE_DOMAIN en Vercel, sin tocar código).
+    const baseDom = String(process.env.PLATFORM_BASE_DOMAIN || 'acordemusic.com').trim().toLowerCase()
     const dominioOrg = String(org.dominio || '').trim().toLowerCase()
     const hostOk = /^[a-z0-9.-]+$/.test(rawHost) && (
-      rawHost === 'acordemusic.com' || rawHost.endsWith('.acordemusic.com') ||
+      rawHost === baseDom || rawHost.endsWith('.' + baseDom) ||
       rawHost.endsWith('.vercel.app') || (dominioOrg && rawHost === dominioOrg)
     )
-    const base = hostOk ? `https://${rawHost}` : (process.env.PUBLIC_BASE_URL || 'https://sindika.acordemusic.com')
+    const base = hostOk ? `${proto}://${rawHost}` : (process.env.PUBLIC_BASE_URL || `https://sindika.${baseDom}`)
     const redirectUrl = `${base}/?wompi=1`
 
     const url = 'https://checkout.wompi.co/p/?' + new URLSearchParams({
