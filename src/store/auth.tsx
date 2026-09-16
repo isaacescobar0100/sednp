@@ -14,7 +14,7 @@ import { esHostPlataforma } from './platform'
 export type AppRole = Role | 'afiliado'
 export type Profile = { id: string; full_name: string; role: AppRole; initials: string; platformAdmin: boolean; fotoUrl: string }
 // Marca del sindicato al que pertenece la persona (multi-sindicato / SaaS).
-export type Org = { id: string; nombre: string; logoUrl: string | null; activo: boolean; slug: string | null; dominio: string | null; mensajeBienvenida: string | null; afiliadosMax: number | null; plan: string | null; referencias: Record<string, string>; modoRecaudo: string; instruccionesPago: string | null; wompiActiva: boolean }
+export type Org = { id: string; nombre: string; logoUrl: string | null; activo: boolean; slug: string | null; dominio: string | null; mensajeBienvenida: string | null; afiliadosMax: number | null; plan: string | null; referencias: Record<string, string>; modoRecaudo: string; instruccionesPago: string | null; wompiActiva: boolean; wompiPublicKey: string | null }
 
 type Result = { error?: string }
 
@@ -73,7 +73,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const role = (data?.role as AppRole) || 'afiliado'
       setProfile({ id: s.user.id, full_name: fullName, role, initials: initialsOf(fullName, s.user.email ?? ''), platformAdmin: Boolean(data?.platform_admin), fotoUrl: (data?.foto_url as string | null) ?? '' })
       const refs = (o?.referencias as Record<string, string> | null) ?? {}
-      setOrg(o ? { id: o.id as string, nombre: o.nombre as string, logoUrl: (o.logo_url as string | null) ?? null, activo: (o.activo as boolean | null) ?? true, slug: (o.slug as string | null) ?? null, dominio: (o.dominio as string | null) ?? null, mensajeBienvenida: (o.mensaje_bienvenida as string | null) ?? null, afiliadosMax: (o.afiliados_max as number | null) ?? null, plan: (o.plan as string | null) ?? null, referencias: refs, modoRecaudo: (o.modo_recaudo as string | null) ?? 'nomina', instruccionesPago: (o.instrucciones_pago as string | null) ?? null, wompiActiva: Boolean((o.wompi_public_key as string | null) ?? '') } : null)
+      setOrg(o ? { id: o.id as string, nombre: o.nombre as string, logoUrl: (o.logo_url as string | null) ?? null, activo: (o.activo as boolean | null) ?? true, slug: (o.slug as string | null) ?? null, dominio: (o.dominio as string | null) ?? null, mensajeBienvenida: (o.mensaje_bienvenida as string | null) ?? null, afiliadosMax: (o.afiliados_max as number | null) ?? null, plan: (o.plan as string | null) ?? null, referencias: refs, modoRecaudo: (o.modo_recaudo as string | null) ?? 'nomina', instruccionesPago: (o.instrucciones_pago as string | null) ?? null, wompiActiva: Boolean((o.wompi_public_key as string | null) ?? ''), wompiPublicKey: (o.wompi_public_key as string | null) ?? null } : null)
       setOrgActual((o?.id as string | undefined) || null)
       // Marca de los correos = nombre + logo del sindicato; dirección propia si la tiene.
       setMarca((o?.nombre as string | undefined) || null, (o?.correo_remitente as string | undefined) || null, (o?.logo_url as string | undefined) || null)
