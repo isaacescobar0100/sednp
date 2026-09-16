@@ -50,6 +50,11 @@
 - [ ] Webhooks de Wompi (ver sección de pagos).
 - [ ] **Pentest externo antes del lanzamiento grande.** Contratar una empresa/profesional de seguridad que intente "hackear" la plataforma de forma controlada y autorizada, para encontrar fallos que una auditoría interna pudo no ver. Recomendado antes de manejar dinero real de varios sindicatos. (La auditoría interna 2026-09-16 ya cerró los 6 hallazgos encontrados; el pentest es la validación externa e independiente.)
 
+## 💡 Funciones futuras (solo si un cliente lo pide)
+
+- [ ] **Referencias normativas personalizadas.** Hoy las citas de estatutos son una lista FIJA de ~18 puntos (anclados a reglas que la app ya muestra). Si un sindicato necesita citar reglas adicionales fuera de esas 18, agregar una sección de pares libres *(nombre de la regla → artículo)* que se muestren en una lista genérica de su módulo. No urgente — los 18 cubren lo estándar. (Nota: las **actas/documentos** ya son ilimitadas y viven en Gobernanza/Documental, esto NO son actas.)
+- [ ] Opción B de Resend (llave por sindicato) — ya anotada arriba en la sección de correo.
+
 ## 💼 Comercial / crecimiento
 
 - [ ] Buscar sindicatos en **Bogotá** para ofrecer la plataforma.
