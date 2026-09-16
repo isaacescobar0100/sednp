@@ -14,6 +14,7 @@ type Row = {
   paid_date: string | null
   method: AporteMethod | null
   comprobante_path: string | null
+  wompi_ref: string | null
 }
 
 export function rowToAporte(r: Row): Aporte {
@@ -29,6 +30,7 @@ export function rowToAporte(r: Row): Aporte {
     paidDate: r.paid_date ?? undefined,
     method: r.method ?? undefined,
     comprobantePath: r.comprobante_path ?? undefined,
+    wompiRef: r.wompi_ref ?? undefined,
   }
 }
 
@@ -46,6 +48,7 @@ export function aporteToRow(a: Partial<Aporte>): Record<string, unknown> {
   set('paid_date', a.paidDate)
   set('method', a.method)
   set('comprobante_path', a.comprobantePath)
+  set('wompi_ref', a.wompiRef)
   return row
 }
 

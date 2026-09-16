@@ -19,6 +19,7 @@ export type Aporte = {
   paidDate?: string
   method?: AporteMethod
   comprobantePath?: string // ruta del comprobante en Storage (pago por transferencia)
+  wompiRef?: string // id de la transacción Wompi (pago por PSE)
 }
 
 // Tope de la cuota extraordinaria: 3% de la asignación básica (Art. 33).
