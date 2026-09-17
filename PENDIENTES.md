@@ -66,6 +66,20 @@
 - [ ] Buscar sindicatos en **Bogotá** para ofrecer la plataforma.
 - [ ] Definir plan de **soporte recurrente** (además del pago único de implementación).
 
+## ⚡ Optimización para escalar (cuando entren sindicatos grandes)
+
+> Hoy la app carga TODO al iniciar sesión (~15 consultas con `select('*')`, todas las filas por tabla) en el store en memoria. Funciona bien con pocos datos (piloto); no escala a miles de afiliados/aportes. No es N+1 (no consulta fila por fila). Ver `src/store/DemoStore.tsx` (efecto de carga inicial).
+
+Por impacto/esfuerzo:
+- [ ] **#1 Paginación en servidor** (`.range()` 20-50) en tablas grandes (aportes, movimientos, comunicados) + `select` de **columnas específicas** en vez de `*`. *(Alto impacto, bajo esfuerzo.)*
+- [ ] **#2 Eager loading / JOIN embebido** de PostgREST: `select('*, affiliates(name)')` para traer relaciones en una sola query (evita cruzar en memoria / N+1). *(Alto, bajo.)*
+- [ ] **#3 RPC de agregados** para Dashboard/Reportes: función SQL que devuelve conteos/sumas, en vez de traer todo y contar en el cliente. *(Medio, bajo.)*
+- [ ] **#4 Caché real con TanStack Query (React Query)**: dedupe, stale-while-revalidate, carga lazy por módulo. Es el salto grande (refactor del store). *(Alto, medio-alto.)*
+- [ ] **#5 Realtime incremental**: aplicar solo la fila cambiada (viene en el payload) en vez de refrescar la tabla entera. *(Medio, medio.)*
+- [ ] **#6 Índices** en `org_id` + columnas de orden/filtro (ya hay varios `_org_idx`; revisar los que falten).
+
+Orden sugerido cuando toque: #1 y #2 primero (rápidos), luego #3, y #4 al escalar de verdad. Nota: caché HTTP/CDN NO aplica bien por el RLS (datos por usuario); la caché va en el cliente.
+
 ## 🧰 Operación / calidad (opcional)
 
 - [ ] Bulk "conciliar nómina" ya está hecho ✅ (solo se anota por historial).
