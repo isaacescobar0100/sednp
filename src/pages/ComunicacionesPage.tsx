@@ -8,12 +8,14 @@ import { AudienceKey, audienceLabel } from '../store/comms'
 import { enviarBoletin, plantillaCorreo } from '../store/emailApi'
 import { enviarPush } from '../store/pushApi'
 import { Pagination, paginate } from '../components/Pagination'
+import { useConfirm } from '../components/ConfirmDialog'
 
 const COM_PAGE = 10
 
 export function ComunicacionesPage() {
   const { comunicados, stats, affiliates, sendComunicado, deleteComunicado, notify } = useDemo()
   const { can } = useSession()
+  const confirmar = useConfirm()
   const canSend = can('comms.send')
 
   const [subject, setSubject] = useState('')
@@ -26,6 +28,7 @@ export function ComunicacionesPage() {
   // no duplicar el mensaje.
   const [query, setQuery] = useState('')
   const [page, setPage] = useState(1)
+  const [detalle, setDetalle] = useState<(typeof comunicados)[number] | null>(null)
 
   const q = query.trim().toLowerCase()
   const filteredComunicados = q === '' ? comunicados : comunicados.filter((c) => `${c.subject} ${c.audience}`.toLowerCase().includes(q))
@@ -141,7 +144,7 @@ export function ComunicacionesPage() {
           </div>
           <div className="divide-y divide-ink/[0.07]">
             {pageComunicados.map((message) => (
-              <article key={message.id} className="flex flex-col gap-3 px-5 py-4 sm:flex-row sm:items-center">
+              <article key={message.id} onClick={() => setDetalle(message)} className="flex cursor-pointer flex-col gap-3 px-5 py-4 transition hover:bg-canvas/50 sm:flex-row sm:items-center" role="button" tabIndex={0} onKeyDown={(e) => { if (e.key === 'Enter') setDetalle(message) }}>
                 <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-night/7"><MailIcon className="h-4 w-4 text-night" /></div>
                 <div className="min-w-0 flex-1">
                   <h3 className="text-sm font-semibold text-ink">{message.subject}</h3>
@@ -154,7 +157,7 @@ export function ComunicacionesPage() {
                 </div>
                 {canSend ? (
                   <button
-                    onClick={() => { if (window.confirm(`¿Eliminar "${message.subject}" del historial?`)) deleteComunicado(message.id) }}
+                    onClick={async (e) => { e.stopPropagation(); if (await confirmar({ title: 'Eliminar comunicado', message: `¿Eliminar "${message.subject}" del historial?`, confirmText: 'Eliminar', tone: 'peligro' })) deleteComunicado(message.id) }}
                     className="shrink-0 rounded-lg p-1.5 text-ink/40 transition hover:bg-brick/10 hover:text-brick"
                     aria-label={`Eliminar ${message.subject}`}
                   >
@@ -168,6 +171,30 @@ export function ComunicacionesPage() {
           <Pagination page={page} size={COM_PAGE} total={filteredComunicados.length} onPage={setPage} />
         </section>
       </div>
+
+      {detalle ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4" onClick={() => setDetalle(null)}>
+          <div className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3 border-b border-ink/[0.08] px-6 py-4">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-night/7"><MailIcon className="h-4 w-4 text-night" /></div>
+                  <StatusBadge tone={detalle.status === 'Entregado' ? 'positive' : 'warning'}>{detalle.status}</StatusBadge>
+                </div>
+                <h3 className="mt-2 font-display text-base font-semibold text-ink">{detalle.subject}</h3>
+                <p className="mt-0.5 text-xs text-ink/50">{detalle.audience} · {detalle.date} · {detalle.recipients} destinatarios</p>
+              </div>
+              <button onClick={() => setDetalle(null)} aria-label="Cerrar" className="shrink-0 rounded-lg p-1.5 text-ink/40 transition hover:bg-canvas hover:text-ink">✕</button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+              <p className="whitespace-pre-line text-sm leading-relaxed text-ink/80">{detalle.body || 'Sin contenido.'}</p>
+            </div>
+            <div className="flex justify-end border-t border-ink/[0.08] px-6 py-3">
+              <button onClick={() => setDetalle(null)} className="rounded-xl bg-night px-4 py-2 text-sm font-semibold text-white transition hover:bg-night-deep">Cerrar</button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }

@@ -6,6 +6,7 @@ import { useDemo } from '../store/DemoStore'
 import { juntaDirectiva, useSession } from '../store/session'
 import { Ballot, GovSession, UMBRAL_DELEGADOS, actoLabel, dayMonthFromISO, formatTime, longDateLabel, quorumMinimo, totalVotes, votePct } from '../store/governance'
 import { cita } from '../store/referencias'
+import { useConfirm } from '../components/ConfirmDialog'
 
 type VoteChoice = 'favor' | 'contra' | 'abstencion'
 
@@ -13,6 +14,7 @@ export function GobernanzaPage() {
   const { sessions, ballots, deleteSession, juntaDesde } = useDemo()
   const proximaEleccion = /^\d{4}-\d{2}-\d{2}$/.test(juntaDesde) ? `${Number(juntaDesde.slice(0, 4)) + 2}${juntaDesde.slice(4)}` : null
   const { can } = useSession()
+  const confirmar = useConfirm()
   const [showSchedule, setShowSchedule] = useState(false)
   const [minutesFor, setMinutesFor] = useState<GovSession | null>(null)
 
@@ -60,7 +62,7 @@ export function GobernanzaPage() {
                     <button onClick={() => setMinutesFor(s)} className="rounded-lg border border-ink/12 px-3 py-2 text-xs font-semibold text-night transition hover:bg-canvas">
                       Registrar acta
                     </button>
-                    <button onClick={() => { if (window.confirm(`¿Eliminar la sesión "${s.title}"?`)) deleteSession(s.id, s.title) }} className="rounded-lg p-2 text-ink/40 transition hover:bg-brick/10 hover:text-brick" aria-label={`Eliminar ${s.title}`}><Trash2Icon className="h-4 w-4" /></button>
+                    <button onClick={async () => { if (await confirmar({ title: 'Eliminar sesión', message: `¿Eliminar la sesión "${s.title}"?`, confirmText: 'Eliminar', tone: 'peligro' })) deleteSession(s.id, s.title) }} className="rounded-lg p-2 text-ink/40 transition hover:bg-brick/10 hover:text-brick" aria-label={`Eliminar ${s.title}`}><Trash2Icon className="h-4 w-4" /></button>
                   </div>
                 ) : (
                   <div className="flex items-center gap-2 rounded-lg bg-canvas px-3 py-2 text-xs text-ink/60"><UsersIcon className="h-3.5 w-3.5 text-gold" />{s.organ}</div>
@@ -150,6 +152,7 @@ export function GobernanzaPage() {
 function BallotCard({ ballot }: { ballot: Ballot }) {
   const { castVote, closeBallot, deleteBallot, notify, myVotes } = useDemo()
   const { can } = useSession()
+  const confirmar = useConfirm()
   const total = totalVotes(ballot)
   const open = ballot.status === 'En curso'
   const alreadyVoted = myVotes.includes(ballot.id)
@@ -182,7 +185,7 @@ function BallotCard({ ballot }: { ballot: Ballot }) {
             <span className="text-xs text-ink/45">{total} votos emitidos</span>
           )}
           {can('governance.manage') ? (
-            <button onClick={() => { if (window.confirm(`¿Eliminar la votación "${ballot.title}"?`)) deleteBallot(ballot.id, ballot.title) }} className="rounded-lg p-1.5 text-ink/40 transition hover:bg-brick/10 hover:text-brick" aria-label={`Eliminar ${ballot.title}`}><Trash2Icon className="h-4 w-4" /></button>
+            <button onClick={async () => { if (await confirmar({ title: 'Eliminar votación', message: `¿Eliminar la votación "${ballot.title}"?`, confirmText: 'Eliminar', tone: 'peligro' })) deleteBallot(ballot.id, ballot.title) }} className="rounded-lg p-1.5 text-ink/40 transition hover:bg-brick/10 hover:text-brick" aria-label={`Eliminar ${ballot.title}`}><Trash2Icon className="h-4 w-4" /></button>
           ) : null}
         </div>
       </div>

@@ -3,6 +3,7 @@ import { AppShell } from './components/AppShell'
 import { DemoProvider, useDemo } from './store/DemoStore'
 import { SessionProvider, useSession, Role } from './store/session'
 import { AuthProvider, useAuth } from './store/auth'
+import { ConfirmProvider } from './components/ConfirmDialog'
 import { AuthScreen, NuevaClaveScreen } from './components/AuthScreen'
 import { MfaChallenge } from './components/MfaChallenge'
 import { SuperAdminScreen } from './components/SuperAdminPanel'
@@ -68,8 +69,11 @@ export function App() {
   const params = new URLSearchParams(window.location.search)
   // Link público de auto-afiliación: .../?afiliacion=<slug> → formulario público.
   const slugAfiliacion = params.get('afiliacion')
-  if (slugAfiliacion) return <PublicRegistroPage slug={slugAfiliacion} />
-  return <RootSwitcher />
+  return (
+    <ConfirmProvider>
+      {slugAfiliacion ? <PublicRegistroPage slug={slugAfiliacion} /> : <RootSwitcher />}
+    </ConfirmProvider>
+  )
 }
 
 // La cara pública (sitio web) es lo primero que se ve. "Ingresar" (o

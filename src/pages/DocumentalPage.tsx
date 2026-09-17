@@ -77,9 +77,10 @@ export function DocumentalPage() {
 
 function DocCard({ doc, canManage, onEdit }: { doc: Doc; canManage: boolean; onEdit: (d: Doc) => void }) {
   const { notify, deleteDoc } = useDemo()
+  const confirmar = useConfirm()
 
-  function handleDelete() {
-    if (window.confirm(`¿Eliminar el documento "${doc.title}"?`)) deleteDoc(doc.id, doc.code)
+  async function handleDelete() {
+    if (await confirmar({ title: 'Eliminar documento', message: `¿Eliminar el documento "${doc.title}"?`, confirmText: 'Eliminar', tone: 'peligro' })) deleteDoc(doc.id, doc.code)
   }
 
   function download() {
