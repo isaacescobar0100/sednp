@@ -13,6 +13,7 @@ import { cita } from '../store/referencias'
 import { TOPE_EXTRAORDINARIA, mesesVencidos, periodLabel, recentPeriods } from '../store/contributions'
 import { abrirSoporte, nombreSoporte, subirSoporte } from '../store/storageApi'
 import { Pagination, paginate } from '../components/Pagination'
+import { useConfirm } from '../components/ConfirmDialog'
 
 const MOV_PAGE = 12
 const APORTE_PAGE = 12
@@ -518,6 +519,7 @@ function PresupuestoSection() {
 
 function MovementRow({ movement, onEdit }: { movement: Movement; onEdit: (m: Movement) => void }) {
   const { setMovementStatus, updateMovement, deleteMovement, signMovement, notify } = useDemo()
+  const confirmar = useConfirm()
   const { can, role } = useSession()
   const canManage = can('finance.create')
   const esEgreso = movement.kind === 'Egreso'
@@ -536,8 +538,8 @@ function MovementRow({ movement, onEdit }: { movement: Movement; onEdit: (m: Mov
     if (requiereActa) { setAskActa(true); return }
     apply('Aprobado')
   }
-  function handleDelete() {
-    if (window.confirm(`¿Eliminar el movimiento "${movement.concept}"?`)) deleteMovement(movement.id, movement.concept)
+  async function handleDelete() {
+    if (await confirmar({ title: 'Eliminar movimiento', message: `¿Eliminar el movimiento "${movement.concept}"?`, confirmText: 'Eliminar', tone: 'peligro' })) deleteMovement(movement.id, movement.concept)
   }
 
   const menuActions: RowAction[] = []
