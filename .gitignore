@@ -38,3 +38,6 @@ Thumbs.db
 .vite/
 .cache/
 *.tsbuildinfo
+
+# Prospección comercial (privado, no publicar en el repo)
+PROSPECCION-sindicatos.md
