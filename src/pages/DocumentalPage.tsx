@@ -7,6 +7,7 @@ import { useSession } from '../store/session'
 import { Doc, DocType, MAX_STORED_FILE, docTypes, formatFileSize } from '../store/documents'
 import { abrirSoporte, subirSoporte } from '../store/storageApi'
 import { Pagination, paginate } from '../components/Pagination'
+import { useConfirm } from '../components/ConfirmDialog'
 
 const DOC_PAGE = 9
 

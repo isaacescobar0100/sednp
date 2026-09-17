@@ -8,6 +8,7 @@ import { CaseStatus, DisciplineCase, MULTA_DIAS_MAX, MULTA_DIAS_MIN, PRESCRIPCIO
 import { formatCop } from '../store/finance'
 import { cita } from '../store/referencias'
 import { abrirSoporte, nombreSoporte, subirSoporte } from '../store/storageApi'
+import { useConfirm } from '../components/ConfirmDialog'
 
 const statusTone: Record<CaseStatus, 'positive' | 'warning' | 'negative' | 'neutral' | 'night'> = {
   'En trámite': 'night',
@@ -103,6 +104,7 @@ export function DisciplinarioPage() {
 
 function CaseDetail({ caseItem }: { caseItem: DisciplineCase }) {
   const { advanceCase, ruleCase, deleteCase, notify } = useDemo()
+  const confirmar = useConfirm()
   const { can } = useSession()
   const canInstruct = can('discipline.instruct')
   const canRule = can('discipline.rule')
@@ -120,8 +122,8 @@ function CaseDetail({ caseItem }: { caseItem: DisciplineCase }) {
     ruleCase(caseItem.id, resultado)
     notify(`${caseItem.code}: ${resultado === 'Archivado' ? 'archivado' : resultado.toLowerCase()}.`, resultado === 'Absuelto' ? 'success' : 'warning')
   }
-  function remove() {
-    if (window.confirm(`¿Eliminar el expediente ${caseItem.code}?`)) deleteCase(caseItem.id, caseItem.code)
+  async function remove() {
+    if (await confirmar({ title: 'Eliminar expediente', message: `¿Eliminar el expediente ${caseItem.code}?`, confirmText: 'Eliminar', tone: 'peligro' })) deleteCase(caseItem.id, caseItem.code)
   }
 
   return (

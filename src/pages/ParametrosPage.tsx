@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react'
 import { BriefcaseBusinessIcon, CheckCircle2Icon, CircleDollarSignIcon, EyeIcon, EyeOffIcon, ImageIcon, LandmarkIcon, PlusIcon, ScaleIcon, TagsIcon, Trash2Icon } from 'lucide-react'
 import { SectionTitle } from '../components/SectionTitle'
+import { useConfirm } from '../components/ConfirmDialog'
 import { supabase } from '../lib/supabase'
 import { subirFoto } from '../store/storageApi'
 import { useDemo } from '../store/DemoStore'
@@ -608,6 +609,7 @@ function JuntaPeriodoCard() {
 // permite el ajuste anual en bloque.
 function EscalasCard() {
   const { escalas, setEscalas, notify } = useDemo()
+  const confirmar = useConfirm()
   const [nivel, setNivel] = useState(NIVELES[0])
   const [grado, setGrado] = useState('')
   const [monto, setMonto] = useState('')
@@ -625,9 +627,9 @@ function EscalasCard() {
   function remove(id: string) {
     setEscalas(escalas.filter((e) => e.id !== id))
   }
-  function ajustar() {
+  async function ajustar() {
     if (escalas.length === 0) return
-    if (!window.confirm(`¿Aplicar el ajuste anual de ${AJUSTE_ANUAL * 100}% a todas las escalas?`)) return
+    if (!(await confirmar({ title: 'Ajuste anual de escalas', message: `¿Aplicar el ajuste anual de ${AJUSTE_ANUAL * 100}% a todas las escalas?`, confirmText: 'Aplicar' }))) return
     setEscalas(escalas.map((e) => ({ ...e, asignacionBasica: Math.round(e.asignacionBasica * (1 + AJUSTE_ANUAL)) })))
     notify(`Ajuste de ${AJUSTE_ANUAL * 100}% aplicado a las escalas.`, 'success')
   }
