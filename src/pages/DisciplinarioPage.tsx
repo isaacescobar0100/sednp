@@ -28,6 +28,7 @@ export function DisciplinarioPage() {
   const { can } = useSession()
   const [selectedId, setSelectedId] = useState<string | null>(cases[0]?.id ?? null)
   const [showOpen, setShowOpen] = useState(false)
+  const [detalleAbierto, setDetalleAbierto] = useState(false) // modal de detalle en celular
   const [query, setQuery] = useState('')
 
   const q = query.trim().toLowerCase()
@@ -64,9 +65,9 @@ export function DisciplinarioPage() {
           <div className="divide-y divide-ink/[0.07]">
             {filtered.map((item) => (
               <button
-                onClick={() => setSelectedId(item.id)}
+                onClick={() => { setSelectedId(item.id); setDetalleAbierto(true) }}
                 key={item.id}
-                className={`flex w-full items-center gap-4 px-5 py-4 text-left transition ${selected?.id === item.id ? 'bg-night/[0.035]' : 'hover:bg-canvas/55'}`}
+                className={`flex w-full items-center gap-4 border-l-[3px] px-5 py-4 text-left transition ${selected?.id === item.id ? 'border-night bg-night/[0.05]' : 'border-transparent hover:bg-canvas/55'}`}
               >
                 <span className={`h-3 w-3 shrink-0 rounded-full ${item.status !== 'En trámite' ? 'bg-ink/25' : termTone(item.daysLeft) === 'negative' ? 'bg-brick' : termTone(item.daysLeft) === 'warning' ? 'bg-amber-500' : 'bg-emerald-600'}`} />
                 <div className="min-w-0 flex-1">
@@ -92,10 +93,23 @@ export function DisciplinarioPage() {
           </div>
         </section>
 
-        <section className="rounded-2xl border border-ink/[0.08] bg-white p-5 xl:col-span-2">
+        {/* Detalle al lado (solo en pantallas anchas) */}
+        <section className="hidden rounded-2xl border border-ink/[0.08] bg-white p-5 xl:col-span-2 xl:block">
           {selected ? <CaseDetail key={selected.id} caseItem={selected} /> : <p className="text-sm text-ink/50">No hay expedientes.</p>}
         </section>
       </div>
+
+      {/* Detalle como modal en celular/tablet */}
+      {selected && detalleAbierto ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/40 p-0 sm:items-center sm:p-4 xl:hidden" onClick={() => setDetalleAbierto(false)}>
+          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="mb-2 flex justify-end">
+              <button onClick={() => setDetalleAbierto(false)} aria-label="Cerrar" className="rounded-lg p-1.5 text-ink/40 transition hover:bg-canvas hover:text-ink"><XIcon className="h-4 w-4" /></button>
+            </div>
+            <CaseDetail key={selected.id} caseItem={selected} />
+          </div>
+        </div>
+      ) : null}
 
       {showOpen ? <OpenCaseModal onClose={() => setShowOpen(false)} /> : null}
     </div>
