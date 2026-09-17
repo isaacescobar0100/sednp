@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 import { CalendarDaysIcon, PencilIcon, PlusIcon, Trash2Icon, UserRoundIcon, UsersRoundIcon, XIcon } from 'lucide-react'
 import { SectionTitle } from '../components/SectionTitle'
+import { useConfirm } from '../components/ConfirmDialog'
 import { useDemo } from '../store/DemoStore'
 import { cita } from '../store/referencias'
 import { useSession } from '../store/session'
@@ -57,11 +58,12 @@ export function ComitesPage() {
 
 function CommitteeCard({ committee, canManage, onEdit }: { committee: Committee; canManage: boolean; onEdit: () => void }) {
   const { deleteCommittee } = useDemo()
+  const confirmar = useConfirm()
   const count = memberCount(committee)
   const members = Array.isArray(committee.members) ? committee.members : []
 
-  function handleDelete() {
-    if (window.confirm(`¿Eliminar el comité "${committee.name}"?`)) deleteCommittee(committee.id, committee.name)
+  async function handleDelete() {
+    if (await confirmar({ title: 'Eliminar comité', message: `¿Eliminar el comité "${committee.name}"?`, confirmText: 'Eliminar', tone: 'peligro' })) deleteCommittee(committee.id, committee.name)
   }
 
   return (

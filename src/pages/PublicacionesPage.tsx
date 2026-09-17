@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { GlobeIcon, ImageIcon, PencilIcon, PlusIcon, SearchIcon, Trash2Icon, XIcon } from 'lucide-react'
 import { SectionTitle } from '../components/SectionTitle'
 import { StatusBadge } from '../components/StatusBadge'
+import { useConfirm } from '../components/ConfirmDialog'
 import { useDemo } from '../store/DemoStore'
 import { useSession } from '../store/session'
 import { useAuth } from '../store/auth'
@@ -21,6 +22,7 @@ const filtros: Array<{ k: 'todos' | PubTipo; label: string }> = [
 export function PublicacionesPage() {
   const { notify } = useDemo()
   const { can } = useSession()
+  const confirmar = useConfirm()
   const canManage = can('comms.send')
   const [list, setList] = useState<Publicacion[]>([])
   const [loading, setLoading] = useState(true)
@@ -48,7 +50,7 @@ export function PublicacionesPage() {
     } catch { notify('No se pudo cambiar el estado.', 'warning') }
   }
   async function borrar(p: Publicacion) {
-    if (!window.confirm(`¿Eliminar "${p.titulo || 'sin título'}"?`)) return
+    if (!(await confirmar({ title: 'Eliminar publicación', message: `¿Eliminar "${p.titulo || 'sin título'}"?`, confirmText: 'Eliminar', tone: 'peligro' }))) return
     try { await deletePublicacion(p.id); notify('Publicación eliminada.', 'warning'); load() } catch { notify('No se pudo eliminar.', 'warning') }
   }
 
