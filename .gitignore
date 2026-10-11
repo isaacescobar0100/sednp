@@ -41,3 +41,10 @@ Thumbs.db
 
 # Prospección comercial (privado, no publicar en el repo)
 PROSPECCION-sindicatos.md
+
+# Scripts SQL con credenciales / de reseteo (privados, NO publicar)
+supabase/dev_reset_total_admin.sql
+supabase/set_passwords.sql
+supabase/create_directiva.sql
+supabase/dev_afiliado_prueba.sql
+supabase/afiliado_prueba_correo.sql
