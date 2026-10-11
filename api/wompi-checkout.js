@@ -61,6 +61,7 @@ export default async function handler(req, res) {
     // La redirección post-pago vuelve al host desde el que se llamó, PERO solo si
     // es un host conocido de la plataforma (evita redirección abierta por Host
     // manipulado). Si no, cae a un destino fijo seguro.
+    const proto = String(req.headers['x-forwarded-proto'] || 'https').split(',')[0].trim() || 'https'
     const rawHost = String(req.headers['x-forwarded-host'] || req.headers.host || '').split(',')[0].trim().toLowerCase()
     // Dominio base de la plataforma por variable de entorno (hoy es de prueba;
     // al adquirir el real solo cambias PLATFORM_BASE_DOMAIN en Vercel, sin tocar código).

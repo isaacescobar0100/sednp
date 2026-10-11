@@ -62,6 +62,9 @@ export default async function handler(req, res) {
   const supaUrl = process.env.VITE_SUPABASE_URL
   const supaKey = process.env.VITE_SUPABASE_ANON_KEY
   if (!token || !supaUrl || !supaKey) { res.status(401).json({ error: 'No autorizado' }); return }
+  // El REMITENTE lo decide el servidor (org del que llama), nunca el cuerpo.
+  let remitenteNombre = ''
+  let remitenteEmail = ''
   try {
     const u = await fetch(`${supaUrl}/auth/v1/user`, { headers: { apikey: supaKey, Authorization: `Bearer ${token}` } })
     if (!u.ok) { res.status(401).json({ error: 'Sesión inválida' }); return }
@@ -70,6 +73,11 @@ export default async function handler(req, res) {
     const p = await fetch(`${supaUrl}/rest/v1/profiles?select=role,platform_admin&id=eq.${uid}`, { headers: { apikey: supaKey, Authorization: `Bearer ${token}` } })
     const prof = (await p.json().catch(() => []))?.[0]
     if (!prof || (prof.role === 'afiliado' && !prof.platform_admin)) { res.status(403).json({ error: 'No tienes permiso para enviar boletines.' }); return }
+    // Remitente = nombre + dirección del sindicato del que llama (RLS lo limita a su org).
+    const orgResp = await fetch(`${supaUrl}/rest/v1/organizations?select=nombre,correo_remitente&limit=1`, { headers: { apikey: supaKey, Authorization: `Bearer ${token}` } })
+    const callerOrg = (await orgResp.json().catch(() => []))?.[0]
+    remitenteNombre = (callerOrg && callerOrg.nombre) || 'Sindika'
+    remitenteEmail = (callerOrg && callerOrg.correo_remitente) || ''
   } catch { res.status(401).json({ error: 'No se pudo validar la sesión' }); return }
 
   let body = req.body
@@ -80,7 +88,7 @@ export default async function handler(req, res) {
   const recipients = Array.isArray(body.recipients) ? [...new Set(body.recipients.filter((e) => typeof e === 'string' && e.includes('@')))] : []
   if (!subject || !html || recipients.length === 0) { res.status(400).json({ error: 'Faltan datos: recipients, subject y html.' }); return }
 
-  const from = componerFrom(process.env.EMAIL_FROM, body.fromName, body.fromEmail)
+  const from = componerFrom(process.env.EMAIL_FROM, remitenteNombre, remitenteEmail)
   const texto = htmlAtexto(html)
   let sent = 0
   let ultimoError = ''

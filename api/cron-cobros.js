@@ -1,3 +1,4 @@
+import crypto from 'crypto'
 // Función serverless (Vercel CRON): revisa las suscripciones de todos los
 // sindicatos una vez al día y:
 //   1) AUTO-SUSPENDE los que llevan vencidos más de GRACE días (activo = false).
@@ -39,9 +40,13 @@ export default async function handler(req, res) {
   // 1) Autorización: solo el CRON de Vercel (o quien tenga el secreto) puede correr esto.
   const secret = process.env.CRON_SECRET
   const auth = req.headers.authorization || ''
-  const qsecret = (req.query && req.query.secret) || ''
   if (!secret) { res.status(500).json({ error: 'Falta CRON_SECRET en el servidor.' }); return }
-  if (auth !== `Bearer ${secret}` && qsecret !== secret) { res.status(401).json({ error: 'No autorizado' }); return }
+  // Solo por header Authorization (no por query string: se filtra en logs),
+  // y comparación en tiempo constante.
+  const esperado = `Bearer ${secret}`
+  const a = Buffer.from(auth)
+  const b = Buffer.from(esperado)
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) { res.status(401).json({ error: 'No autorizado' }); return }
 
   const supaUrl = process.env.VITE_SUPABASE_URL
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
