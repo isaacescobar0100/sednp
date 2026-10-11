@@ -38,7 +38,10 @@ export function nombreSoporte(path: string): string {
 // Sube una foto y devuelve su URL pública (para guardar en affiliates.foto_url).
 export async function subirFoto(file: File): Promise<string> {
   const ext = (file.name.split('.').pop() ?? 'jpg').replace(/[^\w]+/g, '').toLowerCase()
-  const path = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+  // Bajo la carpeta del sindicato (<org_id>/...) para aislar por organización
+  // (la política de Storage exige que la 1ª carpeta sea el org del que sube).
+  if (!orgActualId) throw new Error('Sin organización en la sesión para subir la foto.')
+  const path = `${orgActualId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
   const { error } = await supabase.storage.from('fotos').upload(path, file, { upsert: false, contentType: file.type })
   if (error) throw error
   const { data } = supabase.storage.from('fotos').getPublicUrl(path)
