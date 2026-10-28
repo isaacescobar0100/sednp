@@ -42,14 +42,10 @@ Thumbs.db
 # Prospección comercial (privado, no publicar en el repo)
 PROSPECCION-sindicatos.md
 
-# Scripts SQL con credenciales / de reseteo (privados, NO publicar)
-supabase/dev_reset_total_admin.sql
-supabase/set_passwords.sql
-supabase/create_directiva.sql
-supabase/dev_afiliado_prueba.sql
-supabase/afiliado_prueba_correo.sql
-supabase/saas_stage29_fix_directiva.sql
-supabase/saas_stage30_reset_demo.sql
+# Scripts SQL de un solo uso: dev, diagnóstico, semillas, credenciales y resets.
+# Son locales (no se versionan); las migraciones reales viven en supabase/.
+supabase/dev/
 
-# Videos de presentación (local, no versionar)
+# Videos de presentación y entregables (local, no versionar)
 *.mp4
+*.pptx
