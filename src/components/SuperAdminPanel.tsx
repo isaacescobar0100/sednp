@@ -102,7 +102,6 @@ function SuperAdminContent() {
   const [presiNombre, setPresiNombre] = useState('')
   const [dominio, setDominio] = useState('')
   const [plan, setPlan] = useState<PlanKey>('basico')
-  const [modoRecaudo, setModoRecaudo] = useState('nomina')
   const [busy, setBusy] = useState(false)
   const [creado, setCreado] = useState<null | { nombre: string; slug: string; dominio: string; email: string; password: string; presi: string }>(null)
   const [avisoCorreo, setAvisoCorreo] = useState('')
@@ -148,13 +147,12 @@ function SuperAdminContent() {
         precio_anual: p.precio,
         afiliados_max: p.max,
         fecha_proximo_pago: proximo.toISOString().slice(0, 10),
-        modo_recaudo: modoRecaudo,
       }).eq('slug', s)
       // Guardamos los datos (incl. contraseña) para la tarjeta de credenciales,
       // ANTES de limpiar el formulario. La contraseña solo se conoce ahora.
       const cred = { nombre: nombre.trim(), slug: s, dominio: dom, email: presiEmail.trim().toLowerCase(), password: presiPassword, presi: presiNombre.trim() }
       setCreado(cred)
-      setNombre(''); setSlug(''); setPresiEmail(''); setPresiPassword(''); setPresiNombre(''); setDominio(''); setPlan('basico'); setModoRecaudo('nomina')
+      setNombre(''); setSlug(''); setPresiEmail(''); setPresiPassword(''); setPresiNombre(''); setDominio(''); setPlan('basico')
       void load()
       // Correo automático al presidente con sus accesos + bienvenida (mismo
       // camino que el correo de afiliación, que sí entra a Principal).
@@ -359,15 +357,8 @@ function SuperAdminContent() {
                         ))}
                       </select>
                     </Field>
-                    <Field label="Modo de recaudo de la cuota">
-                      <select value={modoRecaudo} onChange={(e) => setModoRecaudo(e.target.value)} className={inputC}>
-                        <option value="nomina">Descuento por nómina (el afiliado no paga en la app)</option>
-                        <option value="transferencia">Transferencia bancaria (el afiliado paga y registra)</option>
-                        <option value="pse">Pago en línea / PSE</option>
-                      </select>
-                    </Field>
                   </div>
-                  <p className="mt-2 text-[11px] text-ink/45">El plan fija el precio anual y el límite de afiliados sugeridos, y agenda el primer pago a 1 año. Todo es editable luego por sindicato.</p>
+                  <p className="mt-2 text-[11px] text-ink/45">El plan fija el precio anual y el límite de afiliados sugeridos, y agenda el primer pago a 1 año. El <strong>modo de recaudo de la cuota</strong> (nómina, PSE o transferencia) lo elige cada sindicato en sus Parámetros. Todo es editable luego por sindicato.</p>
                   <button type="submit" disabled={busy || !nombre.trim() || !slug.trim() || !presiEmail.trim() || !presiPassword.trim() || !presiNombre.trim()} className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep disabled:opacity-40">
                     <PlusIcon className="h-4 w-4" />{busy ? 'Creando…' : 'Crear sindicato'}
                   </button>

@@ -48,3 +48,8 @@ supabase/set_passwords.sql
 supabase/create_directiva.sql
 supabase/dev_afiliado_prueba.sql
 supabase/afiliado_prueba_correo.sql
+supabase/saas_stage29_fix_directiva.sql
+supabase/saas_stage30_reset_demo.sql
+
+# Videos de presentación (local, no versionar)
+*.mp4
