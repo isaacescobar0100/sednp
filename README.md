@@ -1,99 +1,100 @@
-# SIG-SERDNP — Sistema Integral de Gestión
+# Sindika — Plataforma de gestión sindical
 
-Prototipo funcional (beta simulador) del sistema de gestión de la **Organización
-Sindical de Servidores Públicos del Departamento Nacional de Planeación — SERDNP**.
+**Sindika** es una plataforma **SaaS multi-tenant** para la gestión integral de
+sindicatos en Colombia: afiliación, finanzas, gobernanza, disciplina, comunicación
+y sitio web, en un solo sistema, seguro y en la nube. Cada sindicato es un *tenant*
+aislado; **SERDNP** (Organización Sindical de Servidores Públicos del DNP) es el
+sindicato piloto.
 
-React + TypeScript + Vite + Tailwind. **Sin backend**: todo funciona con datos en
-memoria que persisten en el navegador (`localStorage`), pensado para presentar el
-flujo real de punta a punta. Diseño: navy institucional + dorado + cordillera andina.
+> Las reglas de negocio se **configuran** contra los estatutos de cada sindicato
+> (cuota, firmas por monto, quórum, flujo de afiliación, disciplinario, recursos…).
 
-> Las reglas de negocio están alineadas con los **Estatutos de SERDNP**, el
-> **formulario oficial de afiliación** y el **documento conceptual del módulo
-> financiero**.
+## Arquitectura
 
-## Cómo ejecutarlo
+- **Frontend:** React 18 + TypeScript + **Vite** + Tailwind CSS.
+- **Backend:** **Supabase** — Postgres, Auth, **RLS** (aislamiento por sindicato) y
+  Storage. La lógica sensible vive en funciones `SECURITY DEFINER` (RPCs).
+- **Funciones serverless** (`api/`, Vercel): checkout de pagos Wompi, confirmación de
+  transacciones, envío de correos/boletín y tareas programadas (cron de cobros).
+- **Despliegue:** Vercel, deploy automático desde la rama `main`.
+- **Pagos:** Wompi (PSE y tarjeta) con firma de integridad del lado del servidor.
+
+### Multi-tenant y seguridad
+- Todo dato lleva `org_id`; una política RLS *restrictiva* (`org_isolation`) impide
+  que un sindicato vea datos de otro.
+- Autenticación real con Supabase Auth: login por correo + contraseña, **hCaptcha**
+  contra bots, **2FA (TOTP)** y recuperación de contraseña.
+- **Roles:** Presidencia, Vicepresidencia, Secretaría, Tesorería, Fiscalía y Afiliado,
+  más un **superadmin de plataforma** que administra los sindicatos, cobros y accesos.
+- Auditoría de cada acción, *column guards* por columna, respaldos y aislamiento del
+  Storage por carpeta de organización.
+
+## Puesta en marcha
 
 ```bash
 npm install
-npm run dev
+npm run dev     # desarrollo (http://localhost:5173)
+npm run build   # compilar para producción
+npm test        # pruebas (Vitest)
 ```
 
-Abre la URL que muestre la terminal (normalmente `http://localhost:5173`).
-Para compilar: `npm run build`.
+Variables de entorno (ver [`.env.example`](.env.example)):
 
-## Cómo entrar
-
-El login es **simulado** (sin autenticación real). Tiene dos modos:
-
-- **Directiva** — eliges el rol de la Junta Directiva Nacional con el que operas:
-  Presidencia, Vicepresidencia, Secretaría General, Tesorería o Fiscal.
-- **Afiliado** — entra con **correo + contraseña** (los que la Secretaría le asignó
-  al registrarlo); solo funciona si su afiliación está **aprobada**.
-
-Se puede cambiar de rol en caliente desde el conmutador del encabezado. El botón
-**"Reiniciar demo"** deja todo en el estado inicial.
+```
+VITE_SUPABASE_URL=...        # URL del proyecto Supabase
+VITE_SUPABASE_ANON_KEY=...   # clave pública (anon/publishable)
+VITE_HCAPTCHA_SITEKEY=...    # sitekey pública de hCaptcha (opcional)
+```
 
 ## Módulos
 
 | Módulo | Qué hace | Rol operador |
 |---|---|---|
 | **Dashboard** | KPIs y actividad en vivo (según el rol) | Todos |
-| **Afiliación** | Registrar → concepto del Fiscal → aprobación de la Junta con acta | Secretaría / Fiscal / Presidencia |
-| **Financiero** | Ingresos/egresos, aprobación por SMMLV, triple firma, orden de pago, presupuesto por rubro, aportes 0,3% + cuota extraordinaria | Tesorería / Presidencia / Fiscal |
-| **Disciplinario** | Expedientes por etapas con términos, fallo, multa→Financiero y recursos (reposición/apelación) | Fiscal / Presidencia |
-| **Gobernanza** | Sesiones, actas (Resolución/Acuerdo), quórum de Asamblea, votación secreta, Junta Directiva | Secretaría / Presidencia |
-| **Documental** | Repositorio de documentos (cargar/descargar) | Secretaría |
-| **Comunicaciones** | Comunicados a los afiliados | Secretaría |
-| **Comités** | Comités temáticos (Art. 27) y órganos estatutarios de quejas/reclamos | Secretaría |
-| **Reportes** | Consolidado en vivo + export CSV | Todos (lectura) |
-| **Parámetros** | Catálogos (cargos, dependencias, tipos de vinculación), cuota % y SMMLV | Secretaría / Presidencia |
-| **Portal del afiliado** | Perfil, aportes, votaciones y documentos | Afiliado |
+| **Afiliación** | Registro → concepto del Fiscal → aprobación de la Junta con acta → Activo | Secretaría / Fiscalía / Presidencia |
+| **Financiero** | Recaudo (nómina / PSE / transferencia), corte de aportes, aprobación de gastos por monto (SMMLV) con firmas, presupuesto y export a contabilidad (SIIGO CSV) | Tesorería / Presidencia / Fiscalía |
+| **Gobernanza** | Sesiones con quórum y acta, votaciones (incluso secretas) con resultados en vivo | Secretaría / Presidencia |
+| **Disciplinario** | Expedientes por etapas con términos, fallo, multa → Financiero, recursos (reposición/apelación), bitácora inalterable | Fiscalía / Presidencia |
+| **Comités** | Comités temáticos y órganos estatutarios | Secretaría |
+| **Comunicaciones** | Comunicados y notificaciones a toda la base, con historial | Secretaría / Presidencia |
+| **Documental** | Repositorio de actas, resoluciones e informes | Secretaría |
+| **Libro de Actas** | Registro inmutable de conceptos, resoluciones y actas | Todos (lectura) |
+| **Página web** | Sitio público del sindicato, administrado por la directiva (CMS) | Secretaría / Presidencia |
+| **Reportes** | Indicadores consolidados en tiempo real + export CSV | Todos (lectura) |
+| **Parámetros** | Catálogos (cargos, dependencias, escalas), cuota %, SMMLV, modo de recaudo y referencias al estatuto | Secretaría / Presidencia |
+| **Portal del afiliado** | Consulta de aportes, votaciones y comunicados | Afiliado |
+| **Superadmin** | Alta de sindicatos, cobros/suscripción y accesos de la plataforma | Plataforma |
 
-**Separación de funciones** (según estatutos): quien **registra** no es quien
-**aprueba**. Cada rol ve solo los módulos que le competen; donde no puede actuar,
-aparece un candado 🔒.
+**Separación de funciones:** quien **registra** no es quien **aprueba**. Cada rol ve
+solo los módulos que le competen; donde no puede actuar, aparece un candado 🔒.
 
-## Cumplimiento estatutario
+## Base de datos
 
-El borrador implementa, en el frontend, los flujos reglamentarios completos:
+Sin herramienta de migraciones formal: el esquema y su evolución viven como SQL en
+`supabase/`, aplicados en el SQL Editor de Supabase.
 
-- **Afiliación (Art. 5, 25g):** Secretaría registra → Fiscal emite concepto → la
-  Junta aprueba con número de acta.
-- **Aportes (Art. 32, 33, 47g, 49g):** cuota ordinaria 0,3%; cuota extraordinaria
-  decretada por la Asamblea (tope 3%, con acta); indicador de mora (30 días →
-  amonestación, 60 → exclusión); nota de distribución 80/20.
-- **Financiero (Art. 11f, 26, 34, 35):** niveles de gasto por SMMLV, triple firma,
-  caja menor, orden de pago consecutiva y presupuesto por rubro con ejecución.
-- **Gobernanza (Art. 10, 12b, 13, 59):** quórum de Asamblea (mitad + uno), votación
-  secreta, actos según órgano (Resolución/Acuerdo) y Junta Directiva con suplentes.
-- **Disciplinario (Art. 45, 51–57):** términos por etapa, multa que ingresa a
-  Financiero, recursos de reposición/apelación y prescripción a 5 años.
-- **Comités (Art. 27, 43):** cinco comités temáticos + Comité de Quejas y Reclamos
-  y Comisión Estatutaria de Reclamos.
-
-> Las **tablas/esquemas de base de datos** que sugieren los documentos se omiten a
-> propósito: el simulador usa su propia arquitectura en memoria.
+- `supabase/schema.sql` — esquema base.
+- `supabase/saas_stage1…N.sql` y `patch_*.sql` — migraciones incrementales (features,
+  endurecimiento de seguridad, multi-tenant, pagos…). **Son el historial de la BD.**
+- `supabase/dev/` — scripts de un solo uso (semillas, diagnóstico, credenciales,
+  reset). **Locales, no se versionan.**
 
 ## Estructura del código
 
-- `src/App.tsx` — enrutamiento (login → app directiva o portal del afiliado).
-- `src/store/DemoStore.tsx` — estado global (React Context + reducer) con
-  persistencia en `localStorage`. Es la "base de datos" del simulador.
-- `src/store/*.ts` — modelo y reglas por dominio: `affiliates`, `finance`,
-  `contributions` (aportes), `discipline`, `governance`, `documents`, `comms`,
-  `committees`, `catalogs`, `session` (roles y permisos).
-- `src/pages/` — una página por módulo.
-- `src/components/` — Sidebar, Header (búsqueda global, notificaciones, conmutador
-  de rol), tarjetas, badges, menú de fila, panel de login.
+- `src/App.tsx` — enrutamiento (web pública → login → app de la directiva o portal).
+- `src/lib/supabase.ts` — cliente único de Supabase.
+- `src/store/*` — estado y reglas por dominio (afiliados, finanzas, gobernanza,
+  disciplina, comunicaciones, catálogos, auth/roles, plataforma).
+- `src/pages/` — una página por módulo. `src/components/` — layout, header, tarjetas,
+  diálogos y paneles (login, directiva, superadmin).
+- `api/` — funciones serverless (pagos, correos, cron).
 
 ## Estado del proyecto
 
-Prototipo/simulador **funcional y completo** para presentación. Lo que falta para
-producción es **backend**: autenticación real, base de datos compartida,
-validaciones de servidor, integración con la nómina del DNP y con el software
-contable (SIIGO), firma digital, envío real de correos y almacenamiento de archivos.
+**En producción**, desplegado en Vercel sobre Supabase. Backlog y pasos manuales
+pendientes en [`PENDIENTES.md`](PENDIENTES.md); guion de pruebas por rol en
+[`GUIA-PRUEBAS.md`](GUIA-PRUEBAS.md).
 
-> ⚠️ Sin backend, las contraseñas de afiliado se guardan en texto plano en el
-> navegador solo para **simular** el acceso. No usar con datos reales.
+---
 
-Ver **[GUIA-PRUEBAS.md](GUIA-PRUEBAS.md)** para el guion de pruebas por rol.
+Un producto de **Grupo ISDA S.A.S**.

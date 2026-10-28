@@ -22,10 +22,21 @@
 -- =============================================================================
 
 -- ---- F1/F2/F3: cerrar el acceso anónimo a las RPCs sensibles -----------------
-revoke execute on function public.resetear_password(uuid, text)                 from public, anon;
-revoke execute on function public.crear_sindicato(text, text, text, text)        from public, anon;
-revoke execute on function public.crear_sindicato(text, text, text, text, text)  from public, anon;
-revoke execute on function public.correos_presidencia()                          from public, anon;
+-- Revoca EXECUTE a public/anon de CUALQUIER firma existente de estas funciones
+-- (así no falla si un overload no existe en esta base).
+do $$
+declare r record;
+begin
+  for r in
+    select 'public.' || quote_ident(p.proname) || '(' || pg_get_function_identity_arguments(p.oid) || ')' as sig
+    from pg_proc p
+    join pg_namespace n on n.oid = p.pronamespace
+    where n.nspname = 'public'
+      and p.proname in ('resetear_password', 'crear_sindicato', 'correos_presidencia')
+  loop
+    execute 'revoke execute on function ' || r.sig || ' from public, anon';
+  end loop;
+end $$;
 
 -- ---- F4: ocultar wompi_integrity del cliente (lo lee solo el servidor) --------
 -- Reconstruye el SELECT de `authenticated` sobre organizations con TODAS las
