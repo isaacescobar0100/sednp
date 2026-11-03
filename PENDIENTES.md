@@ -5,6 +5,14 @@
 
 ---
 
+## 📨 PQRS (nuevo, 2026-11-03)
+
+- [ ] **Correr `supabase/saas_stage29_pqrs.sql`** en el SQL Editor de Supabase. Sin eso, el módulo PQRS muestra "No se pudieron cargar" y el formulario público falla.
+- [ ] Probar el flujo: radicar en `/pqrs` de la web → aparece en el módulo PQRS → responder → llega el correo → "Consultar estado" en la web muestra la respuesta.
+- [ ] (Opcional) **Adjuntos** en la PQRS (hoy solo texto). Requiere un bucket privado con subida anónima controlada.
+- [ ] (Opcional) **Festivos de Colombia** en el cálculo de días hábiles. Hoy solo se saltan sábados y domingos, así que el vencimiento queda igual o antes del plazo legal (nunca después).
+- [ ] (Opcional) Aviso por correo/push a la directiva cuando entra una PQRS nueva, y acuse de recibo por correo al ciudadano (hoy se le muestra el radicado en pantalla).
+
 ## 🔴 Antes de cobrar plata REAL (producción de pagos)
 
 - [ ] **Webhooks de Wompi.** Hoy la confirmación de pago consulta el `transactionId` que devuelve el navegador. Para producción real hay que validar el pago con el **evento firmado de Wompi** (`events secret`, cabecera `X-Event-Checksum`). Endpoint nuevo `/api/wompi-webhook`. *(En sandbox/demo lo actual está bien.)*

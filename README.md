@@ -59,10 +59,11 @@ VITE_HCAPTCHA_SITEKEY=...    # sitekey pública de hCaptcha (opcional)
 | **Comunicaciones** | Comunicados y notificaciones a toda la base, con historial | Secretaría / Presidencia |
 | **Documental** | Repositorio de actas, resoluciones e informes | Secretaría |
 | **Libro de Actas** | Registro inmutable de conceptos, resoluciones y actas | Todos (lectura) |
+| **PQRS** | Peticiones, quejas, reclamos y sugerencias: se radican desde la web pública (sin cuenta), el portal del afiliado o la directiva; radicado consecutivo, plazo de 15 días hábiles con semáforo, respuesta por correo y consulta pública del estado | Secretaría / Presidencia (o el cargo asignado) |
 | **Página web** | Sitio público del sindicato, administrado por la directiva (CMS) | Secretaría / Presidencia |
 | **Reportes** | Indicadores consolidados en tiempo real + export CSV | Todos (lectura) |
 | **Parámetros** | Catálogos (cargos, dependencias, escalas), cuota %, SMMLV, modo de recaudo y referencias al estatuto | Secretaría / Presidencia |
-| **Portal del afiliado** | Consulta de aportes, votaciones y comunicados | Afiliado |
+| **Portal del afiliado** | Consulta de aportes, votaciones y comunicados; radicación y seguimiento de sus PQRS | Afiliado |
 | **Superadmin** | Alta de sindicatos, cobros/suscripción y accesos de la plataforma | Plataforma |
 
 **Separación de funciones:** quien **registra** no es quien **aprueba**. Cada rol ve

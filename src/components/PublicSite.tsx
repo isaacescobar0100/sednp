@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowLeftIcon, ArrowRightIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon, FileTextIcon, GlobeIcon, LogInIcon, MegaphoneIcon, MenuIcon, Share2Icon, UserPlusIcon, XIcon } from 'lucide-react'
+import { ArrowLeftIcon, ArrowRightIcon, CalendarDaysIcon, ChevronLeftIcon, ChevronRightIcon, DownloadIcon, FileTextIcon, GlobeIcon, InboxIcon, LogInIcon, MegaphoneIcon, MenuIcon, Share2Icon, UserPlusIcon, XIcon } from 'lucide-react'
 import { PostPublico, fetchPaginaPublica, fetchPostsPublicos } from '../store/publicacionesApi'
+import { PqrsPublico } from './PqrsPublico'
 import { supabase } from '../lib/supabase'
 import { marcaCacheada, guardarMarca } from '../store/brandCache'
 
@@ -14,10 +15,10 @@ function youtubeEmbed(url?: string | null): string | null {
 // Sitio público (marketing/blog) del sindicato. Lee el contenido PUBLICADO por
 // RPCs anónimas. El slug del sindicato viene de ?org=<slug> (por defecto serdnp).
 
-type View = 'inicio' | 'blog' | 'post' | 'anuncios' | 'documentos' | 'quienes-somos' | 'servicios' | 'contacto'
+type View = 'inicio' | 'blog' | 'post' | 'anuncios' | 'documentos' | 'quienes-somos' | 'servicios' | 'contacto' | 'pqrs'
 const NAV: Array<{ v: View; label: string }> = [
   { v: 'inicio', label: 'Inicio' }, { v: 'blog', label: 'Blog' }, { v: 'servicios', label: 'Servicios' },
-  { v: 'quienes-somos', label: 'Quiénes somos' }, { v: 'anuncios', label: 'Anuncios' }, { v: 'documentos', label: 'Documentos' }, { v: 'contacto', label: 'Contacto' },
+  { v: 'quienes-somos', label: 'Quiénes somos' }, { v: 'anuncios', label: 'Anuncios' }, { v: 'documentos', label: 'Documentos' }, { v: 'pqrs', label: 'PQRS' }, { v: 'contacto', label: 'Contacto' },
 ]
 
 function fmtFecha(iso?: string | null): string {
@@ -40,9 +41,9 @@ function articuloPath(p: PostPublico): string {
 }
 const VIEW_PATH: Record<string, string> = {
   inicio: '/', blog: '/blog', servicios: '/servicios', 'quienes-somos': '/quienes-somos',
-  anuncios: '/anuncios', documentos: '/documentos', contacto: '/contacto',
+  anuncios: '/anuncios', documentos: '/documentos', contacto: '/contacto', pqrs: '/pqrs',
 }
-const KNOWN_ROOTS = ['inicio', 'blog', 'anuncios', 'documentos', 'contacto']
+const KNOWN_ROOTS = ['inicio', 'blog', 'anuncios', 'documentos', 'contacto', 'pqrs']
 
 export function PublicSite({ onEnter }: { onEnter: () => void }) {
   const [slug, setSlug] = useState('')
@@ -314,6 +315,8 @@ export function PublicSite({ onEnter }: { onEnter: () => void }) {
           </section>
         ) : null}
 
+        {view === 'pqrs' ? <PqrsPublico slug={slug} orgNombre={org.nombre} /> : null}
+
         {paginaClave ? (
           <section className="mx-auto max-w-3xl">
             <h1 className="mb-4 font-display text-2xl font-semibold text-ink">{pagina?.titulo || NAV.find((n) => n.v === view)?.label}</h1>
@@ -322,6 +325,8 @@ export function PublicSite({ onEnter }: { onEnter: () => void }) {
               <div className="mt-6 rounded-2xl border border-ink/[0.08] bg-white p-5 text-sm text-ink/70">
                 <p className="mb-2">¿Quieres afiliarte?</p>
                 <a href={afiliarseUrl} className="inline-flex items-center gap-2 rounded-xl bg-gold px-4 py-2.5 text-sm font-semibold text-night"><UserPlusIcon className="h-4 w-4" />Afíliate en línea</a>
+                <p className="mb-2 mt-5">¿Tienes una petición, queja, reclamo o sugerencia?</p>
+                <button onClick={() => go('pqrs')} className="inline-flex items-center gap-2 rounded-xl bg-night px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-night-deep"><InboxIcon className="h-4 w-4" />Radicar una PQRS</button>
               </div>
             ) : null}
           </section>

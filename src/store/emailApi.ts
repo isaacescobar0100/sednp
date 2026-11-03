@@ -139,6 +139,21 @@ export function correoAfiliacionAprobada(nombre: string, acta: string): string {
   `)
 }
 
+// Respuesta a una PQRS. Todo el texto viene de usuarios: se escapa completo.
+export function correoRespuestaPqrs(nombre: string, radicado: string, asunto: string, respuesta: string): string {
+  const parrafos = escapeHtml(respuesta)
+    .split(/\n\s*\n/)
+    .filter((p) => p.trim() !== '')
+    .map((p) => `<p style="margin:0 0 10px">${p.replace(/\n/g, '<br>')}</p>`)
+    .join('')
+  return plantillaCorreo(`Respuesta a tu PQRS ${escapeHtml(radicado)}`, `
+    <p style="margin:0 0 10px">Hola <strong>${escapeHtml(nombre)}</strong>,</p>
+    <p style="margin:0 0 14px">Damos respuesta a tu solicitud radicada con el número <strong>${escapeHtml(radicado)}</strong>, asunto: <em>${escapeHtml(asunto)}</em>.</p>
+    <div style="border-left:3px solid #C9973B;padding:2px 0 2px 14px;margin:0 0 14px">${parrafos}</div>
+    <p style="margin:16px 0 0;color:#5b6577;font-size:13px">Junta Directiva · ${escapeHtml(marca())}</p>
+  `)
+}
+
 // #11 — Agradecimiento cuando se registra el pago de un aporte.
 export function correoAportePagado(nombre: string, periodo: string, monto: string): string {
   return plantillaCorreo('¡Gracias por tu aporte!', `

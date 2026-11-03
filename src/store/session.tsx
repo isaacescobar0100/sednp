@@ -22,6 +22,7 @@ export type Permission =
   | 'governance.close'
   | 'documents.manage'
   | 'comms.send'
+  | 'pqrs.manage'
   | 'committees.manage'
   | 'params.manage'
 
@@ -46,9 +47,9 @@ export const roleSummary: Record<Role, string> = {
 }
 
 const rolePermissions: Record<Role, Permission[]> = {
-  presidencia: ['affiliates.create', 'affiliates.changeStatus', 'finance.approve', 'finance.sign', 'discipline.rule', 'governance.manage', 'governance.close', 'documents.manage', 'comms.send', 'committees.manage', 'params.manage'],
+  presidencia: ['affiliates.create', 'affiliates.changeStatus', 'finance.approve', 'finance.sign', 'discipline.rule', 'governance.manage', 'governance.close', 'documents.manage', 'comms.send', 'pqrs.manage', 'committees.manage', 'params.manage'],
   vicepresidencia: ['governance.manage'],
-  secretaria: ['affiliates.create', 'governance.manage', 'documents.manage', 'comms.send', 'committees.manage', 'params.manage'],
+  secretaria: ['affiliates.create', 'governance.manage', 'documents.manage', 'comms.send', 'pqrs.manage', 'committees.manage', 'params.manage'],
   tesoreria: ['finance.create', 'finance.pay', 'finance.sign'],
   fiscal: ['discipline.instruct', 'finance.sign', 'affiliates.concept'],
 }
@@ -58,7 +59,7 @@ const rolePermissions: Record<Role, Permission[]> = {
 // borrar o aprobar está controlado por permisos (rolePermissions / can()), no
 // por la visibilidad del módulo. Así, quien no tiene el permiso ve la
 // información pero en modo solo lectura.
-const allModules: ModuleKey[] = ['dashboard', 'afiliacion', 'financiero', 'gobernanza', 'disciplinario', 'comites', 'comunicaciones', 'documental', 'libro', 'publicaciones', 'reportes', 'parametros']
+const allModules: ModuleKey[] = ['dashboard', 'afiliacion', 'financiero', 'gobernanza', 'disciplinario', 'comites', 'comunicaciones', 'pqrs', 'documental', 'libro', 'publicaciones', 'reportes', 'parametros']
 const roleModules: Record<Role, ModuleKey[]> = {
   presidencia: allModules,
   vicepresidencia: allModules,

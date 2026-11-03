@@ -47,6 +47,7 @@ const FinancieroPage = lazy(() => importarConReintento(() => import('./pages/Fin
 const GobernanzaPage = lazy(() => importarConReintento(() => import('./pages/GobernanzaPage')).then((m) => ({ default: m.GobernanzaPage })))
 const LibroPage = lazy(() => importarConReintento(() => import('./pages/LibroPage')).then((m) => ({ default: m.LibroPage })))
 const PublicacionesPage = lazy(() => importarConReintento(() => import('./pages/PublicacionesPage')).then((m) => ({ default: m.PublicacionesPage })))
+const PqrsPage = lazy(() => importarConReintento(() => import('./pages/PqrsPage')).then((m) => ({ default: m.PqrsPage })))
 const ParametrosPage = lazy(() => importarConReintento(() => import('./pages/ParametrosPage')).then((m) => ({ default: m.ParametrosPage })))
 const ReportesPage = lazy(() => importarConReintento(() => import('./pages/ReportesPage')).then((m) => ({ default: m.ReportesPage })))
 
@@ -58,6 +59,7 @@ const modules: Record<ModuleKey, ModuleMeta> = {
   disciplinario: { key: 'disciplinario', label: 'Disciplinario', subtitle: 'Expedientes y términos procesales' },
   comites: { key: 'comites', label: 'Comités', subtitle: 'Espacios de trabajo colaborativo' },
   comunicaciones: { key: 'comunicaciones', label: 'Comunicaciones', subtitle: 'Relación con afiliados' },
+  pqrs: { key: 'pqrs', label: 'PQRS', subtitle: 'Peticiones, quejas, reclamos y sugerencias' },
   documental: { key: 'documental', label: 'Documental', subtitle: 'Repositorio institucional' },
   libro: { key: 'libro', label: 'Libro de Actas y Resoluciones', subtitle: 'Registro inmutable de actos institucionales' },
   publicaciones: { key: 'publicaciones', label: 'Página web', subtitle: 'Publicaciones del sitio público (CMS)' },
@@ -322,6 +324,7 @@ function ActivePage({ module }: { module: ModuleKey }) {
     case 'disciplinario': return <DisciplinarioPage />
     case 'comites': return <ComitesPage />
     case 'comunicaciones': return <ComunicacionesPage />
+    case 'pqrs': return <PqrsPage />
     case 'documental': return <DocumentalPage />
     case 'libro': return <LibroPage />
     case 'publicaciones': return <PublicacionesPage />

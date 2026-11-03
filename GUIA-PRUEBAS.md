@@ -180,6 +180,8 @@ Sigue este orden para probar la separación de funciones y los efectos cruzados:
 - [ ] Los números del Dashboard y Reportes cambian al operar en los módulos.
 - [ ] "Exportar CSV" en Reportes descarga el consolidado.
 - [ ] "Reiniciar demo" deja todo vacío otra vez.
+- [ ] **PQRS:** sin sesión, la web → PQRS radica y muestra el número (`PQRS-AAAA-0001`); aparece en el módulo PQRS de la directiva con su plazo; Secretaría o Presidencia responde y el correo llega; "Consultar estado" con radicado + correo muestra la respuesta. Tesorería y Fiscal solo consultan, salvo las PQRS que les asignen.
+- [ ] **PQRS (afiliado):** en el portal, pestaña PQRS → "Nueva PQRS" radica sin pedir datos personales y luego muestra la respuesta.
 
 ---
 

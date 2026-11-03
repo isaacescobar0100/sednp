@@ -6,6 +6,7 @@ export type ModuleKey =
   | 'disciplinario'
   | 'comites'
   | 'comunicaciones'
+  | 'pqrs'
   | 'documental'
   | 'libro'
   | 'publicaciones'

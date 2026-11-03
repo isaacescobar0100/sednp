@@ -17,7 +17,7 @@ type AuditRow = {
 const TABLE_LABEL: Record<string, string> = {
   affiliates: 'Afiliados', movements: 'Movimientos', aportes: 'Aportes', cases: 'Disciplinario',
   ballots: 'Votaciones', sessions: 'Sesiones', params: 'Parámetros', caja_gastos: 'Caja menor',
-  comunicados: 'Comunicados', docs: 'Documental', committees: 'Comités',
+  comunicados: 'Comunicados', docs: 'Documental', committees: 'Comités', pqrs: 'PQRS',
 }
 const ACTION_LABEL: Record<string, string> = { INSERT: 'Creó', UPDATE: 'Modificó', DELETE: 'Eliminó' }
 const ACTION_STYLE: Record<string, string> = {

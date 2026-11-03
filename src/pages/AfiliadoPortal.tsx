@@ -4,6 +4,7 @@ import { useDemo } from '../store/DemoStore'
 import { useAuth } from '../store/auth'
 import { MiFoto } from '../components/MiFoto'
 import { PushToggle } from '../components/PushToggle'
+import { PqrsAfiliado } from '../components/PqrsAfiliado'
 import { StatusBadge } from '../components/StatusBadge'
 import { Ballot, totalVotes, votePct } from '../store/governance'
 import { Doc, formatFileSize } from '../store/documents'
@@ -12,7 +13,7 @@ import { periodLabel } from '../store/contributions'
 import { formatCop } from '../store/finance'
 import { supabase } from '../lib/supabase'
 
-type Tab = 'perfil' | 'aportes' | 'votaciones' | 'comunicados' | 'documentos'
+type Tab = 'perfil' | 'aportes' | 'votaciones' | 'comunicados' | 'documentos' | 'pqrs'
 
 const tabs: Array<{ key: Tab; label: string }> = [
   { key: 'perfil', label: 'Mi perfil' },
@@ -20,6 +21,7 @@ const tabs: Array<{ key: Tab; label: string }> = [
   { key: 'votaciones', label: 'Votaciones' },
   { key: 'comunicados', label: 'Comunicados' },
   { key: 'documentos', label: 'Documentos' },
+  { key: 'pqrs', label: 'PQRS' },
 ]
 
 const statusTone: Record<string, 'positive' | 'warning' | 'negative' | 'neutral'> = {
@@ -39,7 +41,8 @@ export function AfiliadoPortal({ affiliateId, onLogout }: { affiliateId: string;
   const { affiliates, ballots, comunicados, docs } = useDemo()
   const { org } = useAuth()
   const me = affiliates.find((a) => a.id === affiliateId)
-  const [tab, setTab] = useState<Tab>('perfil')
+  // Un afiliado con sesión que abre el enlace público /pqrs llega aquí: abre esa pestaña.
+  const [tab, setTab] = useState<Tab>(() => (window.location.pathname === '/pqrs' ? 'pqrs' : 'perfil'))
 
   if (!me) {
     return (
@@ -73,9 +76,9 @@ export function AfiliadoPortal({ affiliateId, onLogout }: { affiliateId: string;
             <button onClick={onLogout} className="flex items-center gap-1.5 rounded-xl border border-white/15 px-3 py-2 text-xs font-semibold text-white/80 transition hover:bg-white/10"><LogOutIcon className="h-3.5 w-3.5" />Salir</button>
           </div>
         </div>
-        <div className="mx-auto flex max-w-[1100px] gap-1 px-5 sm:px-8">
+        <div className="mx-auto flex max-w-[1100px] gap-1 overflow-x-auto px-5 pb-px sm:px-8">
           {tabs.map((t) => (
-            <button key={t.key} onClick={() => setTab(t.key)} className={`relative px-3 py-3 text-sm font-medium transition ${tab === t.key ? 'text-white' : 'text-white/55 hover:text-white/80'}`}>
+            <button key={t.key} onClick={() => setTab(t.key)} className={`relative shrink-0 whitespace-nowrap px-3 py-3 text-sm font-medium transition ${tab === t.key ? 'text-white' : 'text-white/55 hover:text-white/80'}`}>
               {t.label}
               {tab === t.key ? <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-gold" /> : null}
             </button>
@@ -89,6 +92,7 @@ export function AfiliadoPortal({ affiliateId, onLogout }: { affiliateId: string;
         {tab === 'votaciones' ? <Votaciones ballots={openBallots} affiliateId={me.id} /> : null}
         {tab === 'comunicados' ? <Comunicados items={myComunicados} /> : null}
         {tab === 'documentos' ? <Documentos docs={docs} /> : null}
+        {tab === 'pqrs' ? <PqrsAfiliado /> : null}
       </main>
     </div>
   )
