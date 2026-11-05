@@ -7,7 +7,8 @@
 
 ## 📨 PQRS (nuevo, 2026-11-03)
 
-- [ ] **Correr `supabase/saas_stage29_pqrs.sql`** en el SQL Editor de Supabase. Sin eso, el módulo PQRS muestra "No se pudieron cargar" y el formulario público falla.
+- [x] **Correr `supabase/saas_stage29_pqrs.sql`** en el SQL Editor de Supabase.
+- [ ] **Correr `supabase/saas_stage30_pqrs_ajustes.sql` ANTES de desplegar** el código de la revisión (2026-11-05): corrige el borrado de sindicatos con PQRS y los vínculos al borrar afiliados/cuentas; agrega motivo de archivo, borradores, constancia de correo y la lectura del portal por RPC. Si se despliega el código sin este SQL, el módulo PQRS no carga.
 - [ ] Probar el flujo: radicar en `/pqrs` de la web → aparece en el módulo PQRS → responder → llega el correo → "Consultar estado" en la web muestra la respuesta.
 - [ ] (Opcional) **Adjuntos** en la PQRS (hoy solo texto). Requiere un bucket privado con subida anónima controlada.
 - [ ] (Opcional) **Festivos de Colombia** en el cálculo de días hábiles. Hoy solo se saltan sábados y domingos, así que el vencimiento queda igual o antes del plazo legal (nunca después).

@@ -4,7 +4,7 @@ import { useAuth } from '../store/auth'
 import { useDemo } from '../store/DemoStore'
 import { StatusBadge } from './StatusBadge'
 import { ESTADO_LABEL, PLAZO_DIAS_HABILES, PqrsEstado, PqrsTipo, TIPOS, TIPO_LABEL, fmtFechaPqrs } from '../store/pqrs'
-import { Pqrs, fetchMisPqrs, radicarPqrsAfiliado } from '../store/pqrsApi'
+import { MiPqrs, fetchMisPqrs, radicarPqrsAfiliado } from '../store/pqrsApi'
 
 // Portal del afiliado → PQRS: radicar (sus datos ya los tiene el sindicato) y
 // seguir las que ha radicado desde aquí, con la respuesta de la directiva.
@@ -16,8 +16,9 @@ export function PqrsAfiliado() {
   const { session } = useAuth()
   const { notify } = useDemo()
   const userId = session?.user.id ?? ''
-  const [list, setList] = useState<Pqrs[]>([])
+  const [list, setList] = useState<MiPqrs[]>([])
   const [cargando, setCargando] = useState(true)
+  const [error, setError] = useState(false)
   const [nueva, setNueva] = useState(false)
   const [abierta, setAbierta] = useState<string | null>(null)
   const [tipo, setTipo] = useState<'' | PqrsTipo>('')
@@ -27,7 +28,7 @@ export function PqrsAfiliado() {
 
   async function load() {
     if (!userId) { setCargando(false); return }
-    try { setList(await fetchMisPqrs(userId)) } catch { /* RLS/red */ } finally { setCargando(false) }
+    try { setList(await fetchMisPqrs()); setError(false) } catch { setError(true) } finally { setCargando(false) }
   }
   useEffect(() => { load() }, [userId])
 
@@ -85,6 +86,8 @@ export function PqrsAfiliado() {
 
       {cargando ? (
         <div className="rounded-2xl border border-ink/[0.08] bg-white p-8 text-center text-sm text-ink/50">Cargando…</div>
+      ) : error ? (
+        <div className="rounded-2xl border border-ink/[0.08] bg-white p-8 text-center text-sm text-ink/60">No pudimos cargar tus PQRS. Intenta de nuevo en un momento.</div>
       ) : list.length === 0 ? (
         <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-ink/20 bg-white px-6 py-12 text-center">
           <InboxIcon className="h-7 w-7 text-ink/25" />
@@ -113,7 +116,10 @@ export function PqrsAfiliado() {
                         <p className="whitespace-pre-line leading-relaxed text-ink/80">{p.respuesta}</p>
                       </div>
                     ) : p.estado === 'archivada' ? (
-                      <p className="text-xs text-ink/50">Esta PQRS fue archivada por la Junta Directiva.</p>
+                      <div className="rounded-xl border border-ink/10 bg-canvas/60 p-4">
+                        <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-ink/50">Archivada por la Junta Directiva · {fmtFechaPqrs(p.respondidaAt)}</p>
+                        <p className="whitespace-pre-line leading-relaxed text-ink/75">{p.respuesta || 'Sin motivo registrado.'}</p>
+                      </div>
                     ) : (
                       <p className="text-xs text-ink/50">En atención. Fecha límite de respuesta: <strong>{fmtFechaPqrs(p.venceAt)}</strong>.</p>
                     )}

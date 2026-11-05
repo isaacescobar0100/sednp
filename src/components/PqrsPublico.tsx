@@ -126,12 +126,12 @@ export function PqrsPublico({ slug, orgNombre }: { slug: string; orgNombre: stri
                   <p className="font-mono text-xs font-semibold text-gold">{resultado.radicado} · {TIPO_LABEL[resultado.tipo]}</p>
                   <h2 className="mt-1 font-display text-lg font-semibold text-ink">{resultado.asunto}</h2>
                 </div>
-                <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${resultado.estado === 'respondida' ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/15' : 'bg-amber-50 text-amber-700 ring-amber-600/15'}`}>{ESTADO_LABEL[resultado.estado]}</span>
+                <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ${resultado.estado === 'respondida' ? 'bg-emerald-50 text-emerald-700 ring-emerald-600/15' : resultado.estado === 'archivada' ? 'bg-ink/5 text-ink/60 ring-ink/10' : 'bg-amber-50 text-amber-700 ring-amber-600/15'}`}>{ESTADO_LABEL[resultado.estado]}</span>
               </div>
               <p className="mt-2 text-xs text-ink/50">Radicada el {fmtFechaPqrs(resultado.createdAt)} · Fecha límite de respuesta: {fmtFechaPqrs(resultado.venceAt)}</p>
               {resultado.respuesta ? (
-                <div className="mt-4 rounded-xl border border-emerald-600/20 bg-emerald-50/60 p-4">
-                  <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.08em] text-emerald-800/70">Respuesta · {fmtFechaPqrs(resultado.respondidaAt)}</p>
+                <div className={`mt-4 rounded-xl border p-4 ${resultado.estado === 'archivada' ? 'border-ink/10 bg-canvas/60' : 'border-emerald-600/20 bg-emerald-50/60'}`}>
+                  <p className={`mb-1.5 text-xs font-semibold uppercase tracking-[0.08em] ${resultado.estado === 'archivada' ? 'text-ink/50' : 'text-emerald-800/70'}`}>{resultado.estado === 'archivada' ? 'Motivo del archivo' : 'Respuesta'} · {fmtFechaPqrs(resultado.respondidaAt)}</p>
                   <p className="whitespace-pre-line text-sm leading-relaxed text-ink/80">{resultado.respuesta}</p>
                 </div>
               ) : resultado.estado === 'archivada' ? (

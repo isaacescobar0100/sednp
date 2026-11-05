@@ -21,6 +21,7 @@ export type Pqrs = {
   respuesta: string
   respondidaAt: string | null
   respondidaPor: string
+  correoEnviadoAt: string | null
   venceAt: string | null
   createdAt: string
 }
@@ -42,6 +43,7 @@ type Row = {
   respuesta: string | null
   respondida_at: string | null
   respondida_por: string | null
+  correo_enviado_at: string | null
   vence_at: string | null
   created_at: string
 }
@@ -64,12 +66,13 @@ function rowToPqrs(r: Row): Pqrs {
     respuesta: r.respuesta ?? '',
     respondidaAt: r.respondida_at,
     respondidaPor: r.respondida_por ?? '',
+    correoEnviadoAt: r.correo_enviado_at,
     venceAt: r.vence_at,
     createdAt: r.created_at,
   }
 }
 
-const COLUMNAS = 'id, radicado, tipo, canal, nombre, documento, email, telefono, asunto, descripcion, affiliate_id, estado, responsable, respuesta, respondida_at, respondida_por, vence_at, created_at'
+const COLUMNAS = 'id, radicado, tipo, canal, nombre, documento, email, telefono, asunto, descripcion, affiliate_id, estado, responsable, respuesta, respondida_at, respondida_por, correo_enviado_at, vence_at, created_at'
 
 // Los errores de las RPCs traen el mensaje del `raise exception` (ya en español).
 function mensaje(error: { message?: string } | null, porDefecto: string): string {
@@ -119,11 +122,33 @@ export async function actualizarPqrs(id: string, cambio: CambioPqrs): Promise<Pq
   return rowToPqrs(data as Row)
 }
 
+// Deja constancia de que el correo con la respuesta salió (la hora la fija el servidor).
+export async function marcarCorreoEnviado(id: string): Promise<Pqrs> {
+  const { data, error } = await supabase.from('pqrs').update({ correo_enviado_at: new Date().toISOString() }).eq('id', id).select(COLUMNAS).single()
+  if (error) throw new Error(mensaje(error, 'No se pudo registrar el envío del correo.'))
+  return rowToPqrs(data as Row)
+}
+
 // --- Portal del afiliado ----------------------------------------------------------
-export async function fetchMisPqrs(userId: string): Promise<Pqrs[]> {
-  const { data, error } = await supabase.from('pqrs').select(COLUMNAS).eq('user_id', userId).order('created_at', { ascending: false })
+// Lo que el afiliado ve de sus PQRS. La respuesta solo llega cuando está cerrada
+// (así nunca ve un borrador de la directiva).
+export type MiPqrs = {
+  id: string
+  radicado: string
+  tipo: PqrsTipo
+  asunto: string
+  descripcion: string
+  estado: PqrsEstado
+  respuesta: string | null
+  respondidaAt: string | null
+  venceAt: string | null
+  createdAt: string
+}
+
+export async function fetchMisPqrs(): Promise<MiPqrs[]> {
+  const { data, error } = await supabase.rpc('mis_pqrs')
   if (error) throw error
-  return (data as Row[]).map(rowToPqrs)
+  return Array.isArray(data) ? (data as MiPqrs[]) : []
 }
 
 export type Radicado = { radicado: string; venceAt: string | null }
